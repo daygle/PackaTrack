@@ -35,16 +35,17 @@ jobs:
 
       - name: Install SDK packages
         run: |
-          # Install the newest cmdline-tools and USE that binary — its repository index
-          # lists newer platforms than the sdkmanager preinstalled on the runner.
+          # The runner's preinstalled sdkmanager only understands SDK repo XML v3, but Google
+          # now serves v4 — so it can't see android-37. Install the newest cmdline-tools (it
+          # may land in a 'latest-2' dir when 'latest' preexists) and use that newer binary.
           sdkmanager --install "cmdline-tools;latest" > /dev/null 2>&1 || true
-          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          SDKM="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | sort -V | tail -n1)"
           [ -x "$SDKM" ] || SDKM="sdkmanager"
+          echo "Using sdkmanager: $SDKM"; "$SDKM" --version || true
           yes | "$SDKM" --licenses > /dev/null 2>&1 || true
           # compileSdk 37 is required by the androidx/compose/coil deps.
           "$SDKM" "platform-tools" "platforms;android-37"
           "$SDKM" "build-tools;37.0.0" || echo "build-tools 37.0.0 unavailable; relying on preinstalled"
-          "$SDKM" --list_installed || true
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
