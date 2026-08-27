@@ -15,9 +15,6 @@ import androidx.compose.ui.unit.sp
 
 private val Indigo = Color(0xFF4F46E5)
 private val IndigoDark = Color(0xFF3730A3)
-private val Sky = Color(0xFF0EA5E9)
-private val Amber = Color(0xFFB45309)
-private val Rose = Color(0xFFE11D48)
 
 private val LightColors = lightColorScheme(
     primary = Indigo,

@@ -2,6 +2,7 @@ package com.packatrack.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -13,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.packatrack.app.ui.statusLabel
 import com.packatrack.app.ui.theme.carrierColor
@@ -31,9 +31,7 @@ fun StatusPill(code: String?, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        androidx.compose.foundation.layout.Box(
-            Modifier.size(8.dp).clip(CircleShape).background(color),
-        )
+        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
         Text(
             statusLabel(code),
             style = MaterialTheme.typography.labelMedium,
@@ -54,9 +52,7 @@ fun CarrierChip(carrierId: String?, name: String, modifier: Modifier = Modifier)
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        androidx.compose.foundation.layout.Box(
-            Modifier.size(8.dp).clip(CircleShape).background(color),
-        )
+        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
         Text(name, style = MaterialTheme.typography.labelMedium, color = color)
     }
 }

@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.packatrack.app.data.TrackingRepository.RefreshOutcome
 import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.notify.Notifier
 import com.packatrack.app.sync.SyncWorker
@@ -85,10 +86,12 @@ fun HomeScreen(
     var syncing by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
 
-    fun refresh() {
+    // Manual refresh: a no-op while one is already running.
+    fun runSync(block: suspend () -> RefreshOutcome) {
+        if (syncing) return
         syncing = true
         scope.launch {
-            val outcome = repo.refreshAll()
+            val outcome = block()
             Notifier.postChanges(context, outcome.notable.map { it.message })
             syncing = false
         }
@@ -99,7 +102,7 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("PackaTrack", style = MaterialTheme.typography.titleLarge) },
                 actions = {
-                    IconButton(onClick = { if (!syncing) refresh() }) {
+                    IconButton(onClick = { runSync { repo.refreshAll() } }) {
                         if (syncing) {
                             CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                         } else {
@@ -142,7 +145,7 @@ fun HomeScreen(
                     entry = entry,
                     onOpen = { onOpenDetail(entry.shipment.id) },
                     onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
-                    onRefresh = { if (!syncing) refresh() },
+                    onRefresh = { runSync { repo.refreshShipment(entry.shipment.id) } },
                 )
             }
         }
@@ -153,13 +156,15 @@ fun HomeScreen(
             onDismiss = { showAddDialog = false },
             onSave = { number, title, orderUrl, weight, carrier ->
                 showAddDialog = false
+                // Always perform the add (never gated by an in-flight refresh), then poll
+                // just the new parcel.
                 syncing = true
                 scope.launch {
-                    runCatching {
+                    val newId = runCatching {
                         repo.addShipment(number, title, orderUrl, weight, carrier)
-                        val outcome = repo.refreshAll()
-                        Notifier.postChanges(context, outcome.notable.map { it.message })
-                    }
+                    }.getOrNull()
+                    val outcome = newId?.let { repo.refreshShipment(it) } ?: RefreshOutcome(0, emptyList())
+                    Notifier.postChanges(context, outcome.notable.map { it.message })
                     syncing = false
                 }
             },
@@ -271,7 +276,7 @@ private fun ParcelCard(
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
                             leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                            text = { Text("Refresh") },
+                            text = { Text("Refresh this parcel") },
                             onClick = { menuOpen = false; onRefresh() },
                         )
                         primary?.let { leg ->

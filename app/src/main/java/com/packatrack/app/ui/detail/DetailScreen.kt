@@ -197,7 +197,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
             if (timeline.isEmpty()) {
                 item(key = "timeline_empty") {
                     Text(
-                        "No scans yet. Pull to refresh from the home screen.",
+                        "No scans yet — refresh from the home screen to check for updates.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -227,7 +227,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                 showAddCourier = false
                 scope.launch {
                     repo.addCourier(id, number, carrier)
-                    repo.refreshAll()
+                    repo.refreshShipment(id)
                 }
             },
         )
