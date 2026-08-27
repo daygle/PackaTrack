@@ -54,6 +54,8 @@ The reverse also happens: Cainiao often **consolidates several of your orders un
 | Cainiao UBI Smart Parcel | Cainiao public global detail endpoint (`global.cainiao.com/global/detail.json`) | none |
 | Australia Post | Official digital API v2 `track/events` | free `AUTH-KEY` from developers.auspost.com.au → paste in Settings |
 | iMile | Customer-facing track endpoint (best effort) | none |
+| Aramex | Public shipment-tracking endpoint (best effort) | none |
+| Morning Global | No public scan endpoint — carrier link only (opens a universal tracker); add it as a courier and open the site | none |
 
 The public endpoints are undocumented and occasionally change; PackaTrack treats an unreachable carrier gracefully (no crash, parcel stays visible, "Open on carrier website" always works).
 

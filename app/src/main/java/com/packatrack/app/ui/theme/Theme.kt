@@ -93,6 +93,8 @@ fun carrierColor(carrierId: String?): Color = when (carrierId) {
     "australia_post" -> Color(0xFFD32F2F)
     "cainiao" -> Indigo
     "imile" -> Color(0xFF00897B)
+    "aramex" -> Color(0xFFE4572E)
+    "morning_global" -> Color(0xFF3F7D58)
     else -> Color(0xFF5B6470)
 }
 

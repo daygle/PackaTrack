@@ -20,6 +20,11 @@ object CarrierDetector {
     private val CAINIAO = Regex("^CN[A-Za-z0-9]{8,20}N?$", RegexOption.IGNORE_CASE)
     private val IMILE = Regex("^IM[L]?[A-Za-z0-9]{6,22}$", RegexOption.IGNORE_CASE)
 
+    /** Aramex shipment numbers are all-digit, typically 10–12 long (best effort). */
+    private val ARAMEX = Regex("^[0-9]{10,12}$")
+    /** Morning Global uses an MG prefix in the wild (best effort). */
+    private val MORNING_GLOBAL = Regex("^MG[A-Za-z0-9]{6,20}$", RegexOption.IGNORE_CASE)
+
     /**
      * Returns the detected [Carrier] or null if ambiguous/unknown.
      * More specific patterns are checked before looser ones.
@@ -30,9 +35,11 @@ object CarrierDetector {
         return when {
             n.endsWith("AU") && AUSPOST_UPU.matches(n) -> Carrier.AUSTRALIA_POST
             AUSPOST_CONSIGNMENT.matches(n) -> Carrier.AUSTRALIA_POST
+            MORNING_GLOBAL.matches(n) -> Carrier.MORNING_GLOBAL
             IMILE.matches(n) -> Carrier.IMILE
             CAINIAO.matches(n) -> Carrier.CAINIAO
             AUSPOST_DOMESTIC.matches(n) && !IMILE.matches(n) -> Carrier.AUSTRALIA_POST
+            ARAMEX.matches(n) -> Carrier.ARAMEX
             else -> null
         }
     }

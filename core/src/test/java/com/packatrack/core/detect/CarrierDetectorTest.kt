@@ -28,6 +28,15 @@ class CarrierDetectorTest {
         assertEquals(Carrier.IMILE, CarrierDetector.detect("IML00012345678"))
     }
 
+    @Test fun aramexNumericNumber() {
+        assertEquals(Carrier.ARAMEX, CarrierDetector.detect("1234567890"))
+        assertEquals(Carrier.ARAMEX, CarrierDetector.detect("123456789012"))
+    }
+
+    @Test fun morningGlobalNumber() {
+        assertEquals(Carrier.MORNING_GLOBAL, CarrierDetector.detect("MG0099887766"))
+    }
+
     @Test fun unknownReturnsNull() {
         assertNull(CarrierDetector.detect(""))
         assertNull(CarrierDetector.detect("HELLOWORLD123"))

@@ -328,8 +328,10 @@ private fun AddShipmentDialog(
     var title by remember { mutableStateOf("") }
     var orderUrl by remember { mutableStateOf("") }
     var weight by remember { mutableStateOf("") }
+    var override by remember { mutableStateOf<Carrier?>(null) }
 
     val detected = CarrierDetector.detect(number)
+    val chosen = override ?: detected
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -341,7 +343,7 @@ private fun AddShipmentDialog(
                         title.trim().ifBlank { null },
                         orderUrl.trim().ifBlank { null },
                         weight.trim().toDoubleOrNull(),
-                        detected,
+                        chosen,
                     )
                 },
             ) { Text("Save & track") }
@@ -358,12 +360,22 @@ private fun AddShipmentDialog(
                 Text(
                     when {
                         number.isBlank() -> "You can add more couriers to this parcel later."
+                        override != null -> "Carrier: ${chosen?.displayName}"
                         detected != null -> "Detected carrier: ${detected.displayName}"
-                        else -> "Carrier not recognised — will default to Cainiao UBI."
+                        else -> "Carrier not recognised — pick one below or it defaults to Cainiao UBI."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Carrier.entries.forEach { carrier ->
+                        androidx.compose.material3.FilterChip(
+                            selected = chosen == carrier,
+                            onClick = { override = if (override == carrier) null else carrier },
+                            label = { Text(carrier.displayName) },
+                        )
+                    }
+                }
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Order name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("AliExpress order link (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight in grams (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
