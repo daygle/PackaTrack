@@ -50,7 +50,7 @@ jobs:
 
       - name: Publish unit-test report
         if: always()
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: '**/build/test-results/test*UnitTest/TEST-*.xml'
           check_name: Unit test report
