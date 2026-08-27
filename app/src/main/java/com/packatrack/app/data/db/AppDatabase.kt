@@ -6,13 +6,19 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [ShipmentEntity::class, EventEntity::class, ChangeEntity::class],
-    version = 1,
+    entities = [
+        ShipmentEntity::class,
+        TrackingLegEntity::class,
+        EventEntity::class,
+        ChangeEntity::class,
+    ],
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun shipmentDao(): ShipmentDao
+    abstract fun legDao(): LegDao
     abstract fun eventDao(): EventDao
     abstract fun changeDao(): ChangeDao
 
@@ -25,7 +31,13 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "packatrack.db",
-                ).build().also { instance = it }
+                )
+                    // v2 splits each single-number shipment into a parcel + one courier leg.
+                    // The pre-release schema had no data worth a hand-written migration, so we
+                    // rebuild cleanly; demo data regenerates on the next refresh.
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
+                    .also { instance = it }
             }
     }
 }
