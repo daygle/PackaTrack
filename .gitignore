@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+
+# Android Studio / IntelliJ user-specific files (keep shared IDE config under version control decisions separate)
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/libraries/
+.idea/modules.xml
+.idea/misc.xml
+
+# OS
+.DS_Store
+Thumbs.db
