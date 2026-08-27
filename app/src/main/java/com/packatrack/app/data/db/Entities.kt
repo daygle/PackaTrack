@@ -16,9 +16,9 @@ import androidx.room.Relation
 @Entity(tableName = "shipments")
 data class ShipmentEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    /** Friendly name shown to the user; falls back to the first leg's number when null. */
+    /** Optional custom parcel name; when null the name is derived from its orders/legs. */
     val title: String? = null,
-    /** AliExpress order page link, optional. */
+    /** Legacy single order link; superseded by [OrderItemEntity]. Kept for older rows. */
     val orderUrl: String? = null,
     /** Declared weight in grams (from the order or a carrier scan), optional. */
     val weightGrams: Double? = null,
@@ -60,11 +60,30 @@ data class TrackingLegEntity(
     val createdAt: Long = 0L,
 )
 
-/** A parcel together with every courier leg tracking it. */
+/**
+ * One AliExpress order carried inside a parcel.
+ *
+ * When Cainiao consolidates several orders under one tracking number, that shared-number
+ * parcel holds several of these — so the physical shipment is one parcel, but its contents
+ * (and their order links) are recorded individually.
+ */
+@Entity(tableName = "orders", indices = [Index("shipmentId")])
+data class OrderItemEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val shipmentId: Long,
+    val name: String,
+    /** AliExpress order page link for this order, optional. */
+    val orderUrl: String? = null,
+    val createdAt: Long = 0L,
+)
+
+/** A parcel together with the couriers tracking it and the orders it carries. */
 data class ShipmentWithLegs(
     @Embedded val shipment: ShipmentEntity,
     @Relation(parentColumn = "id", entityColumn = "shipmentId")
     val legs: List<TrackingLegEntity>,
+    @Relation(parentColumn = "id", entityColumn = "shipmentId")
+    val orders: List<OrderItemEntity>,
 )
 
 @Entity(

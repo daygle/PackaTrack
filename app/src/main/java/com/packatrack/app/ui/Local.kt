@@ -4,11 +4,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.packatrack.app.AppContainer
 import com.packatrack.app.PackaTrackApp
+import com.packatrack.app.data.db.OrderItemEntity
+import com.packatrack.app.data.db.ShipmentEntity
 import com.packatrack.app.data.db.TrackingLegEntity
 
 @Composable
 fun rememberAppContainer(): AppContainer =
     (LocalContext.current.applicationContext as PackaTrackApp).container
+
+/**
+ * Display name for a parcel: an explicit custom name if set, otherwise the orders it
+ * carries (e.g. "Blue widget +1 more"), falling back to the first tracking number.
+ */
+fun parcelName(
+    shipment: ShipmentEntity,
+    orders: List<OrderItemEntity>,
+    legs: List<TrackingLegEntity>,
+): String {
+    shipment.title?.takeIf { it.isNotBlank() }?.let { return it }
+    orders.firstOrNull()?.let { first ->
+        return if (orders.size == 1) first.name else "${first.name}  +${orders.size - 1} more"
+    }
+    return legs.firstOrNull()?.trackingNumber ?: "Parcel"
+}
 
 fun statusLabel(code: String?): String =
     code?.lowercase()?.replace('_', ' ')?.replaceFirstChar { it.uppercase() } ?: "Waiting for scans"

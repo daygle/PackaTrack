@@ -4,6 +4,7 @@ import android.content.Context
 import com.packatrack.app.data.db.AppDatabase
 import com.packatrack.app.data.db.ChangeEntity
 import com.packatrack.app.data.db.EventEntity
+import com.packatrack.app.data.db.OrderItemEntity
 import com.packatrack.app.data.db.ShipmentEntity
 import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.data.db.TrackingLegEntity
@@ -24,6 +25,7 @@ class TrackingRepository(
     private val db = AppDatabase.get(context)
     private val shipments = db.shipmentDao()
     private val legs = db.legDao()
+    private val orders = db.orderDao()
     private val events = db.eventDao()
     private val changes = db.changeDao()
 
@@ -59,12 +61,7 @@ class TrackingRepository(
         val now = System.currentTimeMillis()
         val carrier = carrierOverride ?: detectCarrier(number) ?: Carrier.CAINIAO
         val shipmentId = shipments.insert(
-            ShipmentEntity(
-                title = title?.takeIf { it.isNotBlank() },
-                orderUrl = orderUrl?.takeIf { it.isNotBlank() },
-                weightGrams = weightGrams,
-                createdAt = now,
-            ),
+            ShipmentEntity(weightGrams = weightGrams, createdAt = now),
         )
         legs.insert(
             TrackingLegEntity(
@@ -75,8 +72,36 @@ class TrackingRepository(
                 createdAt = now,
             ),
         )
+        // Record the order this parcel started as (name and/or link), if either was given.
+        val orderName = title?.takeIf { it.isNotBlank() }
+        val orderLink = orderUrl?.takeIf { it.isNotBlank() }
+        if (orderName != null || orderLink != null) {
+            orders.insert(
+                OrderItemEntity(
+                    shipmentId = shipmentId,
+                    name = orderName ?: "Order",
+                    orderUrl = orderLink,
+                    createdAt = now,
+                ),
+            )
+        }
         return shipmentId
     }
+
+    /** Adds another order carried inside a parcel (e.g. after a Cainiao consolidation). */
+    suspend fun addOrder(shipmentId: Long, name: String, orderUrl: String?) {
+        orders.insert(
+            OrderItemEntity(
+                shipmentId = shipmentId,
+                name = name.trim().ifBlank { "Order" },
+                orderUrl = orderUrl?.takeIf { it.isNotBlank() },
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    /** Removes one order from a parcel. */
+    suspend fun removeOrder(orderId: Long) = orders.deleteById(orderId)
 
     /**
      * Adds another courier leg to an existing parcel. Returns the new leg id, or the existing
@@ -119,18 +144,16 @@ class TrackingRepository(
         legs.deleteById(legId)
     }
 
-    /** Updates a parcel's editable metadata. */
+    /** Updates a parcel's custom name and declared weight. */
     suspend fun updateShipment(
         shipmentId: Long,
         title: String?,
-        orderUrl: String?,
         weightGrams: Double?,
     ) {
         val current = shipments.byId(shipmentId) ?: return
         shipments.update(
             current.copy(
                 title = title?.takeIf { it.isNotBlank() },
-                orderUrl = orderUrl?.takeIf { it.isNotBlank() },
                 weightGrams = weightGrams ?: current.weightGrams,
             ),
         )
@@ -146,10 +169,12 @@ class TrackingRepository(
         val source = shipments.byId(sourceId) ?: return
 
         val sourceLabel = source.title
+            ?: orders.ordersForShipment(sourceId).firstOrNull()?.name
             ?: legs.legsForShipment(sourceId).firstOrNull()?.trackingNumber
             ?: "another parcel"
 
         legs.reassignShipment(sourceId, targetId)
+        orders.reassignShipment(sourceId, targetId)
         events.reassignShipment(sourceId, targetId)
         changes.reassignShipment(sourceId, targetId)
         shipments.deleteById(sourceId)
@@ -175,6 +200,7 @@ class TrackingRepository(
     suspend fun delete(shipmentId: Long) {
         events.deleteForShipment(shipmentId)
         changes.deleteForShipment(shipmentId)
+        orders.deleteForShipment(shipmentId)
         legs.deleteForShipment(shipmentId)
         shipments.deleteById(shipmentId)
     }
