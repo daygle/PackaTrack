@@ -35,7 +35,7 @@ jobs:
       # that compileSdk 37 (required by the androidx/compose/coil deps) needs. The runner's
       # older standalone sdkmanager only understands XML v3 and fails to find android-37.
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: 'platform-tools platforms;android-37 build-tools;37.0.0'
 
