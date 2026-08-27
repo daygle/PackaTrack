@@ -26,6 +26,17 @@ enum class Carrier(
         id = "imile",
         displayName = "iMile Delivery",
         webUrlTemplate = "https://www.imile.com/track?trackingNumbers=%s&lang=en",
+    ),
+    ARAMEX(
+        id = "aramex",
+        displayName = "Aramex",
+        webUrlTemplate = "https://www.aramex.com/us/en/track/results?mode=0&ShipmentNumber=%s",
+    ),
+    MORNING_GLOBAL(
+        id = "morning_global",
+        displayName = "Morning Global",
+        // No public tracking page of their own; a universal tracker keeps the link useful.
+        webUrlTemplate = "https://t.17track.net/en#nums=%s",
     );
 
     companion object {

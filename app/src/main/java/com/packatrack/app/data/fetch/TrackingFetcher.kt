@@ -37,6 +37,10 @@ class HttpTrackingFetcher(
                 Carrier.CAINIAO -> fetchCainiao(trackingNumber)
                 Carrier.AUSTRALIA_POST -> fetchAusPost(trackingNumber)
                 Carrier.IMILE -> fetchImile(trackingNumber)
+                Carrier.ARAMEX -> fetchAramex(trackingNumber)
+                // No usable public scan endpoint; the parcel stays visible and the
+                // "Open on carrier website" link still works.
+                Carrier.MORNING_GLOBAL -> null
             }
         }.getOrNull()
     }
@@ -79,6 +83,20 @@ class HttpTrackingFetcher(
         for (url in candidates) {
             val body = get(url, emptyMap()) ?: continue
             val snap = com.packatrack.core.parse.ImileParser.parse(body, number)
+            if (snap != null) return snap
+        }
+        return null
+    }
+
+    /** Best-effort: Aramex's public shipment-tracking endpoints; graceful null when unreachable. */
+    private fun fetchAramex(number: String): Snapshot? {
+        val candidates = listOf(
+            "https://www.aramex.com/api/tracking/gettrackingresults?shipmentNumber=$number",
+            "https://tracking.aramex.com/api/shipments/track?ShipmentNumber=$number",
+        )
+        for (url in candidates) {
+            val body = get(url, mapOf("Accept" to "application/json")) ?: continue
+            val snap = com.packatrack.core.parse.AramexParser.parse(body, number)
             if (snap != null) return snap
         }
         return null
