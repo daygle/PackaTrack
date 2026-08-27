@@ -21,7 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -99,7 +99,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
                             }
                         }) {
-                            Icon(Icons.Default.OpenInNew, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
                             Text("Carrier site")
                         }
@@ -107,7 +107,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                             TextButton(onClick = {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
                             }) {
-                                Icon(Icons.Default.OpenInNew, contentDescription = null)
+                                Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null)
                                 Spacer(Modifier.width(4.dp))
                                 Text("Order")
                             }

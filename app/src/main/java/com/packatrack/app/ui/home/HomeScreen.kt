@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AssistChip
@@ -223,7 +223,7 @@ private fun ShipmentCard(
                             onClick = { menuOpen = false; onRefreshOne() },
                         )
                         DropdownMenuItem(
-                            leadingIcon = { Icon(Icons.Default.OpenInNew, null) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
                             text = { Text("Open on carrier website") },
                             onClick = {
                                 menuOpen = false

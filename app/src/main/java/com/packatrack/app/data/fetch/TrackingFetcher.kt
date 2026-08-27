@@ -24,7 +24,7 @@ class HttpTrackingFetcher(
 ) : TrackingFetcher {
 
     private val client = okhttp3.OkHttpClient.Builder()
-        .callTimeout(java.time.Duration.ofSeconds(15))
+        .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
     override suspend fun fetch(
@@ -50,7 +50,7 @@ class HttpTrackingFetcher(
         headers.forEach { (k, v) -> builder.header(k, v) }
         return client.newCall(builder.build()).execute().use { resp ->
             if (!resp.isSuccessful) return@use null
-            resp.body?.string()
+            resp.body.string()
         }
     }
 
