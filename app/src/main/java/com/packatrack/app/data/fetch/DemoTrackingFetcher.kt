@@ -24,6 +24,9 @@ class DemoTrackingFetcher : TrackingFetcher {
         trackingNumber.contains("600087654321", true) -> ausPostStory(stageHint)
         trackingNumber.contains("111222333", true) -> smallParcelStory(stageHint)
         trackingNumber.contains("COMBO9X", true) -> combinedSnapshot()
+        trackingNumber.contains("JOINED8888", true) -> joinStory(trackingNumber, stageHint)
+        trackingNumber.contains("JOIN01", true) || trackingNumber.contains("JOIN02", true) ->
+            joinStory(trackingNumber, stageHint)
         else -> null
     }
 
@@ -74,12 +77,42 @@ class DemoTrackingFetcher : TrackingFetcher {
         ),
     )
 
+    /**
+     * Two orders tracked separately that Cainiao consolidates under one shared number
+     * (`CNJOINED8888`). From stage 2 each original number reports the shared number, so
+     * PackaTrack auto-merges the two parcels into one. Refresh three times to see it.
+     */
+    private fun joinStory(number: String, stage: Int): Snapshot {
+        val shared = "CNJOINED8888"
+        val joined = listOf(
+            TrackingEvent(shared, epoch(2), "[Demo] Orders consolidated by Cainiao", "Guangzhou, CN", "IN_TRANSIT"),
+            TrackingEvent(shared, epoch(1), "[Demo] Departed for Australia", "Guangzhou, CN", "IN_TRANSIT"),
+            TrackingEvent(shared, epoch(0), "[Demo] Arrived in destination country", "Sydney NSW 2000", "IN_TRANSIT"),
+        )
+        // Once the parcels are consolidated only the shared number is polled.
+        if (number.contains("JOINED8888", true)) {
+            return Snapshot(shared, 300.0, null, joined.take((stage - 1).coerceIn(1, joined.size)))
+        }
+        val isFirst = number.contains("JOIN01", true)
+        val origin = if (isFirst) "DEMOJOIN01" else "DEMOJOIN02"
+        val early = listOf(
+            TrackingEvent(origin, epoch(4), "[Demo] Order accepted from seller", "Yiwu, CN", "IN_TRANSIT"),
+            TrackingEvent(origin, epoch(3), "[Demo] In transit to sorting hub", "Yiwu, CN", "IN_TRANSIT"),
+        )
+        // Stage 0-1: still separate under the original number. Stage 2+: reports the shared number.
+        return if (stage < 2) {
+            Snapshot(origin, 150.0, null, early.take(stage + 1))
+        } else {
+            Snapshot(shared, 300.0, null, joined.take(1))
+        }
+    }
+
     private fun epoch(daysAgo: Int): Long =
         System.currentTimeMillis() - daysAgo.toLong() * 24L * 60L * 60L * 1000L
 
     companion object {
         fun isDemoNumber(number: String): Boolean = number.contains(
-            Regex("DEMO|600087654321|111222333|COMBO9X", RegexOption.IGNORE_CASE),
+            Regex("DEMO|600087654321|111222333|COMBO9X|JOINED8888", RegexOption.IGNORE_CASE),
         )
     }
 }

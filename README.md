@@ -58,8 +58,13 @@ Demo mode is ON by default. Add these fictional numbers to see every feature wit
 - `DEMO600087654321` — Cainiao-style journey that is **renumbered** to `AU600087654321` when Australia Post takes over, then out-for-delivery → delivered.
 - `DEMO111222333` — a small parcel that gets **consolidated** into another shipment.
 - `CNDEMOCOMBO9X` — the combined parcel; its weight (480 g) matches the sum of the two parcels above, which is how PackaTrack recognises it.
+- `DEMOJOIN01` **and** `DEMOJOIN02` — add both as separate parcels, then refresh a few times: Cainiao gives them one shared number (`CNJOINED8888`) and PackaTrack **auto-consolidates the two parcels into one**, keeping both orders and both old numbers.
 
 Each manual refresh advances the story one step.
+
+### Automatic consolidation
+
+When several parcels you track separately are **merged by Cainiao under one tracking number**, PackaTrack notices on the next refresh — as soon as a carrier reports one parcel under another's number, the two are the same physical shipment, so their orders, couriers and history are folded into a single parcel automatically (the redundant duplicate number becomes alias history, and a change note + notification records it). This is deterministic: it triggers on an exact shared number, not a weight guess.
 
 ## How change detection works (`:core` module)
 

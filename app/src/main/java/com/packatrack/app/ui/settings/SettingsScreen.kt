@@ -76,7 +76,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Column(Modifier.weight(1f)) {
                     Text("Demo data mode", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Track fictional parcels offline to see renumbering and combined-shipment detection.\n\nDemo numbers:\n• DEMO600087654321 (renumbered mid-journey)\n• DEMO111222333 (consolidated)\n• CNDEMOCOMBO9X (combined parcel)",
+                        "Track fictional parcels offline to see renumbering and combined-shipment detection.\n\nDemo numbers:\n• DEMO600087654321 (renumbered mid-journey)\n• DEMO111222333 (consolidated)\n• CNDEMOCOMBO9X (combined parcel)\n• DEMOJOIN01 + DEMOJOIN02 (add both, refresh a few times — Cainiao merges them into one parcel)",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
