@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.packatrack.app.ui.home
 
@@ -6,30 +6,34 @@ import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AssistChip
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +42,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,16 +52,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.packatrack.app.data.db.ShipmentEntity
+import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.notify.Notifier
 import com.packatrack.app.sync.SyncWorker
+import com.packatrack.app.ui.components.CarrierChip
+import com.packatrack.app.ui.components.StatusPill
 import com.packatrack.app.ui.humanWeight
+import com.packatrack.app.ui.overallStatusCode
+import com.packatrack.app.ui.parcelWeight
 import com.packatrack.app.ui.rememberAppContainer
-import com.packatrack.app.ui.statusLabel
+import com.packatrack.app.ui.theme.MonoNumber
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import kotlinx.coroutines.launch
@@ -77,91 +85,78 @@ fun HomeScreen(
     var syncing by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
 
+    fun refresh() {
+        syncing = true
+        scope.launch {
+            val outcome = repo.refreshAll()
+            Notifier.postChanges(context, outcome.notable.map { it.message })
+            syncing = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PackaTrack") },
+                title = { Text("PackaTrack", style = MaterialTheme.typography.titleLarge) },
                 actions = {
-                    IconButton(onClick = {
-                        syncing = true
-                        scope.launch {
-                            val outcome = repo.refreshAll()
-                            Notifier.postChanges(context, outcome.notable.map { it.message })
-                            syncing = false
+                    IconButton(onClick = { if (!syncing) refresh() }) {
+                        if (syncing) {
+                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh all")
                         }
-                    }) {
-                        if (syncing) CircularProgressIndicator(Modifier.width(22.dp))
-                        else Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add parcel")
-            }
+            ExtendedFloatingActionButton(
+                onClick = { showAddDialog = true },
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Add parcel") },
+            )
         },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp, top = 8.dp),
         ) {
             if (recentChanges.isNotEmpty()) {
-                item(key = "banner") {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        Text("Recent parcel changes", style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.padding(2.dp))
-                        recentChanges.take(3).forEach { change ->
-                            Text(
-                                "• ${change.message}",
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
+                item(key = "banner") { RecentChangesCard(recentChanges.take(3).map { it.message }) }
             }
 
             if (shipments.isEmpty()) {
-                item(key = "empty") {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) {
-                        Text("No parcels yet.\nTap ＋ to add an AliExpress tracking number.")
-                    }
-                }
+                item(key = "empty") { EmptyState() }
             }
 
-            items(shipments, key = { it.id }) { shipment ->
-                ShipmentCard(
-                    shipment = shipment,
-                    onOpen = { onOpenDetail(shipment.id) },
-                    onDelete = {
-                        scope.launch { repo.delete(shipment.id) }
-                    },
-                    onRefreshOne = {
-                        scope.launch {
-                            val all = shipments.firstOrNull { it.id == shipment.id }
-                            if (all != null) repo.refreshAll()
-                        }
-                    },
+            items(shipments, key = { it.shipment.id }) { entry ->
+                ParcelCard(
+                    entry = entry,
+                    onOpen = { onOpenDetail(entry.shipment.id) },
+                    onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
+                    onRefresh = { if (!syncing) refresh() },
                 )
             }
-
-            item(key = "spacer_footer") { Spacer(Modifier.padding(bottom = 48.dp)) }
         }
     }
 
     if (showAddDialog) {
         AddShipmentDialog(
             onDismiss = { showAddDialog = false },
-            onSave = { number, title, orderUrl, weight, carrierOverride ->
+            onSave = { number, title, orderUrl, weight, carrier ->
                 showAddDialog = false
                 syncing = true
                 scope.launch {
                     runCatching {
-                        repo.addOrUpdate(number, title, orderUrl, weight, carrierOverride)
+                        repo.addShipment(number, title, orderUrl, weight, carrier)
                         val outcome = repo.refreshAll()
                         Notifier.postChanges(context, outcome.notable.map { it.message })
                     }
@@ -171,44 +166,101 @@ fun HomeScreen(
         )
     }
 
-    // keep worker scheduling fresh whenever app opens
     LaunchedEffectOnce { SyncWorker.schedule(context, container.prefs.syncIntervalHours) }
 }
 
 @Composable
-private fun ShipmentCard(
-    shipment: ShipmentEntity,
+private fun RecentChangesCard(messages: List<String>) {
+    Card(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.NotificationsActive,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    "Recent parcel changes",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            messages.forEach {
+                Text(
+                    "•  $it",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyState() {
+    Column(
+        Modifier.fillMaxWidth().padding(32.dp).padding(top = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            Icons.Default.Inventory2,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text("No parcels yet", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Tap “Add parcel” and paste an AliExpress tracking number to start following it.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ParcelCard(
+    entry: ShipmentWithLegs,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
-    onRefreshOne: () -> Unit,
+    onRefresh: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val carrier = Carrier.fromId(shipment.carrierId)
+    val shipment = entry.shipment
+    val legs = entry.legs
+    val primary = legs.firstOrNull()
+    val title = shipment.title ?: primary?.trackingNumber ?: "Parcel"
 
     Card(
         onClick = onOpen,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        shipment.title ?: shipment.trackingNumber,
+                        title,
                         style = MaterialTheme.typography.titleMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    Spacer(Modifier.height(2.dp))
                     Text(
-                        shipment.aliasNumbers.takeIf { it.isNotBlank() }
-                            ?.let { "$it → ${shipment.trackingNumber}" }
-                            ?: shipment.trackingNumber,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        maxLines = 1,
+                        legs.joinToString("  ·  ") { it.trackingNumber }
+                            .ifBlank { "No tracking numbers yet" },
+                        style = MonoNumber,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -219,34 +271,43 @@ private fun ShipmentCard(
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
                             leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                            text = { Text("Refresh all") },
-                            onClick = { menuOpen = false; onRefreshOne() },
+                            text = { Text("Refresh") },
+                            onClick = { menuOpen = false; onRefresh() },
                         )
-                        DropdownMenuItem(
-                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
-                            text = { Text("Open on carrier website") },
-                            onClick = {
-                                menuOpen = false
-                                carrier?.publicUrl(shipment.trackingNumber)?.let { url ->
-                                    runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
-                                    }
-                                }
-                            },
-                        )
+                        primary?.let { leg ->
+                            Carrier.fromId(leg.carrierId)?.let { carrier ->
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
+                                    text = { Text("Open on carrier site") },
+                                    onClick = {
+                                        menuOpen = false
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(carrier.publicUrl(leg.trackingNumber))),
+                                            )
+                                        }
+                                    },
+                                )
+                            }
+                        }
                         DropdownMenuItem(
                             leadingIcon = { Icon(Icons.Default.Delete, null) },
-                            text = { Text("Delete") },
+                            text = { Text("Delete parcel") },
                             onClick = { menuOpen = false; onDelete() },
                         )
                     }
                 }
             }
-            Spacer(Modifier.padding(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = {}, label = { Text(carrier?.displayName ?: "Carrier?") })
-                AssistChip(onClick = {}, label = { Text(statusLabel(shipment.lastStatusCode)) })
-                AssistChip(onClick = {}, label = { Text(humanWeight(shipment.weightGrams)) })
+
+            Spacer(Modifier.height(12.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                StatusPill(overallStatusCode(legs))
+                legs.forEach { leg ->
+                    CarrierChip(leg.carrierId, Carrier.fromId(leg.carrierId)?.displayName ?: "Carrier")
+                }
+                parcelWeight(shipment.weightGrams, legs)?.let {
+                    androidx.compose.material3.AssistChip(onClick = onOpen, label = { Text(humanWeight(it)) })
+                }
             }
         }
     }
@@ -267,12 +328,12 @@ private fun AddShipmentDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                enabled = number.length >= 6,
+                enabled = number.trim().length >= 6,
                 onClick = {
                     onSave(
                         number.trim(),
-                        title.trim(),
-                        orderUrl.trim(),
+                        title.trim().ifBlank { null },
+                        orderUrl.trim().ifBlank { null },
                         weight.trim().toDoubleOrNull(),
                         detected,
                     )
@@ -282,22 +343,24 @@ private fun AddShipmentDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text("Add parcel") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = number, onValueChange = { number = it },
                     label = { Text("Tracking number") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
                     when {
-                        number.isBlank() -> "Cainiao UBI numbers start with CN…"
-                        detected != null -> "Detected: ${detected.displayName}"
-                        else -> "Carrier not recognised — will default to Cainiao UBI"
+                        number.isBlank() -> "You can add more couriers to this parcel later."
+                        detected != null -> "Detected carrier: ${detected.displayName}"
+                        else -> "Carrier not recognised — will default to Cainiao UBI."
                     },
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Name (optional)") }, singleLine = true)
-                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("AliExpress order link (optional)") }, singleLine = true)
-                OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight in grams (optional)") }, singleLine = true)
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("AliExpress order link (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight in grams (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
     )

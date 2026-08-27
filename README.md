@@ -19,10 +19,18 @@ Open `app-debug.apk` on a device/emulator (API 24+). The app starts in **demo mo
 
 ## Using it
 
-1. Tap **＋** and paste an AliExpress tracking number. PackaTrack auto-detects the carrier from the number format (override in the dialog if needed). You can also save the AliExpress order link and the declared weight.
+1. Tap **Add parcel** and paste an AliExpress tracking number. PackaTrack auto-detects the carrier from the number format (override in the dialog if needed). You can also save the AliExpress order link and the declared weight.
 2. **Refresh** pulls each carrier's latest scans. Background sync runs automatically (default every 6 h, changeable in Settings).
-3. Tap a parcel for its **timeline** — scans newest-first with status dots, plus a *"Parcel changes PackaTrack detected"* section.
+3. Tap a parcel for its **timeline** — every courier's scans merged newest-first with status dots and a carrier tag, plus a *"What PackaTrack noticed"* section.
 4. Status changes worth knowing (delivered, renumbered, combined) trigger a notification.
+
+### One parcel, many couriers
+
+A single AliExpress parcel often travels under several tracking numbers — a Cainiao number for the China leg, an Australia Post number for the final mile, sometimes an iMile number too. PackaTrack treats a **parcel** as a container of **courier legs**:
+
+- Open a parcel and tap **Add courier** to attach another provider's tracking number. Each leg is polled independently and its scans merge into one timeline.
+- Remove a courier with the **✕** on its card.
+- Already tracking the two halves separately? Open one, choose **⋮ → Combine with another parcel**, and pick the other — its couriers, scans and history fold into this parcel. PackaTrack also still auto-detects renumbering and weight-based combination on its own.
 
 ## Carrier support
 
@@ -68,4 +76,12 @@ app/    Android app: Room database, OkHttp fetchers, WorkManager sync, Compose U
 
 ## Toolchain
 
-Gradle 9.4.1 wrapper, AGP 9.2 (built-in Kotlin), Kotlin 2.3.10, Compose BOM 2026.08.00, Room 2.8.4 (KSP), WorkManager 2.11.2. compileSdk 37 / minSdk 24 / targetSdk 36.
+Gradle 9.7.1 wrapper, AGP 9.3.2 (built-in Kotlin), Kotlin 2.3.10, Compose BOM 2026.08.00, Room 2.8.4 (KSP), WorkManager 2.11.2, OkHttp 5.5.0, Coroutines 1.11.0. compileSdk 37 / minSdk 24 / targetSdk 36.
+
+## Data model
+
+- **Parcel** (`shipments`) — the thing you care about: a name, order link, declared weight.
+- **Courier leg** (`tracking_legs`) — one carrier + tracking number following a parcel; a parcel has one or many, added and removed freely.
+- **Event** (`events`) — a scan, tied to its leg and parcel, merged into the parcel's timeline.
+
+The database is versioned; upgrading from the 1.x single-number schema rebuilds locally (demo data regenerates on the next refresh).
