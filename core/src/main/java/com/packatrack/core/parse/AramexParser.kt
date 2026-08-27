@@ -25,7 +25,7 @@ object AramexParser {
         if (root.has("error") || root.optBoolean("HasErrors", false)) return null
 
         val rows = collectRows(root)
-        if (rows.isEmpty()) return null
+        if (rows.length() == 0) return null
 
         val events = mutableListOf<TrackingEvent>()
         for (i in 0 until rows.length()) {

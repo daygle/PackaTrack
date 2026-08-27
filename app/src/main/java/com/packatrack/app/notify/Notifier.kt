@@ -19,13 +19,15 @@ object Notifier {
     private const val SUMMARY_ID = 1001
 
     fun createChannel(context: Context) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Parcel changes",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply { description = "Renumbered parcels, combined shipments and delivery updates" }
-        manager.createNotificationChannel(channel)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                "Parcel changes",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = "Renumbered parcels, combined shipments and delivery updates" }
+            manager.createNotificationChannel(channel)
+        }
     }
 
     /** Posts a summary of detected changes; silent no-op when permission is missing. */
