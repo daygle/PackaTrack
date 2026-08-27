@@ -32,6 +32,15 @@ A single AliExpress parcel often travels under several tracking numbers — a Ca
 - Remove a courier with the **✕** on its card.
 - Already tracking the two halves separately? Open one, choose **⋮ → Combine with another parcel**, and pick the other — its couriers, scans and history fold into this parcel. PackaTrack also still auto-detects renumbering and weight-based combination on its own.
 
+### Many orders, one parcel
+
+The reverse also happens: Cainiao often **consolidates several of your orders under one tracking number**. That's physically one parcel now, so PackaTrack keeps it as one parcel and lets you list the **orders** inside it:
+
+- A parcel has an **Orders** section — tap **Add order** to record each AliExpress order (a name, and optionally its order link). The parcel is named after its orders unless you set a custom name.
+- When you **Combine** two parcels, their orders are merged too, so the consolidated parcel lists everything it now carries.
+
+(A tracking number is unique to one parcel — you record the shared shipment once and list its orders, rather than duplicating the number across parcels.)
+
 ## Carrier support
 
 | Carrier | Source | Credentials |
@@ -49,8 +58,13 @@ Demo mode is ON by default. Add these fictional numbers to see every feature wit
 - `DEMO600087654321` — Cainiao-style journey that is **renumbered** to `AU600087654321` when Australia Post takes over, then out-for-delivery → delivered.
 - `DEMO111222333` — a small parcel that gets **consolidated** into another shipment.
 - `CNDEMOCOMBO9X` — the combined parcel; its weight (480 g) matches the sum of the two parcels above, which is how PackaTrack recognises it.
+- `DEMOJOIN01` **and** `DEMOJOIN02` — add both as separate parcels, then refresh a few times: Cainiao gives them one shared number (`CNJOINED8888`) and PackaTrack **auto-consolidates the two parcels into one**, keeping both orders and both old numbers.
 
 Each manual refresh advances the story one step.
+
+### Automatic consolidation
+
+When several parcels you track separately are **merged by Cainiao under one tracking number**, PackaTrack notices on the next refresh — as soon as a carrier reports one parcel under another's number, the two are the same physical shipment, so their orders, couriers and history are folded into a single parcel automatically (the redundant duplicate number becomes alias history, and a change note + notification records it). This is deterministic: it triggers on an exact shared number, not a weight guess.
 
 ## How change detection works (`:core` module)
 
@@ -80,8 +94,9 @@ Gradle 9.7.1 wrapper, AGP 9.3.2 (built-in Kotlin), Kotlin 2.3.10, Compose BOM 20
 
 ## Data model
 
-- **Parcel** (`shipments`) — the thing you care about: a name, order link, declared weight.
+- **Parcel** (`shipments`) — the physical shipment: an optional custom name and declared weight.
 - **Courier leg** (`tracking_legs`) — one carrier + tracking number following a parcel; a parcel has one or many, added and removed freely.
+- **Order** (`orders`) — an AliExpress order carried in a parcel (name + optional link); a parcel has one or many, so a Cainiao-consolidated parcel lists every order inside it.
 - **Event** (`events`) — a scan, tied to its leg and parcel, merged into the parcel's timeline.
 
-The database is versioned; upgrading from the 1.x single-number schema rebuilds locally (demo data regenerates on the next refresh).
+The database is versioned; upgrading from an earlier schema rebuilds locally (demo data regenerates on the next refresh).

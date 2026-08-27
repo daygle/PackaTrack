@@ -61,12 +61,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.packatrack.app.data.db.OrderItemEntity
 import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.data.db.TrackingLegEntity
 import com.packatrack.app.ui.components.CarrierChip
 import com.packatrack.app.ui.components.StatusPill
 import com.packatrack.app.ui.humanWeight
 import com.packatrack.app.ui.overallStatusCode
+import com.packatrack.app.ui.parcelName
 import com.packatrack.app.ui.parcelWeight
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.MonoNumber
@@ -89,9 +91,11 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
 
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
+    val orders = entry?.orders.orEmpty()
 
     var menuOpen by remember { mutableStateOf(false) }
     var showAddCourier by remember { mutableStateOf(false) }
+    var showAddOrder by remember { mutableStateOf(false) }
     var showCombine by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
 
@@ -100,7 +104,13 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(shipment?.title ?: "Parcel", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    Text(
+                        entry?.let { parcelName(it.shipment, it.orders, it.legs) } ?: "Parcel",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -143,7 +153,41 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
             item(key = "header") {
-                HeaderCard(entry, context)
+                HeaderCard(entry)
+            }
+
+            item(key = "orders_title") {
+                SectionHeader(
+                    title = "Orders (${orders.size})",
+                    action = {
+                        TextButton(onClick = { showAddOrder = true }) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Add order")
+                        }
+                    },
+                )
+            }
+            if (orders.isEmpty()) {
+                item(key = "orders_empty") {
+                    Text(
+                        "No orders recorded. Add one for each AliExpress order in this parcel — handy when Cainiao combines several orders under one number.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            items(orders, key = { "order_${it.id}" }) { order ->
+                OrderRow(
+                    order = order,
+                    onOpenLink = {
+                        order.orderUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                        }
+                    },
+                    onRemove = { scope.launch { repo.removeOrder(order.id) } },
+                )
             }
 
             item(key = "couriers_title") {
@@ -244,22 +288,31 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
         )
     }
 
+    if (showAddOrder && shipment != null) {
+        AddOrderDialog(
+            onDismiss = { showAddOrder = false },
+            onAdd = { name, link ->
+                showAddOrder = false
+                scope.launch { repo.addOrder(id, name, link) }
+            },
+        )
+    }
+
     if (showEdit && shipment != null) {
         EditParcelDialog(
             initialTitle = shipment.title.orEmpty(),
-            initialOrderUrl = shipment.orderUrl.orEmpty(),
             initialWeight = shipment.weightGrams?.let { it.toInt().toString() }.orEmpty(),
             onDismiss = { showEdit = false },
-            onSave = { title, orderUrl, weight ->
+            onSave = { title, weight ->
                 showEdit = false
-                scope.launch { repo.updateShipment(id, title, orderUrl, weight) }
+                scope.launch { repo.updateShipment(id, title, weight) }
             },
         )
     }
 }
 
 @Composable
-private fun HeaderCard(entry: ShipmentWithLegs?, context: android.content.Context) {
+private fun HeaderCard(entry: ShipmentWithLegs?) {
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
     Card(
@@ -272,19 +325,45 @@ private fun HeaderCard(entry: ShipmentWithLegs?, context: android.content.Contex
                 parcelWeight(shipment?.weightGrams, legs)?.let {
                     AssistChip(onClick = {}, label = { Text(humanWeight(it)) })
                 }
+                CountsChip(legs.size, orders = entry?.orders?.size ?: 0)
             }
-            shipment?.orderUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                Spacer(Modifier.height(4.dp))
-                TextButton(
-                    onClick = {
-                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
-                    },
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Open AliExpress order")
+        }
+    }
+}
+
+/** Summarises how many couriers and orders the parcel has. */
+@Composable
+private fun CountsChip(couriers: Int, orders: Int) {
+    val text = buildString {
+        append(if (couriers == 1) "1 courier" else "$couriers couriers")
+        if (orders > 0) append(if (orders == 1) " · 1 order" else " · $orders orders")
+    }
+    AssistChip(onClick = {}, label = { Text(text) })
+}
+
+@Composable
+private fun OrderRow(
+    order: OrderItemEntity,
+    onOpenLink: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    Card(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(order.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (!order.orderUrl.isNullOrBlank()) {
+                IconButton(onClick = onOpenLink) {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open AliExpress order", modifier = Modifier.size(20.dp))
                 }
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Default.Close, contentDescription = "Remove order", modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -455,7 +534,7 @@ private fun CombineDialog(
                     )
                     Spacer(Modifier.height(8.dp))
                     candidates.forEach { cand ->
-                        val label = cand.shipment.title ?: cand.legs.firstOrNull()?.trackingNumber ?: "Parcel ${cand.shipment.id}"
+                        val label = parcelName(cand.shipment, cand.orders, cand.legs)
                         OutlinedButton(
                             onClick = { onCombine(cand.shipment.id) },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
@@ -474,33 +553,63 @@ private fun CombineDialog(
 @Composable
 private fun EditParcelDialog(
     initialTitle: String,
-    initialOrderUrl: String,
     initialWeight: String,
     onDismiss: () -> Unit,
-    onSave: (title: String?, orderUrl: String?, weight: Double?) -> Unit,
+    onSave: (title: String?, weight: Double?) -> Unit,
 ) {
     var title by remember { mutableStateOf(initialTitle) }
-    var orderUrl by remember { mutableStateOf(initialOrderUrl) }
     var weight by remember { mutableStateOf(initialWeight) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(onClick = {
-                onSave(
-                    title.trim().ifBlank { null },
-                    orderUrl.trim().ifBlank { null },
-                    weight.trim().toDoubleOrNull(),
-                )
+                onSave(title.trim().ifBlank { null }, weight.trim().toDoubleOrNull())
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text("Edit parcel") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("AliExpress order link") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = title, onValueChange = { title = it },
+                    label = { Text("Parcel name (optional)") },
+                    supportingText = { Text("Leave blank to name it after its orders") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
                 OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight in grams") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            }
+        },
+    )
+}
+
+@Composable
+private fun AddOrderDialog(
+    onDismiss: () -> Unit,
+    onAdd: (name: String, orderUrl: String?) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var link by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            Button(
+                enabled = name.isNotBlank() || link.isNotBlank(),
+                onClick = { onAdd(name.trim(), link.trim().ifBlank { null }) },
+            ) { Text("Add order") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text("Add an order") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Record another AliExpress order carried in this parcel.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Order name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = link, onValueChange = { link = it }, label = { Text("AliExpress order link (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
     )

@@ -68,6 +68,27 @@ interface LegDao {
 }
 
 @Dao
+interface OrderDao {
+    @Query("SELECT * FROM orders WHERE shipmentId = :shipmentId ORDER BY createdAt ASC")
+    suspend fun ordersForShipment(shipmentId: Long): List<OrderItemEntity>
+
+    @Query("SELECT COUNT(*) FROM orders WHERE shipmentId = :shipmentId")
+    suspend fun countForShipment(shipmentId: Long): Int
+
+    @Insert
+    suspend fun insert(order: OrderItemEntity): Long
+
+    @Query("DELETE FROM orders WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
+    @Query("DELETE FROM orders WHERE shipmentId = :shipmentId")
+    suspend fun deleteForShipment(shipmentId: Long)
+
+    @Query("UPDATE orders SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")
+    suspend fun reassignShipment(oldShipmentId: Long, newShipmentId: Long)
+}
+
+@Dao
 interface EventDao {
     /** IGNORE keeps old rows when (legId,timeMs,description) duplicates arrive. */
     @Insert(onConflict = OnConflictStrategy.IGNORE)

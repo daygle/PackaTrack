@@ -63,6 +63,7 @@ import com.packatrack.app.ui.components.CarrierChip
 import com.packatrack.app.ui.components.StatusPill
 import com.packatrack.app.ui.humanWeight
 import com.packatrack.app.ui.overallStatusCode
+import com.packatrack.app.ui.parcelName
 import com.packatrack.app.ui.parcelWeight
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.MonoNumber
@@ -243,7 +244,7 @@ private fun ParcelCard(
     val shipment = entry.shipment
     val legs = entry.legs
     val primary = legs.firstOrNull()
-    val title = shipment.title ?: primary?.trackingNumber ?: "Parcel"
+    val title = parcelName(shipment, entry.orders, legs)
 
     Card(
         onClick = onOpen,
@@ -363,7 +364,7 @@ private fun AddShipmentDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Order name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("AliExpress order link (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight in grams (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }

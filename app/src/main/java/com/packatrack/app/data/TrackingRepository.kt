@@ -4,6 +4,7 @@ import android.content.Context
 import com.packatrack.app.data.db.AppDatabase
 import com.packatrack.app.data.db.ChangeEntity
 import com.packatrack.app.data.db.EventEntity
+import com.packatrack.app.data.db.OrderItemEntity
 import com.packatrack.app.data.db.ShipmentEntity
 import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.data.db.TrackingLegEntity
@@ -24,6 +25,7 @@ class TrackingRepository(
     private val db = AppDatabase.get(context)
     private val shipments = db.shipmentDao()
     private val legs = db.legDao()
+    private val orders = db.orderDao()
     private val events = db.eventDao()
     private val changes = db.changeDao()
 
@@ -59,12 +61,7 @@ class TrackingRepository(
         val now = System.currentTimeMillis()
         val carrier = carrierOverride ?: detectCarrier(number) ?: Carrier.CAINIAO
         val shipmentId = shipments.insert(
-            ShipmentEntity(
-                title = title?.takeIf { it.isNotBlank() },
-                orderUrl = orderUrl?.takeIf { it.isNotBlank() },
-                weightGrams = weightGrams,
-                createdAt = now,
-            ),
+            ShipmentEntity(weightGrams = weightGrams, createdAt = now),
         )
         legs.insert(
             TrackingLegEntity(
@@ -75,8 +72,36 @@ class TrackingRepository(
                 createdAt = now,
             ),
         )
+        // Record the order this parcel started as (name and/or link), if either was given.
+        val orderName = title?.takeIf { it.isNotBlank() }
+        val orderLink = orderUrl?.takeIf { it.isNotBlank() }
+        if (orderName != null || orderLink != null) {
+            orders.insert(
+                OrderItemEntity(
+                    shipmentId = shipmentId,
+                    name = orderName ?: "Order",
+                    orderUrl = orderLink,
+                    createdAt = now,
+                ),
+            )
+        }
         return shipmentId
     }
+
+    /** Adds another order carried inside a parcel (e.g. after a Cainiao consolidation). */
+    suspend fun addOrder(shipmentId: Long, name: String, orderUrl: String?) {
+        orders.insert(
+            OrderItemEntity(
+                shipmentId = shipmentId,
+                name = name.trim().ifBlank { "Order" },
+                orderUrl = orderUrl?.takeIf { it.isNotBlank() },
+                createdAt = System.currentTimeMillis(),
+            ),
+        )
+    }
+
+    /** Removes one order from a parcel. */
+    suspend fun removeOrder(orderId: Long) = orders.deleteById(orderId)
 
     /**
      * Adds another courier leg to an existing parcel. Returns the new leg id, or the existing
@@ -119,37 +144,49 @@ class TrackingRepository(
         legs.deleteById(legId)
     }
 
-    /** Updates a parcel's editable metadata. */
+    /** Updates a parcel's custom name and declared weight. */
     suspend fun updateShipment(
         shipmentId: Long,
         title: String?,
-        orderUrl: String?,
         weightGrams: Double?,
     ) {
         val current = shipments.byId(shipmentId) ?: return
         shipments.update(
             current.copy(
                 title = title?.takeIf { it.isNotBlank() },
-                orderUrl = orderUrl?.takeIf { it.isNotBlank() },
                 weightGrams = weightGrams ?: current.weightGrams,
             ),
         )
     }
 
     /**
-     * Combines two tracked parcels into one: every courier leg, scan and change on [sourceId]
-     * moves onto [targetId], and the now-empty source parcel is removed.
+     * Combines two tracked parcels into one: every courier leg, order, scan and change on
+     * [sourceId] moves onto [targetId], and the now-empty source parcel is removed.
      */
     suspend fun combineInto(targetId: Long, sourceId: Long) {
-        if (targetId == sourceId) return
-        val target = shipments.byId(targetId) ?: return
-        val source = shipments.byId(sourceId) ?: return
+        mergeParcels(targetId, sourceId) { label -> "Combined with $label" }
+    }
+
+    /**
+     * Moves everything from [sourceId] onto [targetId] and deletes the source. Returns the
+     * change row recorded on the target, or null if the merge was a no-op.
+     */
+    private suspend fun mergeParcels(
+        targetId: Long,
+        sourceId: Long,
+        message: (sourceLabel: String) -> String,
+    ): ChangeEntity? {
+        if (targetId == sourceId) return null
+        val target = shipments.byId(targetId) ?: return null
+        val source = shipments.byId(sourceId) ?: return null
 
         val sourceLabel = source.title
+            ?: orders.ordersForShipment(sourceId).firstOrNull()?.name
             ?: legs.legsForShipment(sourceId).firstOrNull()?.trackingNumber
             ?: "another parcel"
 
         legs.reassignShipment(sourceId, targetId)
+        orders.reassignShipment(sourceId, targetId)
         events.reassignShipment(sourceId, targetId)
         changes.reassignShipment(sourceId, targetId)
         shipments.deleteById(sourceId)
@@ -161,20 +198,21 @@ class TrackingRepository(
         )
         if (merged != target) shipments.update(merged)
 
-        changes.insert(
-            ChangeEntity(
-                shipmentId = targetId,
-                type = "COMBINED",
-                message = "Combined with $sourceLabel",
-                createdAt = System.currentTimeMillis(),
-            ),
+        val change = ChangeEntity(
+            shipmentId = targetId,
+            type = "COMBINED",
+            message = message(sourceLabel),
+            createdAt = System.currentTimeMillis(),
         )
+        changes.insert(change)
+        return change
     }
 
     /** Deletes a parcel and everything under it. */
     suspend fun delete(shipmentId: Long) {
         events.deleteForShipment(shipmentId)
         changes.deleteForShipment(shipmentId)
+        orders.deleteForShipment(shipmentId)
         legs.deleteForShipment(shipmentId)
         shipments.deleteById(shipmentId)
     }
@@ -196,16 +234,62 @@ class TrackingRepository(
     private suspend fun refreshLegs(toPoll: List<TrackingLegEntity>): RefreshOutcome {
         var updated = 0
         val notable = mutableListOf<ChangeEntity>()
+        val consolidations = mutableListOf<Consolidation>()
         for (leg in toPoll.sortedBy { it.lastSyncAt ?: 0L }) {
             val result = refreshLeg(leg) ?: continue
-            if (result.first) updated++
-            notable += result.second
+            if (result.dataChanged) updated++
+            notable += result.changes
+            result.consolidation?.let { consolidations += it }
+        }
+        // Apply consolidations after the poll loop so we never mutate parcels mid-iteration.
+        for (c in consolidations) {
+            applyConsolidation(c)?.let { notable += it }
         }
         return RefreshOutcome(updated, notable)
     }
 
-    /** @return null on fetch failure, otherwise (dataChanged, notable changes). */
-    private suspend fun refreshLeg(leg: TrackingLegEntity): Pair<Boolean, List<ChangeEntity>>? {
+    /**
+     * A carrier reported [sourceLegId]'s parcel under [ownerLegId]'s tracking number, so the two
+     * shipments are the same physical parcel now.
+     */
+    private data class Consolidation(
+        val sourceLegId: Long,
+        val sourceShipmentId: Long,
+        val sourceNumber: String,
+        val ownerLegId: Long,
+        val ownerShipmentId: Long,
+    )
+
+    /**
+     * Merges the source parcel into the parcel that owns the shared number. The now-redundant
+     * source leg (a duplicate view of that number) is dropped and its number kept as a previous
+     * number on the owner's leg, so the timeline is not doubled up.
+     */
+    private suspend fun applyConsolidation(c: Consolidation): ChangeEntity? {
+        val ownerLeg = legs.byId(c.ownerLegId) ?: return null
+
+        events.deleteForLeg(c.sourceLegId)
+        legs.deleteById(c.sourceLegId)
+
+        val change = mergeParcels(targetId = c.ownerShipmentId, sourceId = c.sourceShipmentId) { label ->
+            "Cainiao consolidated “$label” into this parcel"
+        }
+
+        val aliasCsv = (ownerLeg.aliasNumbers.split(',').filter { it.isNotBlank() } + c.sourceNumber)
+            .distinct().joinToString(",")
+        legs.byId(c.ownerLegId)?.let { legs.update(it.copy(aliasNumbers = aliasCsv)) }
+        return change
+    }
+
+    private data class LegPoll(
+        val dataChanged: Boolean,
+        val changes: List<ChangeEntity>,
+        /** When set, this leg's parcel should be consolidated into another. */
+        val consolidation: Consolidation? = null,
+    )
+
+    /** @return null on fetch failure, otherwise this leg's poll result. */
+    private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
         val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount) ?: return null
 
@@ -220,12 +304,26 @@ class TrackingRepository(
         val prevSnapshot = Snapshot(FingerprintUtil.normalize(leg.trackingNumber), leg.weightGrams, null, prevEvents)
         val detected = ChangeLogService.detect(mapOf(prevSnapshot.trackingNumber to prevSnapshot), snapshot)
 
-        // Renumbering: the carrier now reports this leg under a different number.
-        // Only adopt it when no other leg already owns that number — otherwise the unique
-        // index on tracking_legs.trackingNumber would make the update throw.
+        // Renumbering & consolidation: the carrier now reports this leg under a different number.
+        //  - If no other leg owns that number, this leg simply renumbers (adopts it).
+        //  - If another *parcel's* leg already owns it, Cainiao has merged the two shipments —
+        //    flag this parcel to be consolidated into that one after the poll loop.
+        //  - If our own parcel already owns it (a second leg converged), do nothing.
         val renumberedTo = FingerprintUtil.normalize(snapshot.trackingNumber)
-        val adopted = renumberedTo != FingerprintUtil.normalize(leg.trackingNumber) &&
-            legs.findByTrackingNumber(renumberedTo).let { it == null || it.id == leg.id }
+        val numberChanged = renumberedTo != FingerprintUtil.normalize(leg.trackingNumber)
+        val owner = if (numberChanged) legs.findByTrackingNumber(renumberedTo) else null
+        val adopted = numberChanged && (owner == null || owner.id == leg.id)
+        val consolidation = if (!adopted && owner != null && owner.shipmentId != leg.shipmentId) {
+            Consolidation(
+                sourceLegId = leg.id,
+                sourceShipmentId = leg.shipmentId,
+                sourceNumber = leg.trackingNumber,
+                ownerLegId = owner.id,
+                ownerShipmentId = owner.shipmentId,
+            )
+        } else {
+            null
+        }
         if (adopted) {
             val oldNo = mutable.trackingNumber
             val aliasCsv = (listOf(oldNo) + mutable.aliasNumbers.split(',').filter { it.isNotBlank() })
@@ -326,7 +424,7 @@ class TrackingRepository(
             changes.insert(c)
             persisted += c
         }
-        return Pair(dataChanged, persisted)
+        return LegPoll(dataChanged, persisted, consolidation)
     }
 
     private suspend fun fetchSnapshot(carrier: Carrier, number: String, stageHint: Int): Snapshot? =
