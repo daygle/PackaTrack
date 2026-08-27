@@ -35,11 +35,11 @@ jobs:
 
       - name: Install SDK packages
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          # compileSdk 37 needs the matching platform; build-tools is best-effort
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          # compileSdk 36 needs the matching platform; build-tools is best-effort
           # (the runner usually ships a compatible one AGP can fall back to).
-          sdkmanager "platform-tools" "platforms;android-37"
-          sdkmanager "build-tools;37.0.0" || echo "build-tools 37.0.0 unavailable; using preinstalled"
+          sdkmanager "platform-tools" "platforms;android-36"
+          sdkmanager "build-tools;36.0.0" || echo "build-tools 36.0.0 unavailable; using preinstalled"
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
