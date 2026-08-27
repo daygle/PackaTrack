@@ -8,13 +8,8 @@ captures/
 .externalNativeBuild/
 .cxx/
 
-# IDE
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/gradle.xml
-.idea/libraries/
-.idea/modules.xml
-.idea/misc.xml
+# IDE (JetBrains) — machine-local config
+.idea/
 
 # OS
 .DS_Store
