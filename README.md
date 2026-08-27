@@ -96,7 +96,7 @@ app/    Android app: Room database, OkHttp fetchers, WorkManager sync, Compose U
 
 ## Toolchain
 
-Gradle 9.7.1 wrapper, AGP 9.3.2 (built-in Kotlin), Kotlin 2.3.10, Compose BOM 2026.08.00, Room 2.8.4 (KSP), WorkManager 2.11.2, OkHttp 5.5.0, Coroutines 1.11.0. compileSdk 36 / minSdk 24 / targetSdk 36.
+Gradle 9.7.1 wrapper, AGP 9.3.2 (built-in Kotlin), Kotlin 2.3.10, Compose BOM 2026.08.00, Room 2.8.4 (KSP), WorkManager 2.11.2, OkHttp 5.5.0, Coroutines 1.11.0. compileSdk 37 / minSdk 24 / targetSdk 36.
 
 ## Data model
 

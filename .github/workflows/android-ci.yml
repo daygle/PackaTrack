@@ -35,11 +35,21 @@ jobs:
 
       - name: Install SDK packages
         run: |
+          # Refresh cmdline-tools so the newest platforms are visible, then accept licenses.
+          sdkmanager --install "cmdline-tools;latest" > /dev/null 2>&1 || true
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          # compileSdk 36 needs the matching platform; build-tools is best-effort
-          # (the runner usually ships a compatible one AGP can fall back to).
-          sdkmanager "platform-tools" "platforms;android-36"
-          sdkmanager "build-tools;36.0.0" || echo "build-tools 36.0.0 unavailable; using preinstalled"
+          sdkmanager "platform-tools"
+          # The androidx/compose/coil deps require compileSdk 37. Try the stable channel
+          # first, then preview channels in case API 37 ships there on this runner image.
+          install_pkg() {
+            for ch in "" "--channel=1" "--channel=2" "--channel=3"; do
+              if sdkmanager $ch "$1"; then return 0; fi
+            done
+            return 1
+          }
+          install_pkg "platforms;android-37"
+          install_pkg "build-tools;37.0.0" || echo "build-tools 37.0.0 unavailable; relying on preinstalled"
+          sdkmanager --list_installed || true
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew

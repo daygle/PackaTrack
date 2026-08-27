@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.packatrack.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.packatrack.app"
