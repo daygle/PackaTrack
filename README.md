@@ -21,6 +21,8 @@ Open `app-debug.apk` on a device/emulator (API 24+). The app starts in **demo mo
 
 Every push to `main` and every pull request runs **Android CI** (`.github/workflows/android-ci.yml`): it runs the `:core` unit tests, builds the debug APK, publishes a unit-test report, and uploads the APK and test results as build artifacts.
 
+**Dependabot** (`.github/dependabot.yml`) opens weekly PRs for Gradle dependencies (including the `libs.versions.toml` catalog) and for the GitHub Actions themselves, grouping AndroidX and Kotlin bumps to keep the noise down.
+
 ## Using it
 
 1. Tap **Add parcel** and paste an AliExpress tracking number. PackaTrack auto-detects the carrier from the number format (override in the dialog if needed). You can also save the AliExpress order link and the declared weight.
