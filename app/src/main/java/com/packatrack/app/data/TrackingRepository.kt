@@ -17,6 +17,8 @@ import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.FingerprintUtil
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class TrackingRepository(
     context: Context,
@@ -28,6 +30,7 @@ class TrackingRepository(
     private val orders = db.orderDao()
     private val events = db.eventDao()
     private val changes = db.changeDao()
+    private val refreshMutex = Mutex()
 
     val httpFetcher = HttpTrackingFetcher { prefs.ausPostApiKey }
 
@@ -242,17 +245,18 @@ class TrackingRepository(
      * Refreshes every courier leg on every active parcel (oldest-sync first).
      * @param force When true, bypasses the background cooldown.
      */
-    suspend fun refreshAll(force: Boolean = false): RefreshOutcome {
+    suspend fun refreshAll(force: Boolean = false): RefreshOutcome = refreshMutex.withLock {
         val activeIds = shipments.all().asSequence().filterNot { it.archived }.map { it.id }.toSet()
-        return refreshLegs(legs.all().filter { it.shipmentId in activeIds }, force)
+        refreshLegs(legs.all().filter { it.shipmentId in activeIds }, force)
     }
 
     /**
      * Refreshes just the couriers on one parcel.
      * @param force When true, bypasses the background cooldown.
      */
-    suspend fun refreshShipment(shipmentId: Long, force: Boolean = false): RefreshOutcome =
+    suspend fun refreshShipment(shipmentId: Long, force: Boolean = false): RefreshOutcome = refreshMutex.withLock {
         refreshLegs(legs.legsForShipment(shipmentId), force)
+    }
 
     private suspend fun refreshLegs(toPoll: List<TrackingLegEntity>, force: Boolean): RefreshOutcome {
         var updated = 0

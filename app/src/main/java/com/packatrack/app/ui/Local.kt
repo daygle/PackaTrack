@@ -29,7 +29,11 @@ fun parcelName(
 }
 
 fun statusLabel(code: String?): String =
-    code?.lowercase()?.replace('_', ' ')?.replaceFirstChar { it.uppercase() } ?: "Waiting for scans"
+    code?.trim()?.takeIf { it.isNotEmpty() }?.let { raw ->
+        raw.lowercase()
+            .replace('_', ' ')
+            .replaceFirstChar { it.uppercase() }
+    } ?: "Waiting for scans"
 
 /**
  * The status shown for a whole parcel — the furthest-along of its couriers, but an
@@ -44,9 +48,11 @@ private val STATUS_ORDER = listOf(
 )
 
 fun overallStatusCode(legs: List<TrackingLegEntity>): String? {
-    val codes = legs.asSequence().mapNotNull { it.lastStatusCode?.uppercase() }.toList()
+    val codes = legs.asSequence()
+        .mapNotNull { it.lastStatusCode?.trim()?.uppercase()?.takeIf(String::isNotEmpty) }
+        .toList()
     if (codes.isEmpty()) return null
-    if (codes.any { it == "EXCEPTION" }) return "EXCEPTION"
+    if (codes.any { it == "EXCEPTION" || it.startsWith("EXCEPTION_") }) return "EXCEPTION"
     return STATUS_ORDER.firstOrNull { it in codes } ?: codes.first()
 }
 

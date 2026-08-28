@@ -32,10 +32,13 @@ object ChangeLogService {
         // 1. Straight update on same number?
         val prevSame = previousByNumber[FingerprintUtil.normalize(current.trackingNumber)]
         if (prevSame != null) {
-            val prevLast = prevSame.events.maxByOrNull { it.timeMs ?: 0L }?.description
-            val curLast = current.events.maxByOrNull { it.timeMs ?: 0L }?.description
-            if (prevLast != curLast && curLast != null) {
-                changes += ParcelChange.Progress(curLast)
+            val previousDescriptions = prevSame.events.mapTo(HashSet()) { it.description }
+            val newestNewEvent = current.events
+                .asSequence()
+                .filterNot { it.description in previousDescriptions }
+                .maxByOrNull { it.timeMs ?: Long.MIN_VALUE }
+            if (newestNewEvent != null) {
+                changes += ParcelChange.Progress(newestNewEvent.description)
             }
             return changes
         }

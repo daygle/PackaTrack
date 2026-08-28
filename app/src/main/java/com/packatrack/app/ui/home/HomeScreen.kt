@@ -47,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -220,7 +221,9 @@ fun HomeScreen(
         )
     }
 
-    LaunchedEffectOnce { SyncWorker.schedule(context, container.prefs.syncIntervalHours, container.prefs.wifiOnlySync) }
+    LaunchedEffect(container.prefs.syncIntervalHours, container.prefs.wifiOnlySync) {
+        SyncWorker.schedule(context, container.prefs.syncIntervalHours, container.prefs.wifiOnlySync)
+    }
 }
 
 @Composable
@@ -519,10 +522,4 @@ private fun AddShipmentDialog(
             }
         },
     )
-}
-
-/** Runs [block] exactly once per composition lifetime of the calling screen. */
-@Composable
-private fun LaunchedEffectOnce(block: () -> Unit) {
-    androidx.compose.runtime.LaunchedEffect(Unit) { block() }
 }
