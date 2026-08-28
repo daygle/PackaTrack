@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.OfflineBolt
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.SettingsBackupRestore
@@ -114,7 +116,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     var themeMode by remember { mutableStateOf(prefs.themeMode) }
     var dateFormat by remember { mutableStateOf(prefs.dateTimeFormat) }
 
-    // --- Permission Monitoring ---
+    // --- Permission & System Monitoring ---
+    val powerManager = remember { context.getSystemService(PowerManager::class.java) }
     var hasNotificationPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= 33) {
@@ -123,6 +126,9 @@ fun SettingsScreen(onBack: () -> Unit) {
                 true
             }
         )
+    }
+    var isIgnoringBatteryOptimizations by remember {
+        mutableStateOf(powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true)
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -134,6 +140,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 } else {
                     true
                 }
+                isIgnoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -232,6 +239,40 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Text("Active · ${interval}h interval ${if (wifiOnly) " (Wi-Fi only)" else ""}")
                     },
                     leadingContent = { Icon(Icons.Default.CloudSync, null, tint = Color(0xFF10B981)) }
+                )
+
+                ListItem(
+                    headlineContent = { Text("Battery Usage") },
+                    supportingContent = {
+                        Text(
+                            if (isIgnoringBatteryOptimizations) "Unrestricted" else "Optimized (May delay updates)",
+                            color = if (isIgnoringBatteryOptimizations) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    leadingContent = {
+                        Icon(
+                            Icons.Default.OfflineBolt,
+                            null,
+                            tint = if (isIgnoringBatteryOptimizations) Color(0xFF10B981) else MaterialTheme.colorScheme.outline
+                        )
+                    },
+                    trailingContent = {
+                        if (!isIgnoringBatteryOptimizations) {
+                            TextButton(onClick = {
+                                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                runCatching { context.startActivity(intent) }
+                                    .onFailure {
+                                        // Fallback to app details if the specific battery settings aren't reachable
+                                        val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                            data = Uri.fromParts("package", context.packageName, null)
+                                        }
+                                        context.startActivity(fallback)
+                                    }
+                            }) {
+                                Text("Fix")
+                            }
+                        }
+                    }
                 )
             }
 
