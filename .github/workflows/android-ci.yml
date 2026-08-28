@@ -81,6 +81,14 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
+      - name: Upload Room Schemas
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: room-schemas
+          path: app/schemas/
+          if-no-files-found: warn
+
   # Runs the androidTest suite on an emulator: exercises the SQLCipher/Keystore
   # database and the backup export/import round-trip, which JVM unit tests cannot.
   instrumented-test:
