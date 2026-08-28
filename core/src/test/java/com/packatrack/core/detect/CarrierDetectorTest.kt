@@ -25,10 +25,14 @@ class CarrierDetectorTest {
         assertEquals(Carrier.CAINIAO, CarrierDetector.detect("AP00839790702074"))
     }
 
+    @Test fun longAustraliaPostArticleNumber() {
+        assertEquals(Carrier.AUSTRALIA_POST, CarrierDetector.detect("36YPH337263201000935107"))
+    }
+
     @Test fun detectsAllMatchingCarriers() {
         assertEquals(listOf(Carrier.AUSTRALIA_POST), CarrierDetector.detectAll("EV938507560AU"))
         assertEquals(
-            listOf(Carrier.CAINIAO, Carrier.AUSTRALIA_POST),
+            listOf(Carrier.UBI_SMART_PARCEL, Carrier.CAINIAO),
             CarrierDetector.detectAll("AP00839790702074"),
         )
     }

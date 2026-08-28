@@ -17,9 +17,14 @@ enum class Carrier(
         displayName = "Australia Post",
         webUrlTemplate = "https://auspost.com.au/mypost/track/details/%s",
     ),
+    UBI_SMART_PARCEL(
+        id = "ubi_smart_parcel",
+        displayName = "UBI Smart Parcel",
+        webUrlTemplate = "https://global.cainiao.com/global/detail.json?mailNos=%s&lang=en",
+    ),
     CAINIAO(
         id = "cainiao",
-        displayName = "Cainiao UBI Smart Parcel",
+        displayName = "Cainiao",
         webUrlTemplate = "https://global.cainiao.com/global/detail.json?mailNos=%s&lang=en",
     ),
     IMILE(

@@ -326,12 +326,13 @@ class TrackingRepository(
             for (relatedNumber in snapshot.relatedTrackingNumbers) {
                 val normalized = FingerprintUtil.normalize(relatedNumber)
                 if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
-                val existing = legs.findByTrackingNumber(normalized)
-                if (existing == null) {
-                    addCourier(leg.shipmentId, normalized, com.packatrack.core.detect.CarrierDetector.detect(normalized))
-                } else if (existing.shipmentId != leg.shipmentId) {
-                    // Leave cross-parcel ownership untouched; consolidation logic handles it.
-                    continue
+                val relatedCarriers = com.packatrack.core.detect.CarrierDetector.detectAll(normalized)
+                val carriers = relatedCarriers.ifEmpty { listOf(Carrier.CAINIAO) }
+                for (relatedCarrier in carriers) {
+                    val existing = legs.findByTrackingNumberAndCarrier(normalized, relatedCarrier.id)
+                    if (existing == null) {
+                        addCourier(leg.shipmentId, normalized, relatedCarrier)
+                    }
                 }
             }
         }

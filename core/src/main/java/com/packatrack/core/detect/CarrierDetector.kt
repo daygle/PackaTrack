@@ -21,7 +21,8 @@ object CarrierDetector {
     // same identifier with an AP prefix (for example AP00839790702074).
     private val CAINIAO_AP = Regex("^AP[0-9]{14}$", RegexOption.IGNORE_CASE)
     // UBI and Cainiao are two services in the same network; AP article numbers
-    // should therefore create both legs in automatic mode.
+    // should therefore create both legs in automatic mode. AP does not own this
+    // identifier unless Cainiao later reports a distinct Australia Post number.
     private val CAINIAO = Regex("^CN[A-Za-z0-9]{8,20}N?$", RegexOption.IGNORE_CASE)
     private val IMILE = Regex("^IML?[A-Za-z0-9]{6,22}$", RegexOption.IGNORE_CASE)
 
@@ -30,20 +31,24 @@ object CarrierDetector {
     /** Morning Global uses an MG prefix in the wild (best effort). */
     private val MORNING_GLOBAL = Regex("^MG[A-Za-z0-9]{6,20}$", RegexOption.IGNORE_CASE)
 
+    // Cainiao's Australia Post handoff can be a 21-digit numeric article number
+    // without the normal two-letter AU suffix.
+    private val AUSPOST_LONG_ARTICLE = Regex("^[0-9]{21}$")
+
     /** Returns every carrier whose known format matches the number. */
     fun detectAll(trackingNumberRaw: String): List<Carrier> {
         val n = trackingNumberRaw.trim().uppercase()
         if (n.isEmpty()) return emptyList()
         return buildList {
             if (n.endsWith("AU") && AUSPOST_UPU.matches(n)) add(Carrier.AUSTRALIA_POST)
-            if (AUSPOST_CONSIGNMENT.matches(n)) add(Carrier.AUSTRALIA_POST)
+            if (AUSPOST_CONSIGNMENT.matches(n) || AUSPOST_LONG_ARTICLE.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (MORNING_GLOBAL.matches(n)) add(Carrier.MORNING_GLOBAL)
             if (IMILE.matches(n)) add(Carrier.IMILE)
             if (CAINIAO_AP.matches(n)) {
+                add(Carrier.UBI_SMART_PARCEL)
                 add(Carrier.CAINIAO)
-                add(Carrier.AUSTRALIA_POST)
             }
-            if (CAINIAO.matches(n)) add(Carrier.CAINIAO)
+            if (CAINIAO.matches(n)) add(Carrier.UBI_SMART_PARCEL)
             if (AUSPOST_DOMESTIC.matches(n) && !IMILE.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (ARAMEX.matches(n)) add(Carrier.ARAMEX)
         }.distinct()

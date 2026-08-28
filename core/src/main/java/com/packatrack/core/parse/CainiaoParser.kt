@@ -31,6 +31,12 @@ object CainiaoParser {
 
         val events = mutableListOf<TrackingEvent>()
         val relatedNumbers = linkedSetOf<String>()
+        val latestTrackingNumber = listOf(
+            "latestTrackingNumber", "latestTrackingNo", "lastMileTrackingNumber", "lastMileTrackingNo",
+        ).firstNotNullOfOrNull { key -> pkg.optString(key).takeIf { it.isNotBlank() && it != number } }
+            ?: Regex("latest\\s+tracking\\s+number\\s*[:：]?\\s*([A-Za-z0-9]+)", RegexOption.IGNORE_CASE)
+                .find(pkg.toString())?.groupValues?.getOrNull(1)
+        latestTrackingNumber?.let(relatedNumbers::add)
         listOf("trackingNumber", "trackingNo", "mailNo", "waybillNo", "waybillNumber", "lastMileTrackingNo", "lastMileTrackingNumber")
             .forEach { key ->
                 pkg.optString(key).takeIf { it.isNotBlank() && it != number }?.let(relatedNumbers::add)
@@ -88,6 +94,7 @@ object CainiaoParser {
             dimensionsCm = null,
             events = events,
             relatedTrackingNumbers = relatedNumbers.toList(),
+            latestTrackingNumber = latestTrackingNumber,
         )
     }
 

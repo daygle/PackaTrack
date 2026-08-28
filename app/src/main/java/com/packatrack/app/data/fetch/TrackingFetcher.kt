@@ -34,6 +34,7 @@ class HttpTrackingFetcher(
     ): Snapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {
             when (carrier) {
+                Carrier.UBI_SMART_PARCEL,
                 Carrier.CAINIAO -> fetchCainiao(trackingNumber)
                 Carrier.AUSTRALIA_POST -> fetchAusPost(trackingNumber)
                 Carrier.IMILE -> fetchImile(trackingNumber)

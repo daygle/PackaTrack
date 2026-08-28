@@ -24,7 +24,7 @@ class CainiaoParserTest {
     """.trimIndent()
 
     private val relatedNumberShape = """
-    {"data":{"AP00839790702074":{"status":"IN_TRANSIT","lastMileTrackingNumber":"UBI1234567890",
+    {"data":{"AP00839790702074":{"status":"IN_TRANSIT","latestTrackingNumber":"36YPH337263201000935107","lastMileTrackingNumber":"UBI1234567890",
       "sections":[{"detailList":[{"time":"2026-08-20 09:00","desc":"Accepted"}]}]}}}
     """.trimIndent()
 
@@ -51,7 +51,9 @@ class CainiaoParserTest {
     @Test fun extractsRelatedLastMileNumber() {
         val snap = CainiaoParser.parse(relatedNumberShape)
         assertNotNull(snap)
-        assertEquals(listOf("UBI1234567890"), snap!!.relatedTrackingNumbers)
+        assertEquals("36YPH337263201000935107", snap!!.latestTrackingNumber)
+        assertEquals(listOf("36YPH337263201000935107", "UBI1234567890"), snap.relatedTrackingNumbers)
+        assertEquals("36YPH337263201000935107", snap.relatedTrackingNumbers.first())
     }
 
     @Test fun parsesTraceNodeListShape() {
