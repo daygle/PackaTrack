@@ -34,6 +34,14 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    testOptions {
+        unitTests {
+            // Android framework stubs throw under JVM unit tests; return defaults so pure-logic
+            // tests (backup crypto, merge planning) can run without an Android runtime.
+            isReturnDefaultValues = true
+        }
+    }
 }
 
 // Export the Room schema so migrations can be diffed in review and verified by
