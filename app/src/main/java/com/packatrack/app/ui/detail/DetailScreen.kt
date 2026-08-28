@@ -84,6 +84,7 @@ import com.packatrack.core.util.TimeUtil
 import kotlinx.coroutines.launch
 
 import com.packatrack.app.R
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 @Composable
@@ -373,7 +374,7 @@ private fun HeroSection(entry: ShipmentWithLegs?, firstEventMs: Long?, prefs: co
                 Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    stringResource(R.string.days_in_transit_label, if (days == 1) stringResource(R.string.day_count_single) else stringResource(R.string.day_count_plural, days)),
+                    stringResource(R.string.days_in_transit_label, pluralStringResource(R.plurals.day_count, days, days)),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -398,7 +399,7 @@ private fun HeroSection(entry: ShipmentWithLegs?, firstEventMs: Long?, prefs: co
             ) {
                 AssistChip(
                     onClick = {},
-                    label = { Text(stringResource(R.string.couriers_count_label, legs.size)) },
+                    label = { Text(pluralStringResource(R.plurals.couriers_count_label, legs.size, legs.size)) },
                     shape = RoundedCornerShape(12.dp)
                 )
             }

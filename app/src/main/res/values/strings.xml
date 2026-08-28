@@ -2,7 +2,10 @@
     <string name="app_name">PackaTrack</string>
     <string name="search_placeholder">Search parcels…</string>
     <string name="close_search">Close search</string>
-    <string name="shipment_summary">%1$d in transit · %2$d total</string>
+    <plurals name="shipment_summary">
+        <item quantity="one">%1$d in transit · %2$d total</item>
+        <item quantity="other">%1$d in transit · %2$d total</item>
+    </plurals>
     <string name="offline">Offline</string>
     <string name="search">Search</string>
     <string name="refresh_all">Refresh All</string>
@@ -17,8 +20,10 @@
     <string name="search_empty_hint">Try searching for something else.</string>
     <string name="no_parcels_hint">Add a tracking number to start monitoring your shipments in one place.</string>
     <string name="no_tracking_number">No tracking number</string>
-    <string name="day_count_single">1 day</string>
-    <string name="day_count_plural">%1$d days</string>
+    <plurals name="day_count">
+        <item quantity="one">1 day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
     <string name="actions">Actions</string>
     <string name="refresh">Refresh</string>
     <string name="view_on_web">View on Web</string>
@@ -56,7 +61,10 @@
     <string name="days_in_transit_label">%1$s in transit</string>
     <string name="last_updated_label">Last updated: %1$s</string>
     <string name="never">Never</string>
-    <string name="couriers_count_label">%1$d Couriers</string>
+    <plurals name="couriers_count_label">
+        <item quantity="one">1 Courier</item>
+        <item quantity="other">%1$d Couriers</item>
+    </plurals>
     <string name="add_courier_title">Add A Courier</string>
     <string name="add_courier_hint">Track this same parcel with another provider\'s number.</string>
     <string name="duplicate_number_error">That number is already on this parcel.</string>

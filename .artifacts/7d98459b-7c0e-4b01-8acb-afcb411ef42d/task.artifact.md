@@ -1,0 +1,7 @@
+- `[x]` Updating Gradle dependencies and vector resources
+    - `[x]` Update `libs.versions.toml`
+    - `[x]` Update `img_empty_parcels_v2.xml`
+- `[x]` Deleting unused resources
+- `[x]` Updating string resources to use plurals
+- `[x]` Updating UI components to use plurals and fix battery optimization intent
+- `[x]` Verification

@@ -97,6 +97,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.packatrack.app.util.ConnectivityObserver
 import com.packatrack.app.util.NetworkConnectivityObserver
@@ -188,7 +189,7 @@ fun HomeScreen(
                                     if (activeShipments.isNotEmpty()) {
                                         val inTransit = activeShipments.count { overallStatusCode(it.legs) == "IN_TRANSIT" }
                                         Text(
-                                            stringResource(R.string.shipment_summary, inTransit, activeShipments.size),
+                                            pluralStringResource(R.plurals.shipment_summary, activeShipments.size, inTransit, activeShipments.size),
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                         )
@@ -389,7 +390,7 @@ private fun EmptyState(isSearch: Boolean = false) {
         Image(
             painter = painterResource(id = R.drawable.img_empty_parcels_v2),
             contentDescription = null,
-            modifier = Modifier.size(240.dp)
+            modifier = Modifier.size(200.dp)
         )
         Spacer(Modifier.height(16.dp))
         Text(
@@ -450,7 +451,7 @@ private fun ParcelCard(
                     )
                 }
                 Text(
-                    stringResource(if (days == 1) R.string.day_count_single else R.string.day_count_plural, days),
+                    pluralStringResource(R.plurals.day_count, days, days),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier

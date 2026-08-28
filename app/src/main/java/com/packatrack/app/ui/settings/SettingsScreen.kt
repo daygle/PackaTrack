@@ -264,15 +264,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                     trailingContent = {
                         if (!isIgnoringBatteryOptimizations) {
                             TextButton(onClick = {
-                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                    data = "package:${context.packageName}".toUri()
-                                }
+                                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                 runCatching { context.startActivity(intent) }
-                                    .onFailure {
-                                        // Fallback to the settings list if the direct prompt fails
-                                        val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                        context.startActivity(fallback)
-                                    }
                             }) {
                                 Text(stringResource(R.string.fix))
                             }
