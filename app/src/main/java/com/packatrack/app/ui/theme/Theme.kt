@@ -6,6 +6,8 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import com.packatrack.app.PackaTrackApp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -115,8 +117,15 @@ fun PackaTrackTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
+    val app = LocalContext.current.applicationContext as PackaTrackApp
+    val themeMode = app.container.prefs.themeMode
+    val useDark = when (themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> darkTheme
+    }
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = if (useDark) DarkColors else LightColors,
         typography = AppTypography,
         content = content,
     )
