@@ -1,6 +1,7 @@
 # Gradle
 .gradle/
 build/
+/gradle/gradle-daemon-jvm.properties
 
 # Android Studio / IntelliJ user-specific files (keep shared IDE config under version control decisions separate)
 local.properties
