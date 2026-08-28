@@ -288,9 +288,9 @@ private fun EmptyState() {
         verticalArrangement = Arrangement.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.img_empty_parcels),
+            painter = painterResource(id = R.drawable.img_empty_parcels_v2),
             contentDescription = null,
-            modifier = Modifier.size(200.dp)
+            modifier = Modifier.size(240.dp)
         )
         Spacer(Modifier.height(16.dp))
         Text("No Parcels Tracking", style = MaterialTheme.typography.headlineSmall)

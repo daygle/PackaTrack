@@ -1,0 +1,66 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Subtle Background Glow -->
+    <path android:pathData="M100,100m-90,0a90,90 0,1 1,180 0a90,90 0,1 1,-180 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100" android:centerY="100"
+                android:gradientRadius="100"
+                android:startColor="#6366F1"
+                android:endColor="#00000000"
+                android:startAlpha="0.08" />
+        </aapt:attr>
+    </path>
+
+    <!-- Large Prism Hero -->
+    <!-- Top -->
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M100,50 L140,70 L100,90 L60,70 Z" />
+    <!-- Right -->
+    <path
+        android:fillColor="#0EA5E9"
+        android:pathData="M100,90 L140,70 L140,130 L100,150 Z" />
+    <!-- Left -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M100,90 L60,70 L60,130 L100,150 Z" />
+
+    <!-- Glass Refraction lines -->
+    <path
+        android:pathData="M60,70 L100,90 L140,70 M100,90 L100,150"
+        android:strokeWidth="1"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.2" />
+
+    <!-- Active Signal Rings -->
+    <path
+        android:pathData="M30,120 C50,140 150,140 170,120"
+        android:strokeWidth="2"
+        android:strokeColor="#22D3EE"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.3" />
+    <path
+        android:pathData="M20,130 C40,160 160,160 180,130"
+        android:strokeWidth="1"
+        android:strokeColor="#22D3EE"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.1" />
+
+    <!-- Floating Plus Sign (Minimalist) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M95,40 L105,40 L105,30 L95,30 Z M95,40 L95,50 L105,50 L105,40 Z" />
+    <path
+        android:pathData="M92,35 L108,35 M100,27 L100,43"
+        android:strokeWidth="3"
+        android:strokeColor="#22D3EE"
+        android:strokeLineCap="round" />
+
+</vector>

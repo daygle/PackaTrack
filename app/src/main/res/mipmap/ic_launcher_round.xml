@@ -9,43 +9,55 @@
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="6" android:startY="4"
-                android:endX="102" android:endY="104"
-                android:startColor="#6366F1"
-                android:endColor="#0EA5E9" />
+                android:startX="0" android:startY="0"
+                android:endX="108" android:endY="108"
+                android:startColor="#1E1B4B"
+                android:endColor="#064E3B" />
         </aapt:attr>
     </path>
-    <path
-        android:pathData="M0,0L108,0L108,30L0,74z"
-        android:fillAlpha="0.10"
-        android:fillColor="#FFFFFF" />
-    <!-- New design elements from ic_launcher_foreground_modern.xml -->
-    <!-- Tracking Path (Emerald) -->
-    <path
-        android:pathData="M25,85 C40,85 54,75 54,65"
-        android:strokeWidth="4"
-        android:strokeColor="#10B981"
-        android:strokeLineCap="round" />
-    <path
-        android:pathData="M20,95 C45,95 65,80 65,65"
-        android:strokeWidth="2"
-        android:strokeColor="#10B981"
-        android:strokeAlpha="0.4"
-        android:strokeLineCap="round" />
+    <!-- Radial highlights for depth -->
+    <path android:pathData="M0,0h108v108H0z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="54" android:centerY="54"
+                android:gradientRadius="80"
+                android:startColor="#22D3EE"
+                android:endColor="#00000000"
+                android:startAlpha="0.15" />
+        </aapt:attr>
+    </path>
 
-    <!-- Isometric Box -->
-    <path
-        android:fillColor="#10B981"
-        android:pathData="M54,60 L34,50 L34,80 L54,90 Z" />
-    <path
-        android:fillColor="#0EA5E9"
-        android:pathData="M54,60 L74,50 L74,80 L54,90 Z" />
+    <!-- The Prism (Geometric Parcel) -->
     <path
         android:fillColor="#6366F1"
-        android:pathData="M54,60 L74,50 L54,40 L34,50 Z" />
+        android:fillAlpha="0.9"
+        android:pathData="M54,34 L74,44 L54,54 L34,44 Z" />
     <path
-        android:pathData="M34,50 L54,60 L74,50"
-        android:strokeWidth="1"
+        android:fillColor="#0EA5E9"
+        android:fillAlpha="0.8"
+        android:pathData="M54,54 L74,44 L74,68 L54,78 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:fillAlpha="0.85"
+        android:pathData="M54,54 L34,44 L34,68 L54,78 Z" />
+
+    <!-- Glass Highlights -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.1"
+        android:pathData="M54,34 L74,44 L54,54 L34,44 Z" />
+    <path
+        android:pathData="M34,44 L54,54 L74,44"
+        android:strokeWidth="0.5"
         android:strokeColor="#FFFFFF"
         android:strokeAlpha="0.3" />
+
+    <!-- Dynamic Tracking Pulse -->
+    <path
+        android:pathData="M20,60 C35,65 54,50 88,45"
+        android:strokeWidth="2.5"
+        android:strokeColor="#22D3EE"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.6" />
 </vector>
