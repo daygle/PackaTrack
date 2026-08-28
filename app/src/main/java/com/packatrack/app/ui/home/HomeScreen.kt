@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inventory2
@@ -47,6 +48,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -96,6 +98,8 @@ fun HomeScreen(
 
     var syncing by remember { mutableStateOf(value = false) }
     var showAddDialog by remember { mutableStateOf(value = false) }
+    var activityDismissedAt by remember { mutableLongStateOf(container.prefs.recentActivityDismissedAt) }
+    val visibleChanges = recentChanges.filter { it.createdAt > activityDismissedAt }
 
     // Manual refresh: a no-op while one is already running.
     fun runSync(block: suspend () -> RefreshOutcome) {
@@ -163,8 +167,17 @@ fun HomeScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp, top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (recentChanges.isNotEmpty()) {
-                    item(key = "banner") { RecentChangesCard(recentChanges.asSequence().take(3).map { it.message }.toList()) }
+                if (visibleChanges.isNotEmpty()) {
+                    item(key = "banner") {
+                        RecentChangesCard(
+                            messages = visibleChanges.asSequence().take(3).map { it.message }.toList(),
+                            onDismiss = {
+                                val newest = recentChanges.maxOfOrNull { it.createdAt } ?: System.currentTimeMillis()
+                                container.prefs.recentActivityDismissedAt = newest
+                                activityDismissedAt = newest
+                            },
+                        )
+                    }
                 }
 
                 if (shipments.isEmpty()) {
@@ -211,7 +224,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun RecentChangesCard(messages: List<String>) {
+private fun RecentChangesCard(messages: List<String>, onDismiss: () -> Unit) {
     Card(
         Modifier
             .fillMaxWidth()
@@ -220,7 +233,7 @@ private fun RecentChangesCard(messages: List<String>) {
         shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Outlined.NotificationsActive,
@@ -233,7 +246,16 @@ private fun RecentChangesCard(messages: List<String>) {
                     "Recent Activity",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f),
                 )
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Dismiss recent activity",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             messages.forEach {

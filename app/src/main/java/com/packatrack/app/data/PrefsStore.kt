@@ -57,6 +57,11 @@ class PrefsStore(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_ARCHIVE, false)
         set(value) = prefs.edit { putBoolean(KEY_AUTO_ARCHIVE, value) }
 
+    /** Newest change timestamp the user has dismissed from the home "Recent Activity" banner. */
+    var recentActivityDismissedAt: Long
+        get() = prefs.getLong(KEY_ACTIVITY_DISMISSED, 0L)
+        set(value) = prefs.edit { putLong(KEY_ACTIVITY_DISMISSED, value) }
+
     companion object {
         const val KEY_AUSPOST_KEY = "auspost_key"
         const val KEY_SYNC_HOURS = "sync_interval_hours"
@@ -70,5 +75,6 @@ class PrefsStore(context: Context) {
         const val KEY_DATE_FORMAT = "date_time_format"
         const val KEY_HISTORY_SORT = "history_sort_order"
         const val KEY_AUTO_ARCHIVE = "auto_archive_delivered"
+        const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
     }
 }
