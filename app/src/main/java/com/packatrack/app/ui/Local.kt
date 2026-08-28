@@ -28,12 +28,16 @@ fun parcelName(
     return legs.firstOrNull()?.trackingNumber ?: "Parcel"
 }
 
-fun statusLabel(code: String?): String =
-    code?.trim()?.takeIf { it.isNotEmpty() }?.let { raw ->
-        raw.lowercase()
-            .replace('_', ' ')
-            .replaceFirstChar { it.uppercase() }
-    } ?: "Waiting for scans"
+fun statusLabel(code: String?): String = when (code?.trim()?.uppercase()) {
+    "DELIVERED" -> "Delivered"
+    "OUT_FOR_DELIVERY" -> "Out for delivery"
+    "PICKUP_AVAILABLE" -> "Pickup available"
+    "IN_TRANSIT" -> "In transit"
+    "LABEL_CREATED" -> "Label created"
+    "EXCEPTION" -> "Exception"
+    null, "" -> "Waiting for scans"
+    else -> code.trim().lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
 
 /**
  * The status shown for a whole parcel — the furthest-along of its couriers, but an

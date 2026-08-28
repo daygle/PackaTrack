@@ -27,16 +27,16 @@ object AusPostParser {
 
     fun parse(json: String, requestedNumber: String): Snapshot? {
         val root = JsonUtil.objOrNull(json) ?: return null
+        // A free-account response that isn't authorised looks like:
+        // {"error":{"context":"/track/events?q=..","message":"AUTHENTICATION_FAILED"}}
+        if (root.optJSONObject("error") != null || root.optString("errorCode").isNotBlank()) return null
+
         val items = root.optJSONArray("queryTrackedResponseItems")
             ?: root.optJSONArray("TrackedItems")
+            ?: root.optJSONArray("trackingItems")
             ?: return null
         if (items.length() == 0) return null
         val item = items.optJSONObject(0) ?: return null
-
-        // A free-account response that isn't authorised looks like:
-        // {"error":{"context":"/track/events?q=..","message":"AUTHENTICATION_FAILED"}}
-        val errorObj = root.optJSONObject("error")
-        if (errorObj != null) return null
 
         val number = item.optString("tracking_id").ifBlank { requestedNumber }
         val events = mutableListOf<TrackingEvent>()
@@ -46,13 +46,17 @@ object AusPostParser {
             val shipment = shipments.optJSONObject(i) ?: continue
             collectEvents(shipment.optJSONArray("tracking_events"), number, events)
             collectEvents(shipment.optJSONArray("trackingEvents"), number, events)
+            collectEvents(shipment.optJSONArray("events"), number, events)
             collectEvents(shipment.optJSONArray("articles"), number, events)
         }
         collectEvents(item.optJSONArray("events"), number, events)
         collectEvents(item.optJSONArray("tracking_events"), number, events)
         collectEvents(item.optJSONArray("trackingEvents"), number, events)
 
-        if (events.isEmpty() && (JsonUtil.stringOr(item, "statusSummary") == null)) return null
+        if (events.isEmpty() &&
+            JsonUtil.stringOr(item, "statusSummary") == null &&
+            JsonUtil.stringOr(item, "status") == null
+        ) return null
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
 
         return Snapshot(

@@ -80,6 +80,7 @@ import com.packatrack.app.ui.overallStatusCode
 import com.packatrack.app.ui.parcelName
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.MonoNumber
+import com.packatrack.app.ui.theme.daysInTransitColor
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import kotlinx.coroutines.launch
@@ -461,10 +462,10 @@ private fun ParcelCard(
                 Text(
                     pluralStringResource(R.plurals.day_count, days, days),
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    color = daysInTransitColor,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(daysInTransitColor.copy(alpha = 0.12f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
                 Spacer(Modifier.width(4.dp))

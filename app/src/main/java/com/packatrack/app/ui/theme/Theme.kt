@@ -20,6 +20,9 @@ private val IndigoDark = Color(0xFF4338CA)
 private val Sky = Color(0xFF0EA5E9)
 private val Emerald = Color(0xFF10B981)
 
+/** Warm accent used for the parcel age / transit-duration badge. */
+val daysInTransitColor = Color(0xFFB45309)
+
 private val LightColors = lightColorScheme(
     primary = Indigo,
     onPrimary = Color.White,

@@ -26,10 +26,17 @@ import com.packatrack.app.ui.theme.statusColor
 @Composable
 fun StatusPill(code: String?, modifier: Modifier = Modifier) {
     val color = statusColor(code)
+    val containerColor = when (code?.uppercase()) {
+        "DELIVERED" -> Color(0xFFE8F7EF)
+        "OUT_FOR_DELIVERY" -> Color(0xFFFFF3D6)
+        "EXCEPTION" -> Color(0xFFFDE8E8)
+        "IN_TRANSIT" -> Color(0xFFE0F2FE)
+        else -> MaterialTheme.colorScheme.primaryContainer
+    }
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(color.copy(alpha = 0.1f))
+            .background(containerColor)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -51,7 +58,7 @@ fun CarrierChip(carrierId: String?, name: String, modifier: Modifier = Modifier)
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(color.copy(alpha = 0.1f))
+            .background(color.copy(alpha = 0.12f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
