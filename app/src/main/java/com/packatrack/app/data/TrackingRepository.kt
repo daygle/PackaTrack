@@ -317,8 +317,13 @@ class TrackingRepository(
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
+        android.util.Log.d("TrackingRepository", "Refreshing leg ${leg.id}: ${carrier.displayName} #${leg.trackingNumber}")
         val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount)
-            ?: return LegPoll(dataChanged = false, changes = emptyList())
+        if (snapshot == null) {
+            android.util.Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName} #${leg.trackingNumber})")
+            return LegPoll(dataChanged = false, changes = emptyList())
+        }
+        android.util.Log.d("TrackingRepository", "Got ${snapshot.events.size} events for leg ${leg.id}")
 
         // Cainiao/UBI commonly reports the destination-carrier number in the same
         // response. Keep it as a second leg so its scans can be fetched independently.
@@ -437,6 +442,7 @@ class TrackingRepository(
 
         // Persist new events (IGNORE on unique index keeps duplicates out).
         if (snapshot.events.isNotEmpty()) {
+            android.util.Log.d("TrackingRepository", "Storing ${snapshot.events.size} events for leg ${mutable.id}")
             events.insertAll(
                 snapshot.events.map {
                     EventEntity(
@@ -454,6 +460,7 @@ class TrackingRepository(
         val latest = snapshot.events.maxByOrNull { it.timeMs ?: 0L }
         // Snapshots are cumulative, so a size change means the carrier added scans.
         val dataChanged = snapshot.events.size != prevEvents.size || adopted
+        android.util.Log.d("TrackingRepository", "Leg ${mutable.id}: ${snapshot.events.size} events, dataChanged=$dataChanged")
 
         legs.update(
             mutable.copy(

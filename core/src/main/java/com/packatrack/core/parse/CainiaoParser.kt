@@ -21,9 +21,16 @@ import org.json.JSONObject
 object CainiaoParser {
 
     fun parse(json: String): Snapshot? {
-        val root = runCatching { JSONObject(json) }.getOrNull() ?: return null
-        val data = root.optJSONObject("data") ?: return null
-        if (data.length() == 0) return null
+        val root = runCatching { JSONObject(json) }.getOrNull()
+        if (root == null) {
+            android.util.Log.w("CainiaoParser", "Failed to parse JSON: ${json.take(200)}")
+            return null
+        }
+        val data = root.optJSONObject("data")
+        if (data == null || data.length() == 0) {
+            android.util.Log.d("CainiaoParser", "No data in response: ${json.take(300)}")
+            return null
+        }
 
         val names = data.names() ?: return null
         val number = names.getString(0)

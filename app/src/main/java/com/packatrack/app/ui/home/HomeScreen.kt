@@ -191,10 +191,13 @@ fun HomeScreen(
                 // just the new parcel.
                 syncing = true
                 scope.launch {
+                    android.util.Log.d("HomeScreen", "Adding shipment: $number")
                     val newId = runCatching {
                         repo.addShipment(number, title, orderUrl, carrier)
                     }.getOrNull()
+                    android.util.Log.d("HomeScreen", "Shipment added with id: $newId")
                     val outcome = newId?.let { repo.refreshShipment(it, force = true) } ?: RefreshOutcome(0, emptyList())
+                    android.util.Log.d("HomeScreen", "Refresh outcome: updated=${outcome.updated}, notable=${outcome.notable.size}")
                     Notifier.postChanges(context, outcome.notable.map { it.message })
                     syncing = false
                 }
@@ -366,9 +369,13 @@ private fun ParcelCard(
                 Spacer(Modifier.width(8.dp))
                 val days = daysInTransit(shipment.createdAt, status)
                 Text(
-                    if (days == 1) "1 day" else "$days days",
+                    "$days days",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
                 Spacer(Modifier.weight(1f))
                 legs.forEachIndexed { index, leg ->

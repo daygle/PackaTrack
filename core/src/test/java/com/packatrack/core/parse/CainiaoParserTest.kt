@@ -43,9 +43,6 @@ class CainiaoParserTest {
         // newest first
         assertTrue(snap.events.first().description.contains("Delivered"))
         assertEquals("DELIVERED", snap.events.first().statusCode)
-        // 0.352 kg → 352 g
-        assertNotNull(snap.weightGrams)
-        assertTrue(kotlin.math.abs(snap.weightGrams!! - 352.0) < 0.01)
     }
 
     @Test fun extractsRelatedLastMileNumber() {

@@ -53,22 +53,66 @@ class HttpTrackingFetcher(
                 "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Safari/537.36",
             )
         headers.forEach { (k, v) -> builder.header(k, v) }
-        return client.newCall(builder.build()).execute().use { resp ->
-            if (!resp.isSuccessful) return@use null
-            resp.body.string()
+        return try {
+            client.newCall(builder.build()).execute().use { resp ->
+                val body = resp.body.string()
+                android.util.Log.d("TrackingFetcher", "GET $url → ${resp.code} (${body.length} bytes)")
+                if (!resp.isSuccessful) {
+                    android.util.Log.w("TrackingFetcher", "HTTP ${resp.code} for $url")
+                    return@use null
+                }
+                body
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("TrackingFetcher", "Failed to fetch $url", e)
+            null
         }
     }
 
     private fun fetchCainiao(number: String): Snapshot? {
+        // Try the standard JSON endpoint first
         val body = get(
             "https://global.cainiao.com/global/detail.json?mailNos=$number&lang=en",
-            mapOf("Referer" to "https://global.cainiao.com/newDetail.htm?mailNos=$number"),
-        ) ?: return null
-        return com.packatrack.core.parse.CainiaoParser.parse(body)
+            mapOf(
+                "Referer" to "https://global.cainiao.com/newDetail.htm?mailNos=$number",
+                "Accept" to "application/json",
+            ),
+        )
+        if (body != null) {
+            android.util.Log.d("TrackingFetcher", "Cainiao response: ${body.take(500)}")
+            // Check for CAPTCHA or rate limiting
+            if (body.contains("captcha", ignoreCase = true) || body.contains("verify", ignoreCase = true)) {
+                android.util.Log.w("TrackingFetcher", "Cainiao returned CAPTCHA/verify page for $number")
+                return null
+            }
+            val snap = com.packatrack.core.parse.CainiaoParser.parse(body)
+            if (snap != null) {
+                android.util.Log.d("TrackingFetcher", "Parsed ${snap.events.size} events from Cainiao")
+                return snap
+            }
+        }
+        // Fallback: try the newer API endpoint that supports otherMailNoList
+        val body2 = get(
+            "https://global.cainiao.com/global/detail.json?mailNoList=$number&otherMailNoList=&lang=en",
+            mapOf(
+                "Referer" to "https://global.cainiao.com/newDetail.htm?mailNoList=$number&otherMailNoList=",
+                "Accept" to "application/json",
+            ),
+        )
+        if (body2 != null) {
+            android.util.Log.d("TrackingFetcher", "Cainiao fallback response: ${body2.take(500)}")
+            return com.packatrack.core.parse.CainiaoParser.parse(body2)
+        }
+        android.util.Log.w("TrackingFetcher", "All Cainiao endpoints failed for $number")
+        return null
     }
 
     private fun fetchAusPost(number: String): Snapshot? {
-        val key = ausPostKey()?.takeIf { it.isNotBlank() } ?: return null
+        val key = ausPostKey()?.takeIf { it.isNotBlank() }
+        if (key == null) {
+            android.util.Log.w("TrackingFetcher", "AusPost API key not configured, skipping")
+            return null
+        }
         val body = get(
             "https://digitalapi.auspost.com.au/v2/postage/track/events?q=$number",
             mapOf("AUTH-KEY" to key, "Accept" to "application/json"),

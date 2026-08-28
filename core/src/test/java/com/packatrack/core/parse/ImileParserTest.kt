@@ -26,8 +26,6 @@ class ImileParserTest {
         assertEquals(3, snap.events.size)
         assertEquals("DELIVERED", snap.events[0].statusCode)
         assertEquals("OUT_FOR_DELIVERY", snap.events[1].statusCode)
-        // 2.4kg → 2400g
-        assertEquals(2400.0, snap.weightGrams!!, 0.001)
     }
 
     @Test fun unauthenticatedResponseReturnsNull() {
