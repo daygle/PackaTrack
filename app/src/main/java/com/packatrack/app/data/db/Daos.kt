@@ -87,7 +87,7 @@ interface OrderDao {
     @Query("SELECT * FROM orders WHERE shipmentId = :shipmentId AND name = :name AND ((orderUrl = :orderUrl) OR (orderUrl IS NULL AND :orderUrl IS NULL)) LIMIT 1")
     suspend fun findDuplicate(shipmentId: Long, name: String, orderUrl: String?): OrderItemEntity?
 
-    @Query("DELETE FROM orders WHERE id = :id")
+    @Query("DELETE FROM orders WHERE id = :orderId")
     suspend fun deleteById(orderId: Long)
 
     @Query("DELETE FROM orders WHERE shipmentId = :shipmentId")
