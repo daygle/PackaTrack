@@ -4,7 +4,6 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Fallback launcher icon for API < 26 (composited background + foreground). -->
     <path android:pathData="M0,0h108v108H0z">
         <aapt:attr name="android:fillColor">
             <gradient
@@ -15,7 +14,6 @@
                 android:endColor="#064E3B" />
         </aapt:attr>
     </path>
-    <!-- Radial highlights for depth -->
     <path android:pathData="M0,0h108v108H0z">
         <aapt:attr name="android:fillColor">
             <gradient
@@ -26,8 +24,6 @@
                 android:endColor="#00000000" />
         </aapt:attr>
     </path>
-
-    <!-- The Prism (Geometric Parcel) -->
     <path
         android:fillColor="#6366F1"
         android:fillAlpha="0.9"
@@ -40,8 +36,6 @@
         android:fillColor="#10B981"
         android:fillAlpha="0.85"
         android:pathData="M54,54 L34,44 L34,68 L54,78 Z" />
-
-    <!-- Glass Highlights -->
     <path
         android:fillColor="#FFFFFF"
         android:fillAlpha="0.1"
@@ -51,8 +45,6 @@
         android:strokeWidth="0.5"
         android:strokeColor="#FFFFFF"
         android:strokeAlpha="0.3" />
-
-    <!-- Dynamic Tracking Pulse -->
     <path
         android:pathData="M20,60 C35,65 54,50 88,45"
         android:strokeWidth="2.5"
