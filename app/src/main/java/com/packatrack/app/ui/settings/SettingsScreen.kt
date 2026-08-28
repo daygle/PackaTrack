@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.packatrack.app.ui.settings
 
@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,7 +79,7 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             SettingsCard(Icons.Default.CloudSync, "Tracking & refresh", "Keep parcel statuses current automatically.") {
                 Text("Background refresh", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 2.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     intervals.forEach { hours ->
                         FilterChip(selected = interval == hours, onClick = { interval = hours; prefs.syncIntervalHours = hours; SyncWorker.schedule(context, hours) }, label = { Text("${hours}h") })
                     }
@@ -100,7 +102,7 @@ fun SettingsScreen(onBack: () -> Unit) {
             }
 
             SettingsCard(Icons.Default.Palette, "Appearance", "Choose how PackaTrack looks.") {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     themes.forEach { (value, label) -> FilterChip(selected = theme == value, onClick = { theme = value; prefs.themeMode = value }, label = { Text(label) }) }
                 }
             }
