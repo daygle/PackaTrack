@@ -1,6 +1,6 @@
 # PackaTrack
 
-Track AliExpress parcels that travel through **Cainiao UBI Smart Parcel**, **Australia Post** and **iMile** — including the tricky bits: parcels that get a **new tracking number** mid-journey, or packages that are **combined/consolidated** into one shipment.
+Track AliExpress parcels that travel through **Cainiao UBI Smart Parcel**, **Australia Post** and **iMile** - including the tricky bits: parcels that get a **new tracking number** mid-journey, or packages that are **combined/consolidated** into one shipment.
 
 Native Android app, Kotlin + Jetpack Compose, Room, WorkManager, OkHttp.
 
