@@ -35,6 +35,10 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        jniLibs {
+            keepDebugSymbols.add("**/libandroidx.graphics.path.so")
+            keepDebugSymbols.add("**/libsqlcipher.so")
+        }
     }
 
     testOptions {

@@ -19,15 +19,33 @@
         android:pathData="M0,0L108,0L108,30L0,74z"
         android:fillAlpha="0.10"
         android:fillColor="#FFFFFF" />
+    <!-- New design elements from ic_launcher_foreground_modern.xml -->
+    <!-- Tracking Path (Emerald) -->
     <path
-        android:pathData="M33,40 H65 Q72,40 72,47 V75 Q72,82 65,82 H33 Q26,82 26,75 V47 Q26,40 33,40 Z"
-        android:fillColor="#FFFFFF" />
-    <path android:pathData="M26,57 H72 V65 H26 Z" android:fillColor="#FFB300" />
-    <path android:pathData="M45,40 H53 V82 H45 Z" android:fillColor="#FFB300" />
+        android:pathData="M25,85 C40,85 54,75 54,65"
+        android:strokeWidth="4"
+        android:strokeColor="#10B981"
+        android:strokeLineCap="round" />
     <path
-        android:pathData="M58,39 A11,11 0 1,1 80,39 A11,11 0 1,1 58,39 Z M61,46 L69,59 L77,46 Z"
-        android:fillColor="#F43F5E" />
+        android:pathData="M20,95 C45,95 65,80 65,65"
+        android:strokeWidth="2"
+        android:strokeColor="#10B981"
+        android:strokeAlpha="0.4"
+        android:strokeLineCap="round" />
+
+    <!-- Isometric Box -->
     <path
-        android:pathData="M65,37 A4,4 0 1,1 73,37 A4,4 0 1,1 65,37 Z"
-        android:fillColor="#FFFFFF" />
+        android:fillColor="#10B981"
+        android:pathData="M54,60 L34,50 L34,80 L54,90 Z" />
+    <path
+        android:fillColor="#0EA5E9"
+        android:pathData="M54,60 L74,50 L74,80 L54,90 Z" />
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M54,60 L74,50 L54,40 L34,50 Z" />
+    <path
+        android:pathData="M34,50 L54,60 L74,50"
+        android:strokeWidth="1"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.3" />
 </vector>
