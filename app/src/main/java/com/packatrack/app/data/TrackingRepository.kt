@@ -56,7 +56,8 @@ class TrackingRepository(
         legs.findByTrackingNumber(number)?.let { return it.shipmentId }
 
         val now = System.currentTimeMillis()
-        val carrier = carrierOverride ?: detectCarrier(number) ?: Carrier.CAINIAO
+        val detectedCarriers = detectCarriers(number)
+        val carrier = carrierOverride ?: detectedCarriers.firstOrNull() ?: Carrier.CAINIAO
         val shipmentId = shipments.insert(
             ShipmentEntity(createdAt = now),
         )
@@ -68,6 +69,20 @@ class TrackingRepository(
                 createdAt = now,
             ),
         )
+        // Auto mode means all matching carrier interpretations are tracked. Keep one
+        // physical parcel with separate legs; manual carrier selection remains one leg.
+        if (carrierOverride == null) {
+            detectedCarriers.drop(1).forEach { detected ->
+                legs.insert(
+                    TrackingLegEntity(
+                        shipmentId = shipmentId,
+                        trackingNumber = number,
+                        carrierId = detected.id,
+                        createdAt = now,
+                    ),
+                )
+            }
+        }
         // Record the order this parcel started as (name and/or link), if either was given.
         val orderName = title?.takeIf { it.isNotBlank() }
         val orderLink = orderUrl?.takeIf { it.isNotBlank() }
@@ -302,6 +317,22 @@ class TrackingRepository(
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
         val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount) ?: return null
 
+        // Cainiao/UBI commonly reports the destination-carrier number in the same
+        // response. Keep it as a second leg so its scans can be fetched independently.
+        if (snapshot.relatedTrackingNumbers.isNotEmpty()) {
+            for (relatedNumber in snapshot.relatedTrackingNumbers) {
+                val normalized = FingerprintUtil.normalize(relatedNumber)
+                if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
+                val existing = legs.findByTrackingNumber(normalized)
+                if (existing == null) {
+                    addCourier(leg.shipmentId, normalized, com.packatrack.core.detect.CarrierDetector.detect(normalized))
+                } else if (existing.shipmentId != leg.shipmentId) {
+                    // Leave cross-parcel ownership untouched; consolidation logic handles it.
+                    continue
+                }
+            }
+        }
+
         var mutable = leg
         val newChanges = mutableListOf<ChangeEntity>()
         val now = System.currentTimeMillis()
@@ -439,6 +470,6 @@ class TrackingRepository(
     private suspend fun fetchSnapshot(carrier: Carrier, number: String, stageHint: Int): Snapshot? =
         httpFetcher.fetch(carrier, number, stageHint)
 
-    private fun detectCarrier(number: String): Carrier? =
-        com.packatrack.core.detect.CarrierDetector.detect(number)
+    private fun detectCarriers(number: String): List<Carrier> =
+        com.packatrack.core.detect.CarrierDetector.detectAll(number)
 }

@@ -22,6 +22,12 @@ class CarrierDetectorTest {
 
     @Test fun cainiaoNumber() {
         assertEquals(Carrier.CAINIAO, CarrierDetector.detect("CNJNR2024050010234N"))
+        assertEquals(Carrier.CAINIAO, CarrierDetector.detect("AP00839790702074"))
+    }
+
+    @Test fun detectsAllMatchingCarriers() {
+        assertEquals(listOf(Carrier.AUSTRALIA_POST), CarrierDetector.detectAll("EV938507560AU"))
+        assertEquals(listOf(Carrier.CAINIAO), CarrierDetector.detectAll("AP00839790702074"))
     }
 
     @Test fun imileNumber() {

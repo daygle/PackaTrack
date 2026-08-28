@@ -5,6 +5,8 @@ data class Snapshot(
     val trackingNumber: String,
     val dimensionsCm: Dimensions?,
     val events: List<TrackingEvent>,
+    /** Alternate/current numbers reported by the carrier for the same parcel. */
+    val relatedTrackingNumbers: List<String> = emptyList(),
 ) {
     companion object {
         fun empty(trackingNumber: String) =

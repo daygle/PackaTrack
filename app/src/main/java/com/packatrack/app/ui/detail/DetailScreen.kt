@@ -25,12 +25,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -247,7 +247,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     action = {
                         Box {
                             IconButton(onClick = { historySortMenuOpen = true }) {
-                                Icon(Icons.Default.Sort, "Sort History", modifier = Modifier.size(20.dp))
+                                Icon(Icons.AutoMirrored.Filled.Sort, "Sort History", modifier = Modifier.size(20.dp))
                             }
                             DropdownMenu(expanded = historySortMenuOpen, onDismissRequest = { historySortMenuOpen = false }) {
                                 DropdownMenuItem(

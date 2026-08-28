@@ -17,6 +17,9 @@ object CarrierDetector {
     private val AUSPOST_UPU = Regex("^[A-Z]{2}[0-9]{9}AU$", RegexOption.IGNORE_CASE)
     private val AUSPOST_DOMESTIC = Regex("^[A-Z]{2}[0-9]{8}[0-9A-Z]$", RegexOption.IGNORE_CASE)
     private val AUSPOST_CONSIGNMENT = Regex("^7[0-9]{12}$")
+    // Australia Post often exposes a 14-digit article number while UBI retains the
+    // same identifier with an AP prefix (for example AP00839790702074).
+    private val CAINIAO_AP = Regex("^AP[0-9]{14}$", RegexOption.IGNORE_CASE)
     private val CAINIAO = Regex("^CN[A-Za-z0-9]{8,20}N?$", RegexOption.IGNORE_CASE)
     private val IMILE = Regex("^IML?[A-Za-z0-9]{6,22}$", RegexOption.IGNORE_CASE)
 
@@ -25,22 +28,25 @@ object CarrierDetector {
     /** Morning Global uses an MG prefix in the wild (best effort). */
     private val MORNING_GLOBAL = Regex("^MG[A-Za-z0-9]{6,20}$", RegexOption.IGNORE_CASE)
 
-    /**
-     * Returns the detected [Carrier] or null if ambiguous/unknown.
-     * More specific patterns are checked before looser ones.
-     */
-    fun detect(trackingNumberRaw: String): Carrier? {
+    /** Returns every carrier whose known format matches the number. */
+    fun detectAll(trackingNumberRaw: String): List<Carrier> {
         val n = trackingNumberRaw.trim().uppercase()
-        if (n.isEmpty()) return null
-        return when {
-            n.endsWith("AU") && AUSPOST_UPU.matches(n) -> Carrier.AUSTRALIA_POST
-            AUSPOST_CONSIGNMENT.matches(n) -> Carrier.AUSTRALIA_POST
-            MORNING_GLOBAL.matches(n) -> Carrier.MORNING_GLOBAL
-            IMILE.matches(n) -> Carrier.IMILE
-            CAINIAO.matches(n) -> Carrier.CAINIAO
-            AUSPOST_DOMESTIC.matches(n) && !IMILE.matches(n) -> Carrier.AUSTRALIA_POST
-            ARAMEX.matches(n) -> Carrier.ARAMEX
-            else -> null
-        }
+        if (n.isEmpty()) return emptyList()
+        return buildList {
+            if (n.endsWith("AU") && AUSPOST_UPU.matches(n)) add(Carrier.AUSTRALIA_POST)
+            if (AUSPOST_CONSIGNMENT.matches(n)) add(Carrier.AUSTRALIA_POST)
+            if (MORNING_GLOBAL.matches(n)) add(Carrier.MORNING_GLOBAL)
+            if (IMILE.matches(n)) add(Carrier.IMILE)
+            if (CAINIAO_AP.matches(n)) add(Carrier.CAINIAO)
+            if (CAINIAO.matches(n)) add(Carrier.CAINIAO)
+            if (AUSPOST_DOMESTIC.matches(n) && !IMILE.matches(n)) add(Carrier.AUSTRALIA_POST)
+            if (ARAMEX.matches(n)) add(Carrier.ARAMEX)
+        }.distinct()
     }
+
+    /**
+     * Returns the best detected [Carrier] for compatibility with existing callers.
+     * Use [detectAll] when the UI/API needs to show all possible matches.
+     */
+    fun detect(trackingNumberRaw: String): Carrier? = detectAll(trackingNumberRaw).firstOrNull()
 }

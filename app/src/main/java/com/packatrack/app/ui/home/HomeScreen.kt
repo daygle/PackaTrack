@@ -396,8 +396,9 @@ private fun AddShipmentDialog(
     var override by remember { mutableStateOf<Carrier?>(value = null) }
     var showManual by remember { mutableStateOf(value = false) }
 
-    val detected = CarrierDetector.detect(number)
-    val chosen = override ?: detected
+    val detectedCarriers = CarrierDetector.detectAll(number)
+    val detected = detectedCarriers.firstOrNull()
+    val chosen = override
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -438,7 +439,7 @@ private fun AddShipmentDialog(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Auto-detected: ${detected.displayName}",
+                                "Auto-detected: ${detectedCarriers.joinToString(" + ") { it.displayName }}",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary

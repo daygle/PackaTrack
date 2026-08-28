@@ -30,6 +30,21 @@ object CainiaoParser {
         val pkg = data.optJSONObject(number) ?: return null
 
         val events = mutableListOf<TrackingEvent>()
+        val relatedNumbers = linkedSetOf<String>()
+        listOf("trackingNumber", "trackingNo", "mailNo", "waybillNo", "waybillNumber", "lastMileTrackingNo", "lastMileTrackingNumber")
+            .forEach { key ->
+                pkg.optString(key).takeIf { it.isNotBlank() && it != number }?.let(relatedNumbers::add)
+            }
+        pkg.optJSONArray("alternateArticles")?.let { articles ->
+            for (i in 0 until articles.length()) {
+                when (val value = articles.opt(i)) {
+                    is org.json.JSONObject -> listOf("trackingNumber", "trackingNo", "mailNo", "waybillNo", "waybillNumber")
+                        .firstNotNullOfOrNull { key -> value.optString(key).takeIf { it.isNotBlank() } }
+                        ?.takeIf { it != number }?.let(relatedNumbers::add)
+                    is String -> value.takeIf { it.isNotBlank() && it != number }?.let(relatedNumbers::add)
+                }
+            }
+        }
 
         pkg.optJSONArray("sections")?.let { sections ->
             for (i in 0 until sections.length()) {
@@ -72,6 +87,7 @@ object CainiaoParser {
             trackingNumber = number,
             dimensionsCm = null,
             events = events,
+            relatedTrackingNumbers = relatedNumbers.toList(),
         )
     }
 

@@ -23,6 +23,11 @@ class CainiaoParserTest {
       ]}}}
     """.trimIndent()
 
+    private val relatedNumberShape = """
+    {"data":{"AP00839790702074":{"status":"IN_TRANSIT","lastMileTrackingNumber":"UBI1234567890",
+      "sections":[{"detailList":[{"time":"2026-08-20 09:00","desc":"Accepted"}]}]}}}
+    """.trimIndent()
+
     private val traceNodeShape = """
     {"data":{"CNX1234567890ZZ":{"logisticsTrace":{"traceNodeList":[
        {"time":"2026-08-20 09:00","description":"Arrived at sorting center","location":"Melbourne VIC"},
@@ -41,6 +46,12 @@ class CainiaoParserTest {
         // 0.352 kg → 352 g
         assertNotNull(snap.weightGrams)
         assertTrue(kotlin.math.abs(snap.weightGrams!! - 352.0) < 0.01)
+    }
+
+    @Test fun extractsRelatedLastMileNumber() {
+        val snap = CainiaoParser.parse(relatedNumberShape)
+        assertNotNull(snap)
+        assertEquals(listOf("UBI1234567890"), snap!!.relatedTrackingNumbers)
     }
 
     @Test fun parsesTraceNodeListShape() {

@@ -45,9 +45,12 @@ object AusPostParser {
         for (i in 0 until shipments.length()) {
             val shipment = shipments.optJSONObject(i) ?: continue
             collectEvents(shipment.optJSONArray("tracking_events"), number, events)
+            collectEvents(shipment.optJSONArray("trackingEvents"), number, events)
             collectEvents(shipment.optJSONArray("articles"), number, events)
         }
         collectEvents(item.optJSONArray("events"), number, events)
+        collectEvents(item.optJSONArray("tracking_events"), number, events)
+        collectEvents(item.optJSONArray("trackingEvents"), number, events)
 
         if (events.isEmpty() && (JsonUtil.stringOr(item, "statusSummary") == null)) return null
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
