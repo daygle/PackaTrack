@@ -20,11 +20,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CallMerge
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -60,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.packatrack.app.data.db.OrderItemEntity
 import com.packatrack.app.data.db.ShipmentWithLegs
@@ -93,7 +95,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     val legs = entry?.legs.orEmpty()
     val orders = entry?.orders.orEmpty()
 
-    var menuOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(value = false) }
     var showAddCourier by remember { mutableStateOf(false) }
     var showAddOrder by remember { mutableStateOf(false) }
     var showCombine by remember { mutableStateOf(false) }
@@ -126,13 +128,13 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
-                                leadingIcon = { Icon(Icons.Default.CallMerge, null) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, null) },
                                 text = { Text("Combine with another parcel") },
                                 onClick = { menuOpen = false; showCombine = true },
                             )
                             DropdownMenuItem(
-                                leadingIcon = { Icon(Icons.Default.Delete, null) },
-                                text = { Text("Delete parcel") },
+                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                text = { Text("Delete parcel", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     menuOpen = false
                                     scope.launch { repo.delete(id) }
@@ -143,39 +145,34 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
                 ),
             )
         },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding)) {
-            item(key = "header") {
-                HeaderCard(entry)
+        LazyColumn(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            item(key = "hero") {
+                HeroSection(entry)
             }
 
             item(key = "orders_title") {
                 SectionHeader(
-                    title = "Orders (${orders.size})",
-                    action = {
-                        TextButton(onClick = { showAddOrder = true }) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Add order")
-                        }
-                    },
+                    title = "Orders",
+                    count = orders.size,
+                    onAdd = { showAddOrder = true }
                 )
             }
             if (orders.isEmpty()) {
                 item(key = "orders_empty") {
-                    Text(
-                        "No orders recorded. Add one for each AliExpress order in this parcel — handy when Cainiao combines several orders under one number.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                    )
+                    EmptySectionText("No orders linked. Add AliExpress orders here to track combined shipments easily.")
                 }
             }
             items(orders, key = { "order_${it.id}" }) { order ->
@@ -183,7 +180,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     order = order,
                     onOpenLink = {
                         order.orderUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
                         }
                     },
                     onRemove = { scope.launch { repo.removeOrder(order.id) } },
@@ -192,14 +189,9 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
 
             item(key = "couriers_title") {
                 SectionHeader(
-                    title = "Couriers (${legs.size})",
-                    action = {
-                        TextButton(onClick = { showAddCourier = true }) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Add courier")
-                        }
-                    },
+                    title = "Tracking Numbers",
+                    count = legs.size,
+                    onAdd = { showAddCourier = true }
                 )
             }
             items(legs, key = { "leg_${it.id}" }) { leg ->
@@ -220,32 +212,16 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
             }
 
             if (changes.isNotEmpty()) {
-                item(key = "changes_title") { SectionHeader("What PackaTrack noticed") }
+                item(key = "changes_title") { SectionHeader("Insights", count = changes.size) }
                 items(changes, key = { "chg_${it.id}" }) { change ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp)) {
-                        Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(change.message, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                TimeUtil.format(change.createdAt) ?: "",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
+                    InsightRow(change.message, change.createdAt)
                 }
             }
 
-            item(key = "timeline_title") { SectionHeader("Timeline") }
+            item(key = "timeline_title") { SectionHeader("Timeline", count = timeline.size) }
             if (timeline.isEmpty()) {
                 item(key = "timeline_empty") {
-                    Text(
-                        "No scans yet — refresh from the home screen to check for updates.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                    )
+                    EmptySectionText("Scanning for updates... Pull to refresh on home screen.")
                 }
             }
             items(timeline, key = { "ev_${it.id}" }) { ev ->
@@ -257,13 +233,14 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     statusCode = ev.statusCode,
                     carrierId = legById[ev.legId]?.carrierId,
                     carrierName = carrier?.displayName,
+                    isLast = timeline.last() == ev
                 )
             }
             item(key = "footer") { Spacer(Modifier.height(40.dp)) }
         }
     }
 
-    if (showAddCourier && shipment != null) {
+    if ((showAddCourier) && (shipment != null)) {
         AddCourierDialog(
             existing = legs,
             onDismiss = { showAddCourier = false },
@@ -301,7 +278,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     if (showEdit && shipment != null) {
         EditParcelDialog(
             initialTitle = shipment.title.orEmpty(),
-            initialWeight = shipment.weightGrams?.let { it.toInt().toString() }.orEmpty(),
+            initialWeight = shipment.weightGrams?.toInt()?.toString().orEmpty(),
             onDismiss = { showEdit = false },
             onSave = { title, weight ->
                 showEdit = false
@@ -312,33 +289,105 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
 }
 
 @Composable
-private fun HeaderCard(entry: ShipmentWithLegs?) {
+private fun HeroSection(entry: ShipmentWithLegs?) {
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
+    val status = overallStatusCode(legs)
+
     Card(
-        Modifier.fillMaxWidth().padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(24.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusPill(overallStatusCode(legs))
+        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            StatusPill(status)
+            Spacer(Modifier.height(16.dp))
+            Text(
+                entry?.let { parcelName(it.shipment, it.orders, it.legs) } ?: "Parcel",
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "Last updated: ${legs.mapNotNull { it.lastSyncAt }.maxOrNull()?.let { TimeUtil.format(it) } ?: "Never"}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+            com.packatrack.app.ui.components.ShipmentProgressTracker(status)
+
+            Spacer(Modifier.height(16.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 parcelWeight(shipment?.weightGrams, legs)?.let {
-                    AssistChip(onClick = {}, label = { Text(humanWeight(it)) })
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(humanWeight(it)) },
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
                 }
-                CountsChip(legs.size, orders = entry?.orders?.size ?: 0)
+                AssistChip(
+                    onClick = {},
+                    label = { Text("${legs.size} Couriers") },
+                    shape = RoundedCornerShape(12.dp)
+                )
             }
         }
     }
 }
 
-/** Summarises how many couriers and orders the parcel has. */
 @Composable
-private fun CountsChip(couriers: Int, orders: Int) {
-    val text = buildString {
-        append(if (couriers == 1) "1 courier" else "$couriers couriers")
-        if (orders > 0) append(if (orders == 1) " · 1 order" else " · $orders orders")
+private fun SectionHeader(title: String, count: Int = 0, onAdd: (() -> Unit)? = null) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        if (count > 0) {
+            Text(
+                count.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+        }
+        if (onAdd != null) {
+            IconButton(
+                onClick = onAdd,
+                modifier = Modifier
+                    .size(32.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+            }
+        }
     }
-    AssistChip(onClick = {}, label = { Text(text) })
+}
+
+@Composable
+private fun EmptySectionText(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+    )
 }
 
 @Composable
@@ -348,35 +397,29 @@ private fun OrderRow(
     onRemove: () -> Unit,
 ) {
     Card(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+            Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(order.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f)) {
+                Text(order.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
             if (!order.orderUrl.isNullOrBlank()) {
                 IconButton(onClick = onOpenLink) {
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open AliExpress order", modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
             IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Close, contentDescription = "Remove order", modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
             }
         }
-    }
-}
-
-@Composable
-private fun SectionHeader(title: String, action: (@Composable () -> Unit)? = null) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-        action?.invoke()
     }
 }
 
@@ -389,33 +432,64 @@ private fun CourierRow(
 ) {
     val carrier = Carrier.fromId(leg.carrierId)
     Card(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.padding(14.dp)) {
+        Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CarrierChip(leg.carrierId, carrier?.displayName ?: "Carrier", Modifier.weight(1f))
+                CarrierChip(leg.carrierId, carrier?.displayName ?: "Courier")
+                Spacer(Modifier.weight(1f))
                 IconButton(onClick = onOpenSite) {
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = "Open on carrier site", modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                 }
                 if (canRemove) {
                     IconButton(onClick = onRemove) {
-                        Icon(Icons.Default.Close, contentDescription = "Remove courier", modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
                     }
                 }
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             Text(leg.trackingNumber, style = MonoNumber)
-            leg.aliasNumbers.takeIf { it.isNotBlank() }?.let {
+            if (leg.aliasNumbers.isNotBlank()) {
                 Text(
-                    "Previously: $it",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    "Aliases: ${leg.aliasNumbers}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(Modifier.height(8.dp))
-            StatusPill(leg.lastStatusCode)
+        }
+    }
+}
+
+@Composable
+private fun InsightRow(message: String, time: Long) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .size(24.dp)
+                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(message, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                TimeUtil.format(time) ?: "",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
         }
     }
 }
@@ -428,24 +502,48 @@ private fun TimelineRow(
     statusCode: String?,
     carrierId: String?,
     carrierName: String?,
+    isLast: Boolean
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Top,
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Box(
-            Modifier.padding(top = 5.dp).size(10.dp).clip(CircleShape).background(statusColor(statusCode)),
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(time, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(description, style = MaterialTheme.typography.bodyMedium)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                location?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                if (carrierName != null) {
-                    CarrierChip(carrierId, carrierName)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            val color = statusColor(statusCode)
+            Box(
+                Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(color)
+            )
+            if (!isLast) {
+                Box(
+                    Modifier
+                        .width(2.dp)
+                        .height(60.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant)
+                )
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.padding(bottom = 24.dp)) {
+            Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(2.dp))
+            Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+            if (!location.isNullOrBlank() || !carrierName.isNullOrBlank()) {
+                Row(
+                    modifier = Modifier.padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    location?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                    carrierName?.let {
+                        CarrierChip(carrierId, it)
+                    }
                 }
             }
         }
@@ -539,7 +637,7 @@ private fun CombineDialog(
                             onClick = { onCombine(cand.shipment.id) },
                             modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
                         ) {
-                            Icon(Icons.Default.CallMerge, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Filled.CallMerge, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
                             Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -563,9 +661,11 @@ private fun EditParcelDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            Button(onClick = {
-                onSave(title.trim().ifBlank { null }, weight.trim().toDoubleOrNull())
-            }) { Text("Save") }
+            Button(
+                onClick = {
+                    onSave(title.trim().ifBlank { null }, weight.trim().toDoubleOrNull())
+                },
+            ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         title = { Text("Edit parcel") },

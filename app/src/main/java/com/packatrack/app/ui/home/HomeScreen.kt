@@ -52,6 +52,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -101,7 +107,19 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("PackaTrack", style = MaterialTheme.typography.titleLarge) },
+                title = {
+                    Column {
+                        Text("PackaTrack", style = MaterialTheme.typography.titleLarge)
+                        if (shipments.isNotEmpty()) {
+                            val inTransit = shipments.count { overallStatusCode(it.legs) == "IN_TRANSIT" }
+                            Text(
+                                "$inTransit in transit · ${shipments.size} total",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                },
                 actions = {
                     IconButton(onClick = { runSync { repo.refreshAll() } }) {
                         if (syncing) {
@@ -126,12 +144,17 @@ fun HomeScreen(
                 onClick = { showAddDialog = true },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("Add parcel") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             )
         },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp, top = 8.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp, top = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             if (recentChanges.isNotEmpty()) {
                 item(key = "banner") { RecentChangesCard(recentChanges.take(3).map { it.message }) }
@@ -178,30 +201,35 @@ fun HomeScreen(
 @Composable
 private fun RecentChangesCard(messages: List<String>) {
     Card(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Outlined.NotificationsActive,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(20.dp)
                 )
                 Spacer(Modifier.size(8.dp))
                 Text(
-                    "Recent parcel changes",
+                    "Recent Activity",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             messages.forEach {
                 Text(
                     "•  $it",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -212,22 +240,35 @@ private fun RecentChangesCard(messages: List<String>) {
 @Composable
 private fun EmptyState() {
     Column(
-        Modifier.fillMaxWidth().padding(32.dp).padding(top = 48.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(32.dp)
+            .padding(top = 80.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            Icons.Default.Inventory2,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("No parcels yet", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Inventory2,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("No parcels tracking", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(8.dp))
         Text(
-            "Tap “Add parcel” and paste an AliExpress tracking number to start following it.",
-            style = MaterialTheme.typography.bodyMedium,
+            "Add a tracking number to start monitoring your AliExpress shipments in one place.",
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }
@@ -245,11 +286,16 @@ private fun ParcelCard(
     val legs = entry.legs
     val primary = legs.firstOrNull()
     val title = parcelName(shipment, entry.orders, legs)
+    val status = overallStatusCode(legs)
 
     Card(
         onClick = onOpen,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
@@ -260,31 +306,28 @@ private fun ParcelCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        legs.joinToString("  ·  ") { it.trackingNumber }
-                            .ifBlank { "No tracking numbers yet" },
+                        legs.firstOrNull()?.trackingNumber ?: "No tracking number",
                         style = MonoNumber,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Actions")
+                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.outline)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
                             leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                            text = { Text("Refresh this parcel") },
+                            text = { Text("Refresh") },
                             onClick = { menuOpen = false; onRefresh() },
                         )
                         primary?.let { leg ->
                             Carrier.fromId(leg.carrierId)?.let { carrier ->
                                 DropdownMenuItem(
                                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
-                                    text = { Text("Open on carrier site") },
+                                    text = { Text("View on Web") },
                                     onClick = {
                                         menuOpen = false
                                         runCatching {
@@ -297,22 +340,31 @@ private fun ParcelCard(
                             }
                         }
                         DropdownMenuItem(
-                            leadingIcon = { Icon(Icons.Default.Delete, null) },
-                            text = { Text("Delete parcel") },
+                            leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
                             onClick = { menuOpen = false; onDelete() },
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusPill(overallStatusCode(legs))
-                legs.forEach { leg ->
-                    CarrierChip(leg.carrierId, Carrier.fromId(leg.carrierId)?.displayName ?: "Carrier")
+            Spacer(Modifier.height(16.dp))
+
+            com.packatrack.app.ui.components.ShipmentProgressTracker(status)
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                StatusPill(status)
+                Spacer(Modifier.weight(1f))
+                legs.forEachIndexed { index, leg ->
+                    if (index < 2) {
+                        CarrierChip(leg.carrierId, Carrier.fromId(leg.carrierId)?.displayName ?: "Courier")
+                        Spacer(Modifier.width(8.dp))
+                    }
                 }
-                parcelWeight(shipment.weightGrams, legs)?.let {
-                    androidx.compose.material3.AssistChip(onClick = onOpen, label = { Text(humanWeight(it)) })
+                if (legs.size > 2) {
+                    Text("+${legs.size - 2}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                 }
             }
         }

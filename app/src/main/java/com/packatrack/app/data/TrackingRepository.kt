@@ -73,7 +73,7 @@ class TrackingRepository(
         // Record the order this parcel started as (name and/or link), if either was given.
         val orderName = title?.takeIf { it.isNotBlank() }
         val orderLink = orderUrl?.takeIf { it.isNotBlank() }
-        if (orderName != null || orderLink != null) {
+        if ((orderName != null) || (orderLink != null)) {
             orders.insert(
                 OrderItemEntity(
                     shipmentId = shipmentId,
@@ -221,7 +221,7 @@ class TrackingRepository(
 
     /** Refreshes every courier leg on every active parcel (oldest-sync first). */
     suspend fun refreshAll(): RefreshOutcome {
-        val activeIds = shipments.all().filterNot { it.archived }.map { it.id }.toSet()
+        val activeIds = shipments.all().asSequence().filterNot { it.archived }.map { it.id }.toSet()
         return refreshLegs(legs.all().filter { it.shipmentId in activeIds })
     }
 

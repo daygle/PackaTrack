@@ -13,8 +13,6 @@
 @rem See the License for the specific language governing permissions and
 @rem limitations under the License.
 @rem
-@rem SPDX-License-Identifier: Apache-2.0
-@rem
 
 @if "%DEBUG%"=="" @echo off
 @rem ##########################################################################
@@ -55,7 +53,7 @@ echo location of your Java installation. 1>&2
 
 :findJavaFromJavaHome
 set JAVA_HOME=%JAVA_HOME:"=%
-set JAVA_EXE=%JAVA_HOME%/bin/java.exe
+set JAVA_EXE=%JAVA_HOME%\bin\java.exe
 
 if exist "%JAVA_EXE%" goto execute
 
@@ -69,8 +67,6 @@ echo location of your Java installation. 1>&2
 
 :execute
 @rem Setup the command line
-
-
 
 @rem Execute gradlew
 @rem endlocal doesn't take effect until after the line is parsed and variables are expanded
