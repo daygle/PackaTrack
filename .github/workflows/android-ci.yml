@@ -30,10 +30,8 @@ jobs:
           java-version: '21'
           cache: gradle
 
-      # Let setup-android install the packages: it uses an up-to-date cmdline-tools that can
-      # read Google's current SDK repository (XML v4), so it can see the android-37 platform
-      # that compileSdk 37 (required by the androidx/compose/coil deps) needs. The runner's
-      # older standalone sdkmanager only understands XML v3 and fails to find android-37.
+      # The current AndroidX/Compose dependencies require compileSdk 37. setup-android v4
+      # resolves the published Android 17 platform as platforms;android-37.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
