@@ -128,7 +128,7 @@ class TrackingRepository(
 
         legs.findByTrackingNumber(number)?.let { return it.id }
 
-        val carrier = carrierOverride ?: detectCarrier(number) ?: Carrier.CAINIAO
+        val carrier = carrierOverride ?: detectCarriers(number).firstOrNull() ?: Carrier.CAINIAO
         val now = System.currentTimeMillis()
         val legId = legs.insert(
             TrackingLegEntity(
