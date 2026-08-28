@@ -39,7 +39,9 @@ private val LightColors = lightColorScheme(
     onSurface = Color(0xFF0F172A),
     surfaceVariant = Color(0xFFF1F5F9),
     onSurfaceVariant = Color(0xFF475569),
-    outline = Color(0xFFCBD5E1),
+    // `outline` is used only for secondary text/icons in this app (borders use
+    // outlineVariant), so keep it dark enough to read — slate-500, not slate-300.
+    outline = Color(0xFF64748B),
     outlineVariant = Color(0xFFE2E8F0),
     error = Color(0xFFEF4444),
 )
@@ -63,7 +65,8 @@ private val DarkColors = darkColorScheme(
     onSurface = Color(0xFFF8FAFC),
     surfaceVariant = Color(0xFF334155),
     onSurfaceVariant = Color(0xFF94A3B8),
-    outline = Color(0xFF475569),
+    // Secondary text/icons on dark surfaces — lift to slate-400 so it stays legible.
+    outline = Color(0xFF94A3B8),
     outlineVariant = Color(0xFF334155),
     error = Color(0xFFFCA5A5),
 )
