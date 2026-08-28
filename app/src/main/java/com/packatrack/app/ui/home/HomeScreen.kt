@@ -92,6 +92,7 @@ fun HomeScreen(
 
     val shipments by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
     val recentChanges by repo.observeRecentChanges().collectAsStateWithLifecycle(initialValue = emptyList())
+    val firstEventTimes by repo.observeFirstEventTimes().collectAsStateWithLifecycle(initialValue = emptyMap())
 
     var syncing by remember { mutableStateOf(value = false) }
     var showAddDialog by remember { mutableStateOf(value = false) }
@@ -173,6 +174,7 @@ fun HomeScreen(
                 items(shipments, key = { it.shipment.id }) { entry ->
                     ParcelCard(
                         entry = entry,
+                        firstEventMs = firstEventTimes[entry.shipment.id],
                         onOpen = { onOpenDetail(entry.shipment.id) },
                         onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
                         onRefresh = { runSync { repo.refreshShipment(entry.shipment.id, force = true) } },
@@ -286,6 +288,7 @@ private fun EmptyState() {
 @Composable
 private fun ParcelCard(
     entry: ShipmentWithLegs,
+    firstEventMs: Long?,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onRefresh: () -> Unit,
@@ -307,8 +310,9 @@ private fun ParcelCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
+        val days = daysInTransit(firstEventMs ?: shipment.createdAt)
         Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         title,
@@ -323,6 +327,16 @@ private fun ParcelCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Text(
+                    if (days == 1) "1 day" else "$days days",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+                Spacer(Modifier.width(4.dp))
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.outline)
@@ -366,17 +380,6 @@ private fun ParcelCard(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 StatusPill(status)
-                Spacer(Modifier.width(8.dp))
-                val days = daysInTransit(shipment.createdAt, status)
-                Text(
-                    "$days days",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                )
                 Spacer(Modifier.weight(1f))
                 legs.forEachIndexed { index, leg ->
                     if (index < 2) {
@@ -489,7 +492,7 @@ private fun AddShipmentDialog(
                     )
                 }
 
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Order Name (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Item Name (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("Order Link (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },

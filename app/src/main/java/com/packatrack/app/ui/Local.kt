@@ -50,10 +50,13 @@ fun overallStatusCode(legs: List<TrackingLegEntity>): String? {
     return STATUS_ORDER.firstOrNull { it in codes } ?: codes.first()
 }
 
-/** Calculates how many days a parcel has been active. */
-fun daysInTransit(createdAt: Long, lastStatusCode: String?): Int {
-    val now = System.currentTimeMillis()
-    val diff = now - createdAt
-    val days = (diff / (1000 * 60 * 60 * 24)).toInt()
-    return days.coerceAtLeast(0)
+/**
+ * Calendar days (UTC) a parcel has been in transit, measured from its first tracking scan.
+ * Falls back to 0 when there is no start time yet (e.g. a freshly added parcel with no scans).
+ */
+fun daysInTransit(startMs: Long?): Int {
+    if (startMs == null || startMs <= 0L) return 0
+    val day = 24L * 60 * 60 * 1000
+    val days = (System.currentTimeMillis() / day) - (startMs / day)
+    return days.toInt().coerceAtLeast(0)
 }

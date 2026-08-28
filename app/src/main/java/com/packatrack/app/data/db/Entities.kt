@@ -103,6 +103,12 @@ data class EventEntity(
     val statusCode: String? = null,
 )
 
+/** Earliest scan time for one shipment (projection for the "days in transit" count). */
+data class ShipmentFirstEvent(
+    val shipmentId: Long,
+    val firstMs: Long?,
+)
+
 /** Human-readable change entries: renumbered / combined / reweighed / progress. */
 @Entity(tableName = "changes", indices = [Index("shipmentId")])
 data class ChangeEntity(
