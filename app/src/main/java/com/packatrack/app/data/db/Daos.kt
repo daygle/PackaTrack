@@ -15,6 +15,10 @@ interface ShipmentDao {
     fun observeActiveWithLegs(): Flow<List<ShipmentWithLegs>>
 
     @Transaction
+    @Query("SELECT * FROM shipments WHERE archived = 1 ORDER BY createdAt DESC")
+    fun observeArchivedWithLegs(): Flow<List<ShipmentWithLegs>>
+
+    @Transaction
     @Query("SELECT * FROM shipments WHERE id = :id LIMIT 1")
     fun observeWithLegs(id: Long): Flow<ShipmentWithLegs?>
 

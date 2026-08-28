@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
@@ -71,7 +72,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -80,6 +81,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.packatrack.app.R
 import com.packatrack.app.data.BackupManager
 import com.packatrack.app.sync.SyncWorker
 import com.packatrack.app.ui.rememberAppContainer
@@ -116,6 +119,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var wifiOnly by remember { mutableStateOf(prefs.wifiOnlySync) }
     var themeMode by remember { mutableStateOf(prefs.themeMode) }
     var dateFormat by remember { mutableStateOf(prefs.dateTimeFormat) }
+    var biometricLock by remember { mutableStateOf(prefs.biometricLock) }
 
     // --- Permission & System Monitoring ---
     val powerManager = remember { context.getSystemService(PowerManager::class.java) }
@@ -180,10 +184,10 @@ fun SettingsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.SemiBold) },
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -203,13 +207,13 @@ fun SettingsScreen(onBack: () -> Unit) {
         ) {
             // --- System Status Section ---
             SettingsCard {
-                SettingsGroupHeader("System Status")
+                SettingsGroupHeader(stringResource(R.string.system_status))
 
                 ListItem(
-                    headlineContent = { Text("Notifications Permission") },
+                    headlineContent = { Text(stringResource(R.string.notifications_permission)) },
                     supportingContent = {
                         Text(
-                            if (hasNotificationPermission) "Granted" else "Denied — Alerts will not be shown",
+                            if (hasNotificationPermission) stringResource(R.string.granted) else stringResource(R.string.denied_hint),
                             color = if (hasNotificationPermission) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                         )
                     },
@@ -228,25 +232,25 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 }
                                 context.startActivity(intent)
                             }) {
-                                Text("Fix")
+                                Text(stringResource(R.string.fix))
                             }
                         }
                     }
                 )
 
                 ListItem(
-                    headlineContent = { Text("Background Sync") },
+                    headlineContent = { Text(stringResource(R.string.background_sync)) },
                     supportingContent = {
-                        Text("Active · ${interval}h interval ${if (wifiOnly) " (Wi-Fi only)" else ""}")
+                        Text(stringResource(R.string.sync_status_hint, interval, if (wifiOnly) stringResource(R.string.wifi_only_parentheses) else ""))
                     },
                     leadingContent = { Icon(Icons.Default.CloudSync, null, tint = Color(0xFF10B981)) }
                 )
 
                 ListItem(
-                    headlineContent = { Text("Battery Usage") },
+                    headlineContent = { Text(stringResource(R.string.battery_usage)) },
                     supportingContent = {
                         Text(
-                            if (isIgnoringBatteryOptimizations) "Unrestricted" else "Optimized (May delay updates)",
+                            if (isIgnoringBatteryOptimizations) stringResource(R.string.unrestricted) else stringResource(R.string.optimized_hint),
                             color = if (isIgnoringBatteryOptimizations) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
@@ -270,7 +274,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                         context.startActivity(fallback)
                                     }
                             }) {
-                                Text("Fix")
+                                Text(stringResource(R.string.fix))
                             }
                         }
                     }
@@ -279,13 +283,13 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             // --- Tracking & Refresh Section ---
             SettingsCard {
-                SettingsGroupHeader("Tracking & Refresh")
+                SettingsGroupHeader(stringResource(R.string.tracking_refresh))
 
                 ListItem(
-                    headlineContent = { Text("Background Sync") },
+                    headlineContent = { Text(stringResource(R.string.background_sync)) },
                     supportingContent = {
                         Column(Modifier.padding(top = 8.dp)) {
-                            Text("Refresh frequency", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.refresh_frequency), style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(8.dp))
                             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                                 intervals.forEachIndexed { index, hours ->
@@ -308,8 +312,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
 
                 SettingSwitchItem(
-                    title = "Wi‑Fi Only",
-                    subtitle = "Reduce mobile data usage",
+                    title = stringResource(R.string.wifi_only),
+                    subtitle = stringResource(R.string.wifi_only_hint),
                     icon = Icons.Default.Wifi,
                     checked = wifiOnly,
                     onCheckedChange = {
@@ -320,13 +324,29 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
             }
 
+            // --- Security Section ---
+            SettingsCard {
+                SettingsGroupHeader(stringResource(R.string.biometric_lock))
+
+                SettingSwitchItem(
+                    title = stringResource(R.string.biometric_lock),
+                    subtitle = stringResource(R.string.biometric_lock_hint),
+                    icon = Icons.Default.Security,
+                    checked = biometricLock,
+                    onCheckedChange = {
+                        biometricLock = it
+                        prefs.biometricLock = it
+                    }
+                )
+            }
+
             // --- Notifications Section ---
             SettingsCard {
-                SettingsGroupHeader("Notifications")
+                SettingsGroupHeader(stringResource(R.string.notifications_group))
 
                 ListItem(
-                    headlineContent = { Text("App Alerts") },
-                    supportingContent = { Text("Enable all parcel updates") },
+                    headlineContent = { Text(stringResource(R.string.app_alerts)) },
+                    supportingContent = { Text(stringResource(R.string.app_alerts_hint)) },
                     leadingContent = { Icon(Icons.Default.Notifications, null, tint = MaterialTheme.colorScheme.primary) },
                     trailingContent = {
                         Switch(
@@ -341,25 +361,25 @@ fun SettingsScreen(onBack: () -> Unit) {
 
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-                SettingSwitchItem("Delivered", "When a parcel arrives", null, delivered, notifications) { delivered = it; prefs.notifyOnDelivered = it }
-                SettingSwitchItem("Exceptions", "Delays or customs issues", null, exceptions, notifications) { exceptions = it; prefs.notifyOnExceptions = it }
-                SettingSwitchItem("Transit", "Movement between facilities", null, transit, notifications) { transit = it; prefs.notifyOnTransit = it }
+                SettingSwitchItem(stringResource(R.string.delivered), stringResource(R.string.delivered_hint), null, delivered, notifications) { delivered = it; prefs.notifyOnDelivered = it }
+                SettingSwitchItem(stringResource(R.string.exceptions), stringResource(R.string.exceptions_hint), null, exceptions, notifications) { exceptions = it; prefs.notifyOnExceptions = it }
+                SettingSwitchItem(stringResource(R.string.transit), stringResource(R.string.transit_hint), null, transit, notifications) { transit = it; prefs.notifyOnTransit = it }
             }
 
             // --- Courier Access Section ---
             SettingsCard {
-                SettingsGroupHeader("Courier Access")
+                SettingsGroupHeader(stringResource(R.string.courier_access))
 
                 ListItem(
-                    headlineContent = { Text("Australia Post") },
+                    headlineContent = { Text(stringResource(R.string.auspost)) },
                     supportingContent = {
                         Column(Modifier.padding(top = 8.dp)) {
-                            Text("Required for live local tracking.", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.auspost_hint), style = MaterialTheme.typography.bodySmall)
                             OutlinedTextField(
                                 value = key,
                                 onValueChange = { key = it },
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                label = { Text("API Key") },
+                                label = { Text(stringResource(R.string.api_key_label)) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp)
                             )
@@ -369,7 +389,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 shape = RoundedCornerShape(12.dp),
                                 enabled = key != prefs.ausPostApiKey
                             ) {
-                                Text("Save Credentials")
+                                Text(stringResource(R.string.save_credentials))
                             }
                         }
                     },
@@ -379,10 +399,10 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             // --- Appearance Section ---
             SettingsCard {
-                SettingsGroupHeader("Appearance")
+                SettingsGroupHeader(stringResource(R.string.appearance))
 
                 ListItem(
-                    headlineContent = { Text("Theme Mode") },
+                    headlineContent = { Text(stringResource(R.string.theme_mode)) },
                     supportingContent = {
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                             themes.forEachIndexed { index, (value, label) ->
@@ -403,7 +423,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 )
 
                 ListItem(
-                    headlineContent = { Text("Date Format") },
+                    headlineContent = { Text(stringResource(R.string.date_format)) },
                     supportingContent = {
                         Column(Modifier.padding(top = 8.dp)) {
                             dateFormats.forEach { (pattern, label) ->
@@ -424,22 +444,22 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             // --- Backup & Restore Section ---
             SettingsCard {
-                SettingsGroupHeader("Backup & Restore")
+                SettingsGroupHeader(stringResource(R.string.backup_restore))
 
                 ListItem(
-                    headlineContent = { Text("Portable Backup") },
+                    headlineContent = { Text(stringResource(R.string.portable_backup)) },
                     supportingContent = {
                         Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
-                                "Export your tracking history to an encrypted file.",
+                                stringResource(R.string.backup_hint),
                                 style = MaterialTheme.typography.bodySmall
                             )
 
                             OutlinedTextField(
                                 value = backupPassphrase,
                                 onValueChange = { backupPassphrase = it; backupError = null },
-                                label = { Text("Security Passphrase") },
-                                supportingText = { Text("Min 12 chars. Required for restore.") },
+                                label = { Text(stringResource(R.string.passphrase_label)) },
+                                supportingText = { Text(stringResource(R.string.passphrase_hint)) },
                                 visualTransformation = PasswordVisualTransformation(),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
@@ -453,7 +473,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                     onClick = { exportLauncher.launch("packatrack-backup.pktb") },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Export File")
+                                    Text(stringResource(R.string.export_file))
                                 }
 
                                 OutlinedButton(
@@ -461,7 +481,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                     onClick = { importLauncher.launch(arrayOf("application/octet-stream", "*/*")) },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text("Import File")
+                                    Text(stringResource(R.string.import_file))
                                 }
                             }
 
@@ -470,7 +490,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 OutlinedTextField(
                                     value = restorePassphrase,
                                     onValueChange = { restorePassphrase = it; backupError = null },
-                                    label = { Text("Restore Passphrase") },
+                                    label = { Text(stringResource(R.string.restore_passphrase_label)) },
                                     visualTransformation = PasswordVisualTransformation(),
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
@@ -489,6 +509,42 @@ fun SettingsScreen(onBack: () -> Unit) {
                         }
                     },
                     leadingContent = { Icon(Icons.Default.SettingsBackupRestore, null, tint = MaterialTheme.colorScheme.primary) }
+                )
+            }
+
+            // --- About Section ---
+            SettingsCard {
+                SettingsGroupHeader(stringResource(R.string.about))
+
+                val packageInfo = remember {
+                    runCatching {
+                        if (Build.VERSION.SDK_INT >= 33) {
+                            context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+                        } else {
+                            context.packageManager.getPackageInfo(context.packageName, 0)
+                        }
+                    }.getOrNull()
+                }
+                val versionName = packageInfo?.versionName ?: "2.0.0"
+
+                ListItem(
+                    headlineContent = { Text("PackaTrack") },
+                    supportingContent = { Text(stringResource(R.string.version_label, versionName)) },
+                    leadingContent = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) }
+                )
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.github_repo)) },
+                    supportingContent = { Text("https://github.com/daygle/PackaTrack") },
+                    leadingContent = { Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary) },
+                    trailingContent = {
+                        IconButton(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/daygle/PackaTrack".toUri())
+                            context.startActivity(intent)
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.OpenInNew, null)
+                        }
+                    }
                 )
             }
 

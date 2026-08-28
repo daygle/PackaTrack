@@ -70,6 +70,10 @@ class PrefsStore(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_ARCHIVE, false)
         set(value) = prefs.edit { putBoolean(KEY_AUTO_ARCHIVE, value) }
 
+    var biometricLock: Boolean
+        get() = prefs.getBoolean(KEY_BIOMETRIC_LOCK, false)
+        set(value) = prefs.edit { putBoolean(KEY_BIOMETRIC_LOCK, value) }
+
     var recentActivityDismissedAt: Long
         get() = prefs.getLong(KEY_ACTIVITY_DISMISSED, 0L)
         set(value) = prefs.edit { putLong(KEY_ACTIVITY_DISMISSED, value) }
@@ -89,6 +93,7 @@ class PrefsStore(context: Context) {
         const val KEY_DATE_FORMAT = "date_time_format"
         const val KEY_HISTORY_SORT = "history_sort_order"
         const val KEY_AUTO_ARCHIVE = "auto_archive_delivered"
+        const val KEY_BIOMETRIC_LOCK = "biometric_lock"
         const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
     }
 }

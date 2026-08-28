@@ -38,6 +38,7 @@ class TrackingRepository(
     /* ---------- observers ---------- */
 
     fun observeActive(): Flow<List<ShipmentWithLegs>> = shipments.observeActiveWithLegs()
+    fun observeArchived(): Flow<List<ShipmentWithLegs>> = shipments.observeArchivedWithLegs()
     fun observeRecentChanges(): Flow<List<ChangeEntity>> = changes.observeRecent()
     fun observeShipment(id: Long): Flow<ShipmentWithLegs?> = shipments.observeWithLegs(id)
     fun observeEvents(shipmentId: Long): Flow<List<EventEntity>> = events.observeForShipment(shipmentId)
@@ -251,6 +252,18 @@ class TrackingRepository(
             legs.deleteForShipment(shipmentId)
             shipments.deleteById(shipmentId)
         }
+    }
+
+    /** Hides a parcel from the main list. */
+    suspend fun archive(shipmentId: Long) {
+        val current = shipments.byId(shipmentId) ?: return
+        shipments.update(current.copy(archived = true))
+    }
+
+    /** Restores a parcel to the main list. */
+    suspend fun unarchive(shipmentId: Long) {
+        val current = shipments.byId(shipmentId) ?: return
+        shipments.update(current.copy(archived = false))
     }
 
     /* ---------- refresh / detection ---------- */

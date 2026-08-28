@@ -86,22 +86,59 @@ import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import kotlinx.coroutines.launch
 
+import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import com.packatrack.app.util.ConnectivityObserver
+import com.packatrack.app.util.NetworkConnectivityObserver
+
 @Composable
 fun HomeScreen(
     onOpenDetail: (Long) -> Unit,
     onOpenSettings: () -> Unit,
+    initialNumber: String? = null,
 ) {
     val context = LocalContext.current
     val container = rememberAppContainer()
     val repo = container.repository
     val scope = rememberCoroutineScope()
 
-    val shipments by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
+    val connectivityObserver = remember { NetworkConnectivityObserver(context) }
+    val networkStatus by connectivityObserver.observe().collectAsStateWithLifecycle(initialValue = ConnectivityObserver.Status.Available)
+
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearch by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Active, 1: Archived
+
+    val activeShipments by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
+    val archivedShipments by repo.observeArchived().collectAsStateWithLifecycle(initialValue = emptyList())
     val recentChanges by repo.observeRecentChanges().collectAsStateWithLifecycle(initialValue = emptyList())
     val firstEventTimes by repo.observeFirstEventTimes().collectAsStateWithLifecycle(initialValue = emptyMap())
 
+    val currentShipments = if (selectedTab == 0) activeShipments else archivedShipments
+    val filteredShipments = remember(currentShipments, searchQuery) {
+        currentShipments.filter { entry ->
+            val title = parcelName(entry.shipment, entry.orders, entry.legs)
+            val numbers = entry.legs.map { it.trackingNumber }
+            val status = overallStatusCode(entry.legs) ?: ""
+
+            title.contains(searchQuery, ignoreCase = true) ||
+                    numbers.any { it.contains(searchQuery, ignoreCase = true) } ||
+                    status.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
     var syncing by remember { mutableStateOf(value = false) }
-    var showAddDialog by remember { mutableStateOf(value = false) }
+    var showAddDialog by remember { mutableStateOf(initialNumber != null) }
     var activityDismissedAt by remember { mutableLongStateOf(container.prefs.recentActivityDismissedAt) }
     val visibleChanges = recentChanges.filter { it.createdAt > activityDismissedAt }
 
@@ -118,44 +155,104 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("PackaTrack", style = MaterialTheme.typography.titleLarge)
-                        if (shipments.isNotEmpty()) {
-                            val inTransit = shipments.count { overallStatusCode(it.legs) == "IN_TRANSIT" }
-                            Text(
-                                "$inTransit in transit · ${shipments.size} total",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            Column {
+                TopAppBar(
+                    title = {
+                        if (showSearch) {
+                            TextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = { Text(stringResource(R.string.search_placeholder)) },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                ),
+                                trailingIcon = {
+                                    IconButton(onClick = {
+                                        showSearch = false
+                                        searchQuery = ""
+                                    }) {
+                                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close_search))
+                                    }
+                                },
+                                singleLine = true
                             )
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { runSync { repo.refreshAll(force = true) } }) {
-                        if (syncing) {
-                            CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh All")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
+                                    if (activeShipments.isNotEmpty()) {
+                                        val inTransit = activeShipments.count { overallStatusCode(it.legs) == "IN_TRANSIT" }
+                                        Text(
+                                            stringResource(R.string.shipment_summary, inTransit, activeShipments.size),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        )
+                                    }
+                                }
+                                if (networkStatus != ConnectivityObserver.Status.Available) {
+                                    Icon(
+                                        Icons.Default.WifiOff,
+                                        contentDescription = stringResource(R.string.offline),
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(end = 8.dp).size(20.dp)
+                                    )
+                                    Text(
+                                        stringResource(R.string.offline),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.padding(end = 16.dp)
+                                    )
+                                }
+                            }
                         }
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-            )
+                    },
+                    actions = {
+                        if (!showSearch) {
+                            IconButton(onClick = { showSearch = true }) {
+                                Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                            }
+                            IconButton(onClick = { runSync { repo.refreshAll(force = true) } }) {
+                                if (syncing) {
+                                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_all))
+                                }
+                            }
+                            IconButton(onClick = onOpenSettings) {
+                                Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        actionIconContentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
+                )
+                PrimaryTabRow(selectedTabIndex = selectedTab) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { Text(stringResource(R.string.tab_active)) }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { Text(stringResource(R.string.tab_archived)) }
+                    )
+                }
+            }
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Add Parcel") },
+                text = { Text(stringResource(R.string.add_parcel)) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             )
@@ -184,16 +281,20 @@ fun HomeScreen(
                     }
                 }
 
-                if (shipments.isEmpty()) {
-                    item(key = "empty") { EmptyState() }
+                if (filteredShipments.isEmpty()) {
+                    item(key = "empty") { EmptyState(isSearch = searchQuery.isNotEmpty()) }
                 }
 
-                items(shipments, key = { it.shipment.id }) { entry ->
+                items(filteredShipments, key = { it.shipment.id }) { entry ->
                     ParcelCard(
                         entry = entry,
                         firstEventMs = firstEventTimes[entry.shipment.id],
                         onOpen = { onOpenDetail(entry.shipment.id) },
                         onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
+                        onArchive = { scope.launch {
+                            if (entry.shipment.archived) repo.unarchive(entry.shipment.id)
+                            else repo.archive(entry.shipment.id)
+                        } },
                         onRefresh = { runSync { repo.refreshShipment(entry.shipment.id, force = true) } },
                     )
                 }
@@ -203,6 +304,7 @@ fun HomeScreen(
 
     if (showAddDialog) {
         AddShipmentDialog(
+            initialNumber = initialNumber,
             onDismiss = { showAddDialog = false },
             onSave = { number, title, orderUrl, carrier ->
                 showAddDialog = false
@@ -210,13 +312,10 @@ fun HomeScreen(
                 // just the new parcel.
                 syncing = true
                 scope.launch {
-                    android.util.Log.d("HomeScreen", "Adding shipment: $number")
                     val newId = runCatching {
                         repo.addShipment(number, title, orderUrl, carrier)
                     }.getOrNull()
-                    android.util.Log.d("HomeScreen", "Shipment added with id: $newId")
                     val outcome = newId?.let { repo.refreshShipment(it, force = true) } ?: RefreshOutcome(0, emptyList())
-                    android.util.Log.d("HomeScreen", "Refresh outcome: updated=${outcome.updated}, notable=${outcome.notable.size}")
                     Notifier.postChanges(context, outcome.notable.map { it.message })
                     syncing = false
                 }
@@ -249,7 +348,7 @@ private fun RecentChangesCard(messages: List<String>, onDismiss: () -> Unit) {
                 )
                 Spacer(Modifier.size(8.dp))
                 Text(
-                    "Recent Activity",
+                    stringResource(R.string.recent_activity),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.weight(1f),
@@ -257,7 +356,7 @@ private fun RecentChangesCard(messages: List<String>, onDismiss: () -> Unit) {
                 IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Dismiss recent activity",
+                        contentDescription = stringResource(R.string.dismiss_activity),
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
@@ -278,7 +377,7 @@ private fun RecentChangesCard(messages: List<String>, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(isSearch: Boolean = false) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -293,10 +392,13 @@ private fun EmptyState() {
             modifier = Modifier.size(240.dp)
         )
         Spacer(Modifier.height(16.dp))
-        Text("No Parcels Tracking", style = MaterialTheme.typography.headlineSmall)
+        Text(
+            if (isSearch) stringResource(R.string.no_results) else stringResource(R.string.no_parcels),
+            style = MaterialTheme.typography.headlineSmall
+        )
         Spacer(Modifier.height(8.dp))
         Text(
-            "Add a tracking number to start monitoring your shipments in one place.",
+            if (isSearch) stringResource(R.string.search_empty_hint) else stringResource(R.string.no_parcels_hint),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -310,6 +412,7 @@ private fun ParcelCard(
     firstEventMs: Long?,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
+    onArchive: () -> Unit,
     onRefresh: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(value = false) }
@@ -341,13 +444,13 @@ private fun ParcelCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        legs.firstOrNull()?.trackingNumber ?: "No tracking number",
+                        legs.firstOrNull()?.trackingNumber ?: stringResource(R.string.no_tracking_number),
                         style = MonoNumber,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Text(
-                    if (days == 1) "1 day" else "$days days",
+                    stringResource(if (days == 1) R.string.day_count_single else R.string.day_count_plural, days),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier
@@ -358,19 +461,19 @@ private fun ParcelCard(
                 Spacer(Modifier.width(4.dp))
                 Box {
                     IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.outline)
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.actions), tint = MaterialTheme.colorScheme.outline)
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
                             leadingIcon = { Icon(Icons.Default.Refresh, null) },
-                            text = { Text("Refresh") },
+                            text = { Text(stringResource(R.string.refresh)) },
                             onClick = { menuOpen = false; onRefresh() },
                         )
                         primary?.let { leg ->
                             Carrier.fromId(leg.carrierId)?.let { carrier ->
                                 DropdownMenuItem(
                                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.OpenInNew, null) },
-                                    text = { Text("View on Web") },
+                                    text = { Text(stringResource(R.string.view_on_web)) },
                                     onClick = {
                                         menuOpen = false
                                         runCatching {
@@ -383,8 +486,14 @@ private fun ParcelCard(
                             }
                         }
                         DropdownMenuItem(
+                            leadingIcon = { Icon(if (shipment.archived) Icons.Default.Unarchive else Icons.Default.Archive, null) },
+                            text = { Text(stringResource(if (shipment.archived) R.string.unarchive else R.string.archive)) },
+                            onClick = { menuOpen = false; onArchive() },
+                        )
+                        HorizontalDivider()
+                        DropdownMenuItem(
                             leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
                             onClick = { menuOpen = false; onDelete() },
                         )
                     }
@@ -402,7 +511,7 @@ private fun ParcelCard(
                 Spacer(Modifier.weight(1f))
                 legs.forEachIndexed { index, leg ->
                     if (index < 2) {
-                        CarrierChip(leg.carrierId, Carrier.fromId(leg.carrierId)?.displayName ?: "Courier")
+                        CarrierChip(leg.carrierId, Carrier.fromId(leg.carrierId)?.displayName ?: stringResource(R.string.courier))
                         Spacer(Modifier.width(8.dp))
                     }
                 }
@@ -416,10 +525,11 @@ private fun ParcelCard(
 
 @Composable
 private fun AddShipmentDialog(
+    initialNumber: String? = null,
     onDismiss: () -> Unit,
     onSave: (number: String, title: String?, orderUrl: String?, carrier: Carrier?) -> Unit,
 ) {
-    var number by remember { mutableStateOf(value = "") }
+    var number by remember { mutableStateOf(value = initialNumber ?: "") }
     var title by remember { mutableStateOf(value = "") }
     var orderUrl by remember { mutableStateOf(value = "") }
     var override by remember { mutableStateOf<Carrier?>(value = null) }
@@ -441,15 +551,15 @@ private fun AddShipmentDialog(
                         chosen,
                     )
                 },
-            ) { Text("Save & Track") }
+            ) { Text(stringResource(R.string.save_and_track)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Add Parcel") },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        title = { Text(stringResource(R.string.add_parcel)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = number, onValueChange = { number = it },
-                    label = { Text("Tracking Number") }, singleLine = true,
+                    label = { Text(stringResource(R.string.tracking_number_label)) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -468,7 +578,7 @@ private fun AddShipmentDialog(
                             )
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                "Auto-detected: ${detectedCarriers.joinToString(" + ") { it.displayName }}",
+                                stringResource(R.string.auto_detected, detectedCarriers.joinToString(" + ") { it.displayName }),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -479,13 +589,13 @@ private fun AddShipmentDialog(
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             modifier = Modifier.height(24.dp)
                         ) {
-                            Text("Change", style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.change_courier), style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 } else if (number.isNotBlank() || showManual) {
                     Column {
                         Text(
-                            if (detected == null && !showManual) "Courier not recognised — pick one below:" else "Select Courier:",
+                            if (detected == null && !showManual) stringResource(R.string.courier_not_recognized) else stringResource(R.string.select_courier),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -505,14 +615,14 @@ private fun AddShipmentDialog(
                     }
                 } else {
                     Text(
-                        "We'll try to auto-detect the courier from the number.",
+                        stringResource(R.string.auto_detect_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Item Name (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("Order Link (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.item_name_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text(stringResource(R.string.order_link_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
     )
