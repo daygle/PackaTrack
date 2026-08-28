@@ -94,7 +94,6 @@ object CainiaoParser {
             dimensionsCm = null,
             events = events,
             relatedTrackingNumbers = relatedNumbers.toList(),
-            latestTrackingNumber = latestTrackingNumber,
         )
     }
 

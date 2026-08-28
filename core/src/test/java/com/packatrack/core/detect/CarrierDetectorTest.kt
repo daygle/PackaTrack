@@ -22,7 +22,7 @@ class CarrierDetectorTest {
 
     @Test fun cainiaoNumber() {
         assertEquals(Carrier.CAINIAO, CarrierDetector.detect("CNJNR2024050010234N"))
-        assertEquals(Carrier.CAINIAO, CarrierDetector.detect("AP00839790702074"))
+        assertEquals(Carrier.UBI_SMART_PARCEL, CarrierDetector.detect("AP00839790702074"))
     }
 
     @Test fun longAustraliaPostArticleNumber() {

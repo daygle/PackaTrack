@@ -51,9 +51,7 @@ class CainiaoParserTest {
     @Test fun extractsRelatedLastMileNumber() {
         val snap = CainiaoParser.parse(relatedNumberShape)
         assertNotNull(snap)
-        assertEquals("36YPH337263201000935107", snap!!.latestTrackingNumber)
-        assertEquals(listOf("36YPH337263201000935107", "UBI1234567890"), snap.relatedTrackingNumbers)
-        assertEquals("36YPH337263201000935107", snap.relatedTrackingNumbers.first())
+        assertEquals(listOf("36YPH337263201000935107", "UBI1234567890"), snap!!.relatedTrackingNumbers)
     }
 
     @Test fun parsesTraceNodeListShape() {

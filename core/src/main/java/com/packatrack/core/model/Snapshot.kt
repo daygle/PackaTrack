@@ -7,8 +7,6 @@ data class Snapshot(
     val events: List<TrackingEvent>,
     /** Alternate/current numbers reported by the carrier for the same parcel. */
     val relatedTrackingNumbers: List<String> = emptyList(),
-    /** Number displayed by Cainiao as the latest/destination tracking number. */
-    val latestTrackingNumber: String? = null,
 ) {
     companion object {
         fun empty(trackingNumber: String) =
