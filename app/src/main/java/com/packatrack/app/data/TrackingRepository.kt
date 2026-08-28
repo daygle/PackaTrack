@@ -16,6 +16,7 @@ import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.FingerprintUtil
 import kotlinx.coroutines.flow.Flow
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -59,6 +60,13 @@ class TrackingRepository(
         title: String?,
         orderUrl: String?,
         carrierOverride: Carrier?,
+    ): Long = refreshMutex.withLock { addShipmentUnlocked(rawNumber, title, orderUrl, carrierOverride) }
+
+    private suspend fun addShipmentUnlocked(
+        rawNumber: String,
+        title: String?,
+        orderUrl: String?,
+        carrierOverride: Carrier?,
     ): Long {
         val number = FingerprintUtil.normalize(rawNumber)
         require(number.length >= 6) { "Tracking number looks too short" }
@@ -69,7 +77,7 @@ class TrackingRepository(
             if (carrierOverride == null) {
                 detectCarriers(number).drop(1).forEach { detected ->
                     if (legs.findByTrackingNumberAndCarrier(number, detected.id) == null) {
-                        addCourier(existing.shipmentId, number, detected)
+                        addCourierUnlocked(existing.shipmentId, number, detected)
                     }
                 }
             }
@@ -135,6 +143,12 @@ class TrackingRepository(
         shipmentId: Long,
         rawNumber: String,
         carrierOverride: Carrier?,
+    ): Long = refreshMutex.withLock { addCourierUnlocked(shipmentId, rawNumber, carrierOverride) }
+
+    private suspend fun addCourierUnlocked(
+        shipmentId: Long,
+        rawNumber: String,
+        carrierOverride: Carrier?,
     ): Long {
         val number = FingerprintUtil.normalize(rawNumber)
         require(number.length >= 6) { "Tracking number looks too short" }
@@ -184,8 +198,8 @@ class TrackingRepository(
      * Combines two tracked parcels into one: every courier leg, order, scan and change on
      * [sourceId] moves onto [targetId], and the now-empty source parcel is removed.
      */
-    suspend fun combineInto(targetId: Long, sourceId: Long) {
-        mergeParcels(targetId, sourceId) { label -> "Combined with $label" }
+    suspend fun combineInto(targetId: Long, sourceId: Long) = refreshMutex.withLock {
+        db.withTransaction { mergeParcels(targetId, sourceId) { label -> "Combined with $label" } }
     }
 
     /**
@@ -229,12 +243,14 @@ class TrackingRepository(
     }
 
     /** Deletes a parcel and everything under it. */
-    suspend fun delete(shipmentId: Long) {
-        events.deleteForShipment(shipmentId)
-        changes.deleteForShipment(shipmentId)
-        orders.deleteForShipment(shipmentId)
-        legs.deleteForShipment(shipmentId)
-        shipments.deleteById(shipmentId)
+    suspend fun delete(shipmentId: Long) = refreshMutex.withLock {
+        db.withTransaction {
+            events.deleteForShipment(shipmentId)
+            changes.deleteForShipment(shipmentId)
+            orders.deleteForShipment(shipmentId)
+            legs.deleteForShipment(shipmentId)
+            shipments.deleteById(shipmentId)
+        }
     }
 
     /* ---------- refresh / detection ---------- */
@@ -347,7 +363,7 @@ class TrackingRepository(
                 for (relatedCarrier in carriers) {
                     val existing = legs.findByTrackingNumberAndCarrier(normalized, relatedCarrier.id)
                     if (existing == null) {
-                        addCourier(leg.shipmentId, normalized, relatedCarrier)
+                        addCourierUnlocked(leg.shipmentId, normalized, relatedCarrier)
                     }
                 }
             }

@@ -25,6 +25,10 @@ class HttpTrackingFetcher(
 
     private val client = okhttp3.OkHttpClient.Builder()
         .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        // Tracking endpoints are explicitly HTTPS; do not follow a redirect to an
+        // unexpected host or protocol where request metadata could be exposed.
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     override suspend fun fetch(
@@ -48,6 +52,7 @@ class HttpTrackingFetcher(
 
     private fun get(url: String, headers: Map<String, String>): String? {
         val builder = okhttp3.Request.Builder().url(url)
+            .header("Accept-Encoding", "gzip")
             .header(
                 "User-Agent",
                 "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Safari/537.36",
