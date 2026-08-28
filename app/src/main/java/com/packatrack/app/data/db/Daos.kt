@@ -131,6 +131,9 @@ interface EventDao {
     @Query("SELECT shipmentId AS shipmentId, MIN(timeMs) AS firstMs FROM events WHERE timeMs IS NOT NULL GROUP BY shipmentId")
     fun observeFirstEventTimes(): Flow<List<ShipmentFirstEvent>>
 
+    @Query("SELECT * FROM events WHERE timeMs IS NOT NULL ORDER BY timeMs DESC, id DESC")
+    fun observeLatestByShipment(): Flow<List<EventEntity>>
+
     @Query("UPDATE events SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")
     suspend fun reassignShipment(oldShipmentId: Long, newShipmentId: Long)
 }

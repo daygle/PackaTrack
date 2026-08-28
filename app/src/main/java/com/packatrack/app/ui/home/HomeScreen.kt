@@ -122,6 +122,7 @@ fun HomeScreen(
     val archivedShipments by repo.observeArchived().collectAsStateWithLifecycle(initialValue = emptyList())
     val recentChanges by repo.observeRecentChanges().collectAsStateWithLifecycle(initialValue = emptyList())
     val firstEventTimes by repo.observeFirstEventTimes().collectAsStateWithLifecycle(initialValue = emptyMap())
+    val latestEvents by repo.observeLatestEvents().collectAsStateWithLifecycle(initialValue = emptyMap())
 
     val currentShipments = if (selectedTab == 0) activeShipments else archivedShipments
     val filteredShipments = remember(currentShipments, searchQuery) {
@@ -292,6 +293,7 @@ fun HomeScreen(
                     ParcelCard(
                         entry = entry,
                         firstEventMs = firstEventTimes[entry.shipment.id],
+                        latestEvent = latestEvents[entry.shipment.id],
                         onOpen = { onOpenDetail(entry.shipment.id) },
                         onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
                         onArchive = { scope.launch {
@@ -416,6 +418,7 @@ private fun EmptyState(isSearch: Boolean = false) {
 private fun ParcelCard(
     entry: ShipmentWithLegs,
     firstEventMs: Long?,
+    latestEvent: com.packatrack.app.data.db.EventEntity?,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onArchive: () -> Unit,
@@ -509,6 +512,32 @@ private fun ParcelCard(
             Spacer(Modifier.height(16.dp))
 
             com.packatrack.app.ui.components.ShipmentProgressTracker(status)
+
+            latestEvent?.let { event ->
+                Spacer(Modifier.height(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.latest_tracking_entry),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        event.description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    event.location?.takeIf { it.isNotBlank() }?.let { location ->
+                        Text(
+                            location,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(16.dp))
 

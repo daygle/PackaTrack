@@ -50,6 +50,14 @@ class TrackingRepository(
             rows.mapNotNull { row -> row.firstMs?.let { row.shipmentId to it } }.toMap()
         }
 
+    /** Latest known tracking event per parcel, ordered newest first by the database. */
+    fun observeLatestEvents(): Flow<Map<Long, EventEntity>> =
+        events.observeLatestByShipment().map { rows ->
+            rows.asSequence()
+                .distinctBy { it.shipmentId }
+                .associateBy { it.shipmentId }
+        }
+
     /* ---------- parcel mutations ---------- */
 
     /**
