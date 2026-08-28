@@ -31,9 +31,12 @@ object CarrierDetector {
     /** Morning Global uses an MG prefix in the wild (best effort). */
     private val MORNING_GLOBAL = Regex("^MG[A-Za-z0-9]{6,20}$", RegexOption.IGNORE_CASE)
 
-    // Cainiao's Australia Post handoff can be a 21-digit numeric article number
-    // without the normal two-letter AU suffix.
-    private val AUSPOST_LONG_ARTICLE = Regex("^[0-9]{21}$")
+    // Cainiao's Australia Post handoff can be a long article number without the
+    // normal two-letter AU suffix: either a 21-digit numeric id, or a mixed form
+    // such as "36YPH337263201000935107" (two digits, a short letter block, then a
+    // long run of digits).
+    private val AUSPOST_LONG_ARTICLE =
+        Regex("^([0-9]{21}|[0-9]{2}[A-Z]{2,4}[0-9]{12,20})$", RegexOption.IGNORE_CASE)
 
     /** Returns every carrier whose known format matches the number. */
     fun detectAll(trackingNumberRaw: String): List<Carrier> {
@@ -48,7 +51,7 @@ object CarrierDetector {
                 add(Carrier.UBI_SMART_PARCEL)
                 add(Carrier.CAINIAO)
             }
-            if (CAINIAO.matches(n)) add(Carrier.UBI_SMART_PARCEL)
+            if (CAINIAO.matches(n)) add(Carrier.CAINIAO)
             if (AUSPOST_DOMESTIC.matches(n) && !IMILE.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (ARAMEX.matches(n)) add(Carrier.ARAMEX)
         }.distinct()
