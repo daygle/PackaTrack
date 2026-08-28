@@ -65,6 +65,13 @@ object CainiaoParser {
             ?: Regex("latest\\s+tracking\\s+number\\s*[:：]?\\s*([A-Za-z0-9]+)", RegexOption.IGNORE_CASE)
                 .find(pkg.toString())?.groupValues?.getOrNull(1)
         latestTrackingNumber?.let(relatedNumbers::add)
+        // The live global response carries the downstream/last-mile number in `copyRealMailNo`
+        // (already clean) and `realMailNo` (labelled, e.g. "Latest Tracking Number:\t36YPH…").
+        pkg.optString("copyRealMailNo").takeIf { it.isNotBlank() && it != number }?.let(relatedNumbers::add)
+        pkg.optString("realMailNo").takeIf { it.isNotBlank() }?.let { labelled ->
+            Regex("([A-Za-z0-9]{6,})\\s*$").find(labelled.trim())?.groupValues?.getOrNull(1)
+                ?.takeIf { it != number }?.let(relatedNumbers::add)
+        }
         listOf("trackingNumber", "trackingNo", "mailNo", "waybillNo", "waybillNumber", "lastMileTrackingNo", "lastMileTrackingNumber")
             .forEach { key ->
                 pkg.optString(key).takeIf { it.isNotBlank() && it != number }?.let(relatedNumbers::add)
