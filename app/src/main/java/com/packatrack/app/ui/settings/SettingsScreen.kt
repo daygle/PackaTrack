@@ -46,7 +46,7 @@ import com.packatrack.app.sync.SyncWorker
 import com.packatrack.app.ui.rememberAppContainer
 
 private val intervals = listOf(1, 6, 12, 24)
-private val themes = listOf("system" to "System default", "light" to "Light", "dark" to "Dark")
+private val themes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
 
 @Composable
 fun SettingsScreen(onBack: () -> Unit) {
@@ -61,28 +61,26 @@ fun SettingsScreen(onBack: () -> Unit) {
     var wifiOnly by remember { mutableStateOf(prefs.wifiOnlySync) }
     var theme by remember { mutableStateOf(prefs.themeMode) }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
-        },
-    ) { padding ->
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text("Settings") },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+        )
+    }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("Make PackaTrack work your way", style = MaterialTheme.typography.headlineSmall)
-            Text("Control refreshes, alerts, and privacy without getting in the way of tracking.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Control refreshes, alerts, and appearance from one place.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             SettingsCard(Icons.Default.CloudSync, "Tracking & refresh", "Keep parcel statuses current automatically.") {
                 Text("Background refresh", style = MaterialTheme.typography.titleSmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    intervals.forEach { hours -> FilterChip(interval == hours, { interval = hours; prefs.syncIntervalHours = hours; SyncWorker.schedule(context, hours) }, label = { Text("${hours}h") }) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 2.dp)) {
+                    intervals.forEach { hours ->
+                        FilterChip(selected = interval == hours, onClick = { interval = hours; prefs.syncIntervalHours = hours; SyncWorker.schedule(context, hours) }, label = { Text("${hours}h") })
+                    }
                 }
                 SettingSwitch("Wi‑Fi only", "Avoid background refresh on mobile data", wifiOnly) { wifiOnly = it; prefs.wifiOnlySync = it }
             }
@@ -97,13 +95,13 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsCard(Icons.Default.Security, "Courier access", "Credentials stay on this device and are only used for tracking.") {
                 Text("Australia Post API key", style = MaterialTheme.typography.titleSmall)
                 Text("Cainiao and other supported couriers work without a key.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(key, { key = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text("AUTH-KEY") }, singleLine = true)
+                OutlinedTextField(value = key, onValueChange = { key = it }, modifier = Modifier.fillMaxWidth(), label = { Text("AUTH-KEY") }, singleLine = true)
                 TextButton(onClick = { prefs.ausPostApiKey = key }) { Text("Save key") }
             }
 
-            SettingsCard(Icons.Default.Palette, "Appearance", "Pick a comfortable look for day and night.") {
+            SettingsCard(Icons.Default.Palette, "Appearance", "Choose how PackaTrack looks.") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    themes.forEach { (value, label) -> FilterChip(theme == value, { theme = value; prefs.themeMode = value }, label = { Text(label) }) }
+                    themes.forEach { (value, label) -> FilterChip(selected = theme == value, onClick = { theme = value; prefs.themeMode = value }, label = { Text(label) }) }
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -129,6 +127,6 @@ private fun SettingsCard(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 private fun SettingSwitch(label: String, description: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(label, style = MaterialTheme.typography.bodyLarge); Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        Switch(checked, onChange, enabled = enabled)
+        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }
