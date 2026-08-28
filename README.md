@@ -1,101 +1,107 @@
-# PackaTrack
+# 📦 PackaTrack
 
-Track AliExpress parcels that travel through **Cainiao UBI Smart Parcel**, **Australia Post** and **iMile** - including the tricky bits: parcels that get a **new tracking number** mid-journey, or packages that are **combined/consolidated** into one shipment.
+[![Android CI](https://github.com/daygle/PackaTrack/actions/workflows/android-ci.yml/badge.svg)](https://github.com/daygle/PackaTrack/actions/workflows/android-ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.4.10-blue.svg?logo=kotlin)](http://kotlinlang.org)
+[![Platform](https://img.shields.io/badge/platform-Android-green.svg?logo=android)](https://www.android.com)
 
-Native Android app, Kotlin + Jetpack Compose, Room, WorkManager, OkHttp.
+**PackaTrack** is a modern, native Android application designed to handle the complexities of international package tracking. It specializes in tracking shipments from **AliExpress**, **Cainiao**, **Australia Post**, and **iMile**, with a focus on solving the "renumbering" and "consolidation" problems that often leave users confused.
 
-## Quick start
+---
 
+## ✨ Key Features
+
+- 🔄 **Smart Renumbering Detection**: PackaTrack automatically notices when a parcel receives a new tracking number mid-journey (e.g., transitioning from China to local delivery).
+- 📦 **Consolidation Support**: Manage multiple AliExpress orders consolidated into a single physical shipment.
+- 🏗️ **Multi-Courier Timelines**: Attach multiple tracking numbers to a single parcel and see a unified, merged timeline of all scans.
+- 🔔 **Intelligent Notifications**: Get alerted for delivered parcels, renumbering events, and combined shipments.
+- 🛡️ **Privacy-First & Secure**:
+    - **No Servers**: Your tracking data stays on your device.
+    - **Encrypted Database**: At-rest encryption using **SQLCipher** (AES-256).
+    - **Hardware Security**: Encryption keys are stored in the **Android Keystore System**.
+- 🌓 **Modern UI**: Full Material 3 support with Light and Dark modes.
+
+---
+
+## 🛠 Tech Stack
+
+- **Language**: Kotlin 2.4.10
+- **UI**: Jetpack Compose (Material 3)
+- **Architecture**: MVI / Clean Architecture (Modularized)
+- **Database**: Room (with SQLCipher encryption)
+- **Networking**: OkHttp 5.5.0
+- **Background Work**: WorkManager
+- **DI**: Hilt / Manual DI (Modularized via `AppContainer`)
+
+---
+
+## 🚀 Getting Started
+
+### Installation
+1.  Clone the repository.
+2.  Open in Android Studio (Ladybug or newer).
+3.  Add your **Australia Post API Key** in the app settings if you need live local tracking.
+
+### Build & Test
 ```bash
 # Build the debug APK
 ./gradlew :app:assembleDebug
-# -> app/build/outputs/apk/debug/app-debug.apk
 
-# Run the pure-logic unit tests
+# Run unit tests (Core logic)
 ./gradlew :core:testDebugUnitTest
 ```
 
-Open `app-debug.apk` on a device/emulator (API 24+). Cainiao tracking works without an API key; Australia Post tracking requires an `AUTH-KEY` configured in Settings.
+---
 
-## Continuous integration
+## 📡 Carrier Support
 
-Every push to `main` and every pull request runs **Android CI** (`.github/workflows/android-ci.yml`): it runs the `:core` unit tests, builds the debug APK, publishes a unit-test report, and uploads the APK and test results as build artifacts.
+| Carrier | Source | Credentials Required |
+| :--- | :--- | :--- |
+| **Cainiao UBI** | Public Global Detail API | None |
+| **Australia Post** | Official Digital API v2 | `AUTH-KEY` (Free from developers.auspost.com.au) |
+| **iMile** | Customer Track Endpoint | None |
+| **Aramex** | Public Shipment Endpoint | None |
+| **Morning Global** | Web-based Tracker | None |
 
-**Dependabot** (`.github/dependabot.yml`) opens weekly PRs for Gradle dependencies (including the `libs.versions.toml` catalog) and for the GitHub Actions themselves, grouping AndroidX and Kotlin bumps to keep the noise down.
+---
 
-## Using it
+## 🏗 Project Architecture
 
-1. Tap **Add parcel** and paste an AliExpress tracking number. PackaTrack auto-detects the carrier from the number format (override in the dialog if needed). You can also save the AliExpress order link and the declared weight.
-2. **Refresh** pulls each carrier's latest scans. Background sync runs automatically (default every 6 h, changeable in Settings).
-3. Tap a parcel for its **timeline** - every courier's scans merged newest-first with status dots and a carrier tag, plus a *"What PackaTrack noticed"* section.
-4. Status changes worth knowing (delivered, renumbered, combined) trigger a notification.
+PackaTrack is split into two main modules to ensure high-quality, testable logic:
 
-### One parcel, many couriers
+### 🧩 `core` Module (Pure Kotlin)
+The heart of the application. It contains the tracking engine, parsers, and change detection logic.
+- **Parsers**: Normalizes raw carrier data (Cainiao, AU Post, iMile, Aramex).
+- **Detectors**: Logic for renumbering detection using weight fingerprints and consolidation detection.
+- **Change Log**: Business logic for generating shipment events.
 
-A single AliExpress parcel often travels under several tracking numbers - a Cainiao number for the China leg, an Australia Post number for the final mile, sometimes an iMile number too. PackaTrack treats a **parcel** as a container of **courier legs**:
+### 📱 `app` Module (Android)
+The UI and infrastructure layer.
+- **Compose UI**: Modern, reactive screens for home, details, and settings.
+- **Repository**: Orchestrates data flow between network fetchers and the local Room database.
+- **Backup**: Encrypted export/import system for your tracking history.
+- **Security**: Keystore integration and database encryption management.
 
-- Open a parcel and tap **Add courier** to attach another provider's tracking number. Each leg is polled independently and its scans merge into one timeline.
-- Remove a courier with the **✕** on its card.
-- Already tracking the two halves separately? Open one, choose **⋮ - Combine with another parcel**, and pick the other - its couriers, scans and history fold into this parcel. PackaTrack also still auto-detects renumbering and weight-based combination on its own.
+---
 
-### Many orders, one parcel
+## 🔒 Security & Privacy
 
-The reverse also happens: Cainiao often **consolidates several of your orders under one tracking number**. That's physically one parcel now, so PackaTrack keeps it as one parcel and lets you list the **orders** inside it:
+We value your privacy. PackaTrack does not use any intermediate servers to store your data. Your tracking history is fetched directly from the carriers and stored locally in a secure, encrypted database.
 
-- A parcel has an **Orders** section - tap **Add order** to record each AliExpress order (a name, and optionally its order link). The parcel is named after its orders unless you set a custom name.
-- When you **Combine** two parcels, their orders are merged too, so the consolidated parcel lists everything it now carries.
+For more information, please see our [SECURITY.md](SECURITY.md) and [LICENSE](LICENSE).
 
-(A tracking number is unique to one parcel - you record the shared shipment once and list its orders, rather than duplicating the number across parcels.)
+---
 
-## Carrier support
+## 🤝 Contributing
 
-| Carrier | Source | Credentials |
-| --- | --- | --- |
-| Cainiao UBI Smart Parcel | Cainiao public global detail endpoint (`global.cainiao.com/global/detail.json`) | none |
-| Australia Post | Official digital API v2 `track/events` | free `AUTH-KEY` from developers.auspost.com.au - paste in Settings |
-| iMile | Customer-facing track endpoint (best effort) | none |
-| Aramex | Public shipment-tracking endpoint (best effort) | none |
-| Morning Global | No public scan endpoint - carrier link only (opens a universal tracker) - add it as a courier and open the site | none |
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-The public endpoints are undocumented and occasionally change; PackaTrack treats an unreachable carrier gracefully (no crash, parcel stays visible, "Open on carrier website" always works).
+1.  Fork the Project.
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the Branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
 
-### Automatic consolidation
+---
 
-When several parcels you track separately are **merged by Cainiao under one tracking number**, PackaTrack notices on the next refresh - as soon as a carrier reports one parcel under another's number, the two are the same physical shipment, so their orders, couriers and history are folded into a single parcel automatically (the redundant duplicate number becomes alias history, and a change note + notification records it). This is deterministic: it triggers on an exact shared number, not a weight guess.
-
-## How change detection works (`:core` module)
-
-Pure Kotlin, fully unit-tested (33 tests), no Android dependencies:
-
-- **Carrier detection** - tracking-number format rules for AU Post (UPU `XX000000000AU`, domestic, 7-prefix consignments), Cainiao (`CN…`), iMile (`IM…`).
-- **Parsers** - one per carrier, tolerant of shape drift, normalising raw codes (`SIGNED_SUCCESS` -> `DELIVERED`, …) and weights (kg -> g).
-- **Renumbering detection** - when a refresh comes back under a different number, PackaTrack checks *number suffix fingerprints* (≥ 8 trailing chars) plus weight/dimension closeness to confirm it is the same physical parcel, then records a `RENUMBERED` change and keeps the old number in the parcel's alias history.
-- **Combination detection** - several previously tracked numbers converge onto one parcel whose weight ≈ sum of the parts (within tolerance) or whose events mention consolidation -> `COMBINED` change on every involved parcel.
-- **Change log** - every detection is persisted and surfaced in the UI and notifications; re-fetches are deduplicated.
-
-## Project layout
-
-```
-core/   Pure tracking engine: models, parsers, detectors and change logic
-app/    Android app: Room database, OkHttp fetchers, WorkManager sync, Compose UI
-```
-
-- `core/src/main/java/com/packatrack/core/parse/` - Cainiao / Australia Post / iMile parsers
-- `core/src/main/java/com/packatrack/core/changelog/ChangeLogService.kt` - renumber/combine detection
-- `app/src/main/java/com/packatrack/app/data/TrackingRepository.kt` - sync + detection orchestration
-- `app/src/main/java/com/packatrack/app/data/fetch/` - live carrier fetchers
-- `app/src/main/java/com/packatrack/app/data/BackupManager.kt` / `BackupCodec.kt` / `BackupMerger.kt` - encrypted backup export/import
-- `app/src/main/java/com/packatrack/app/data/DatabaseKey.kt` / `KeystoreCrypto.kt` - SQLCipher key management via Android Keystore
-
-## Toolchain
-
-Gradle 9.7.1 wrapper, AGP 9.3.2 (built-in Kotlin), Kotlin 2.4.10, Compose BOM 2026.08.00, Room 2.8.4 (KSP), WorkManager 2.11.2, OkHttp 5.5.0, Coroutines 1.11.0, SQLCipher 4.18.0. compileSdk 37 / minSdk 24 / targetSdk 36.
-
-## Data model
-
-- **Parcel** (`shipments`) - the physical shipment: an optional custom name and declared weight.
-- **Courier leg** (`tracking_legs`) - one carrier + tracking number following a parcel; a parcel has one or many, added and removed freely.
-- **Order** (`orders`) - an AliExpress order carried in a parcel (name + optional link); a parcel has one or many, so a Cainiao-consolidated parcel lists every order inside it.
-- **Event** (`events`) - a scan, tied to its leg and parcel, merged into the parcel's timeline.
-
-The database is encrypted with SQLCipher and versioned with explicit Room migrations (no destructive upgrades). Encrypted, passphrase-protected backups can be exported and restored across devices.
+Developed with ❤️ for the global shopping community.
