@@ -35,6 +35,27 @@ class CainiaoParserTest {
     ]}}}}
     """.trimIndent()
 
+    // The shape the live global endpoint returns today: a top-level "module" array whose
+    // elements carry a flat "detailList" (time as epoch millis, plus a formatted timeStr).
+    private val moduleShape = """
+    {"success":true,"module":[{
+      "mailNo":"LP00432432432CN","status":"TRANSIT","statusDesc":"In transit",
+      "detailList":[
+        {"time":1755680400000,"timeStr":"2026-08-20 09:00:00","desc":"Arrived at sorting centre","standerdDesc":"Arrival","actionCode":"GWMS_ACCEPT"},
+        {"time":1755594000000,"timeStr":"2026-08-19 09:00:00","desc":"Order information received","standerdDesc":"Accepted","actionCode":"GTMS_ACCEPT"}
+      ]}]}
+    """.trimIndent()
+
+    @Test fun parsesModuleShape() {
+        val snap = CainiaoParser.parse(moduleShape)
+        assertNotNull(snap)
+        assertEquals("LP00432432432CN", snap!!.trackingNumber)
+        assertEquals(2, snap.events.size)
+        // newest first, and the epoch-millis timestamp is parsed
+        assertTrue(snap.events.first().description.startsWith("Arrived at sorting"))
+        assertEquals(1755680400000L, snap.events.first().timeMs)
+    }
+
     @Test fun parsesSectionsShape() {
         val snap = CainiaoParser.parse(sectionsShape)
         assertNotNull(snap)
