@@ -15,6 +15,11 @@ import org.json.JSONObject
  *          "desc":"Parcel data processed","city":"Hangzhou","actionCode":"CW_FUNCTION_GOT"}]}]}}}
  *  B) {"data":{"<number>":{ "logisticsTrace":{"traceNodeList":[
  *        {"time":"2024-01-03 08:00","description":"Arrived at sorting center","location":"Sydney"}]}}}}
+ *  C) {"success":true,"module":[{"mailNo":"<number>","status":"TRANSIT",
+ *        "detailList":[{"time":1704189060000,"timeStr":"2024-01-02 10:11",
+ *          "desc":"Parcel data processed","standerdDesc":"...","actionCode":"GWMS_ACCEPT"}]}]}
+ *     This is what the live endpoint returns today — a top-level "module" array whose
+ *     elements carry a flat "detailList". Shapes A/B are kept for older/alternate responses.
  *
  * Weight is reported in kilograms; PackaTrack stores grams.
  */
@@ -26,6 +31,18 @@ object CainiaoParser {
             android.util.Log.w("CainiaoParser", "Failed to parse JSON: ${json.take(200)}")
             return null
         }
+
+        // Shape C — live global endpoint: {"module":[{"mailNo":..,"detailList":[..]}]}
+        root.optJSONArray("module")?.let { modules ->
+            for (i in 0 until modules.length()) {
+                val pkg = modules.optJSONObject(i) ?: continue
+                val number = firstNonBlank(pkg, "mailNo", "mailNoList", "trackingNumber", "trackingNo", "waybillNo")
+                    ?: continue
+                extract(number, pkg)?.let { return it }
+            }
+        }
+
+        // Shapes A/B — {"data":{"<number>":{..}}}
         val data = root.optJSONObject("data")
         if (data == null || data.length() == 0) {
             android.util.Log.d("CainiaoParser", "No data in response: ${json.take(300)}")
@@ -35,7 +52,11 @@ object CainiaoParser {
         val names = data.names() ?: return null
         val number = names.getString(0)
         val pkg = data.optJSONObject(number) ?: return null
+        return extract(number, pkg)
+    }
 
+    /** Builds a [Snapshot] from a single package object, whichever response shape it came from. */
+    private fun extract(number: String, pkg: JSONObject): Snapshot? {
         val events = mutableListOf<TrackingEvent>()
         val relatedNumbers = linkedSetOf<String>()
         val latestTrackingNumber = listOf(
@@ -65,14 +86,17 @@ object CainiaoParser {
                 val details = section.optJSONArray("detailList") ?: continue
                 for (j in 0 until details.length()) {
                     val d = details.optJSONObject(j) ?: continue
-                    events += TrackingEvent(
-                        trackingNumber = number,
-                        timeMs = TimeUtil.parse(d.optString("time")),
-                        description = d.optString("desc").ifBlank { d.optString("status") },
-                        location = d.optString("city").takeIf { it.isNotBlank() }
-                            ?: d.optString("country").takeIf { it.isNotBlank() },
-                        statusCode = mapCode(firstNonBlank(d, "actionCode", "standStillCode", "status")),
-                    )
+                    events += detailEvent(number, d)
+                }
+            }
+        }
+
+        // Flat detailList directly on the package (shape C, the live global response).
+        if (events.isEmpty()) {
+            pkg.optJSONArray("detailList")?.let { details ->
+                for (j in 0 until details.length()) {
+                    val d = details.optJSONObject(j) ?: continue
+                    events += detailEvent(number, d)
                 }
             }
         }
@@ -92,7 +116,7 @@ object CainiaoParser {
             }
         }
 
-        if (events.isEmpty() && (firstNonBlank(pkg, "status") == null)) return null
+        if (events.isEmpty() && (firstNonBlank(pkg, "status", "statusDesc") == null)) return null
 
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
 
@@ -101,6 +125,20 @@ object CainiaoParser {
             dimensionsCm = null,
             events = events,
             relatedTrackingNumbers = relatedNumbers.toList(),
+        )
+    }
+
+    /** Maps one detail row (from `sections[].detailList` or a flat `detailList`) to an event. */
+    private fun detailEvent(number: String, d: JSONObject): TrackingEvent {
+        // The live endpoint reports `time` as epoch millis alongside a `timeStr`; older shapes
+        // use a formatted `time` string. TimeUtil.parse handles both numbers and strings.
+        val time = firstNonBlank(d, "time", "timeStr")
+        return TrackingEvent(
+            trackingNumber = number,
+            timeMs = TimeUtil.parse(time),
+            description = firstNonBlank(d, "desc", "standerdDesc", "statusDesc", "status") ?: "Update",
+            location = firstNonBlank(d, "city", "country", "location", "areaName"),
+            statusCode = mapCode(firstNonBlank(d, "actionCode", "standStillCode", "status", "standerdDesc")),
         )
     }
 
