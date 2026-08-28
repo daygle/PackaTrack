@@ -33,6 +33,8 @@ object Notifier {
     /** Posts a summary of detected changes; silent no-op when permission is missing. */
     fun postChanges(context: Context, messages: List<String>) {
         if (messages.isEmpty()) return
+        val prefs = (context.applicationContext as? com.packatrack.app.PackaTrackApp)?.container?.prefs
+        if (prefs != null && !prefs.notificationsEnabled) return
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
