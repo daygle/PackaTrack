@@ -52,7 +52,9 @@ class HttpTrackingFetcher(
 
     private fun get(url: String, headers: Map<String, String>): String? {
         val builder = okhttp3.Request.Builder().url(url)
-            .header("Accept-Encoding", "gzip")
+            // Let OkHttp add Accept-Encoding: gzip itself so it also decompresses the
+            // response transparently. Setting the header manually would make us receive
+            // raw gzip bytes and read them as garbage, breaking every parser.
             .header(
                 "User-Agent",
                 "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126 Safari/537.36",

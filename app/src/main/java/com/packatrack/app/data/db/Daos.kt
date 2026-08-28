@@ -78,6 +78,9 @@ interface OrderDao {
     @Query("SELECT * FROM orders WHERE shipmentId = :shipmentId ORDER BY createdAt ASC")
     suspend fun ordersForShipment(shipmentId: Long): List<OrderItemEntity>
 
+    @Query("SELECT * FROM orders ORDER BY createdAt ASC")
+    suspend fun all(): List<OrderItemEntity>
+
     @Insert
     suspend fun insert(order: OrderItemEntity): Long
 
@@ -111,6 +114,9 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE legId = :legId")
     suspend fun eventsForLeg(legId: Long): List<EventEntity>
 
+    @Query("SELECT * FROM events")
+    suspend fun all(): List<EventEntity>
+
     @Query("SELECT * FROM events WHERE legId = :legId AND ((timeMs = :timeMs) OR (timeMs IS NULL AND :timeMs IS NULL)) AND description = :description LIMIT 1")
     suspend fun findDuplicate(legId: Long, timeMs: Long?, description: String): EventEntity?
 
@@ -135,6 +141,9 @@ interface ChangeDao {
 
     @Query("SELECT * FROM changes ORDER BY createdAt DESC LIMIT 20")
     fun observeRecent(): Flow<List<ChangeEntity>>
+
+    @Query("SELECT * FROM changes ORDER BY createdAt ASC")
+    suspend fun all(): List<ChangeEntity>
 
     @Query("SELECT * FROM changes WHERE shipmentId = :shipmentId ORDER BY createdAt DESC")
     fun observeFor(shipmentId: Long): Flow<List<ChangeEntity>>
