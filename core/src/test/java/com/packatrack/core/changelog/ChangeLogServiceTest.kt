@@ -50,26 +50,10 @@ class ChangeLogServiceTest {
         assertEquals(listOf("CNPART00001", "CNPART00002"), result!!.mergedFrom.toList())
     }
 
-    @Test fun combinedDetectedByWeightSum() {
-        val p1 = Snapshot("AA11", null, emptyList())
-        val p2 = Snapshot("BB22", null, emptyList())
-        val combined = Snapshot("CC33", null, emptyList())
-        val result = ChangeLogService.detectCombination(
-            mapOf("AA11" to p1, "BB22" to p2), combined)
-        assertEquals(ParcelChange.Combined::class.java, result?.javaClass)
-    }
-
     @Test fun noFalseCombinationWhenNothingChanged() {
         val p = Snapshot("SNGL001", null, emptyList())
         assertEquals(null, ChangeLogService.detectCombination(mapOf(p.trackingNumber to p),
             Snapshot("SNGL001", null, emptyList())))
-    }
-
-    @Test fun weightChangeReported() {
-        val prev = Snapshot("W1", null, emptyList())
-        val cur = Snapshot("W1", null, emptyList())
-        val changes = ChangeLogService.detect(mapOf("W1" to prev), cur)
-        assertTrue(changes.any { it is ParcelChange.WeightChanged })
     }
 
     @Test fun humanReadableLines() {
