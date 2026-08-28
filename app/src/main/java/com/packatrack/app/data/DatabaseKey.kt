@@ -1,6 +1,7 @@
 package com.packatrack.app.data
 
 import android.content.Context
+import androidx.core.content.edit
 import java.security.SecureRandom
 
 /**
@@ -22,7 +23,7 @@ object DatabaseKey {
             runCatching { KeystoreCrypto.decryptFromBase64(wrapped) }.getOrNull()?.let { return it }
         }
         val key = ByteArray(KEY_BYTES).also { SecureRandom().nextBytes(it) }
-        prefs.edit().putString(KEY, KeystoreCrypto.encryptToBase64(key)).apply()
+        prefs.edit { putString(KEY, KeystoreCrypto.encryptToBase64(key)) }
         return key
     }
 }
