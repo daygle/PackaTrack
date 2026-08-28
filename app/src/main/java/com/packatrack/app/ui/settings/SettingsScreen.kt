@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,7 +62,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val prefs = rememberAppContainer().prefs
 
     var key by remember { mutableStateOf(prefs.ausPostApiKey.orEmpty()) }
-    var interval by remember { mutableStateOf(prefs.syncIntervalHours) }
+    var interval by remember { mutableIntStateOf(prefs.syncIntervalHours) }
     var notifications by remember { mutableStateOf(prefs.notificationsEnabled) }
     var delivered by remember { mutableStateOf(prefs.notifyOnDelivered) }
     var exceptions by remember { mutableStateOf(prefs.notifyOnExceptions) }

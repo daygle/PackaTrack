@@ -2,6 +2,7 @@ package com.packatrack.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 /** User-configurable tracking behaviour backed by SharedPreferences. */
 class PrefsStore(context: Context) {
@@ -10,51 +11,51 @@ class PrefsStore(context: Context) {
 
     var ausPostApiKey: String?
         get() = prefs.getString(KEY_AUSPOST_KEY, null)
-        set(value) = prefs.edit().putString(KEY_AUSPOST_KEY, value?.trim()).apply()
+        set(value) = prefs.edit { putString(KEY_AUSPOST_KEY, value?.trim()) }
 
     var syncIntervalHours: Int
         get() = prefs.getInt(KEY_SYNC_HOURS, 6)
-        set(value) = prefs.edit().putInt(KEY_SYNC_HOURS, value.coerceIn(1, 48)).apply()
+        set(value) = prefs.edit { putInt(KEY_SYNC_HOURS, value.coerceIn(1, 48)) }
 
     var notificationsEnabled: Boolean
         get() = prefs.getBoolean(KEY_NOTIFICATIONS, true)
-        set(value) = prefs.edit().putBoolean(KEY_NOTIFICATIONS, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_NOTIFICATIONS, value) }
 
     var notifyOnDelivered: Boolean
         get() = prefs.getBoolean(KEY_NOTIFY_DELIVERED, true)
-        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_DELIVERED, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_NOTIFY_DELIVERED, value) }
 
     var notifyOnExceptions: Boolean
         get() = prefs.getBoolean(KEY_NOTIFY_EXCEPTIONS, true)
-        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_EXCEPTIONS, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_NOTIFY_EXCEPTIONS, value) }
 
     var notifyOnTransit: Boolean
         get() = prefs.getBoolean(KEY_NOTIFY_TRANSIT, true)
-        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_TRANSIT, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_NOTIFY_TRANSIT, value) }
 
     var wifiOnlySync: Boolean
         get() = prefs.getBoolean(KEY_WIFI_ONLY, false)
-        set(value) = prefs.edit().putBoolean(KEY_WIFI_ONLY, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_WIFI_ONLY, value) }
 
     var themeMode: String
         get() = prefs.getString(KEY_THEME, "system") ?: "system"
-        set(value) = prefs.edit().putString(KEY_THEME, value).apply()
+        set(value) = prefs.edit { putString(KEY_THEME, value) }
 
     var sortOrder: String
         get() = prefs.getString(KEY_SORT_ORDER, "newest") ?: "newest"
-        set(value) = prefs.edit().putString(KEY_SORT_ORDER, value).apply()
+        set(value) = prefs.edit { putString(KEY_SORT_ORDER, value) }
 
     var dateTimeFormat: String
         get() = prefs.getString(KEY_DATE_FORMAT, "dd MMM yyyy, HH:mm") ?: "dd MMM yyyy, HH:mm"
-        set(value) = prefs.edit().putString(KEY_DATE_FORMAT, value).apply()
+        set(value) = prefs.edit { putString(KEY_DATE_FORMAT, value) }
 
     var historySortOrder: String
         get() = prefs.getString(KEY_HISTORY_SORT, "newest") ?: "newest"
-        set(value) = prefs.edit().putString(KEY_HISTORY_SORT, value).apply()
+        set(value) = prefs.edit { putString(KEY_HISTORY_SORT, value) }
 
     var autoArchiveDelivered: Boolean
         get() = prefs.getBoolean(KEY_AUTO_ARCHIVE, false)
-        set(value) = prefs.edit().putBoolean(KEY_AUTO_ARCHIVE, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_AUTO_ARCHIVE, value) }
 
     companion object {
         const val KEY_AUSPOST_KEY = "auspost_key"
