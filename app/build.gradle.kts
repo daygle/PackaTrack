@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 android {
@@ -45,11 +46,10 @@ android {
     }
 }
 
-// Export the Room schema so migrations can be diffed in review and verified by
-// migration tests. Room validates each version's schema against this directory
-// at compile time.
-ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
+// Export the Room schema (via the Room Gradle plugin) so schema changes are
+// visible in diffs and can back migration tests.
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
