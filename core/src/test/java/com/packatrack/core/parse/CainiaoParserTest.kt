@@ -56,6 +56,29 @@ class CainiaoParserTest {
         assertEquals(1755680400000L, snap.events.first().timeMs)
     }
 
+    // A real UBI/Cainiao hand-off response: the parcel is tracked under an AP-article number,
+    // and the downstream last-mile number is surfaced in realMailNo (labelled) and copyRealMailNo.
+    private val handoffShape = """
+    {"success":true,"module":[{
+      "mailNo":"AP00839790702074",
+      "realMailNo":"Latest Tracking Number:\t36YPH337263201000935107",
+      "status":"DELIVERING","statusDesc":"Delivering",
+      "detailList":[
+        {"time":1787819700000,"timeStr":"2026-08-27 16:35:00","desc":"EXPORT CUSTOMS CLEARED","standerdDesc":"Leaving from departure country/region","actionCode":"LH_HO_AIRLINE"},
+        {"time":1787663157906,"timeStr":"2026-08-25 21:05:57","desc":"Order received successfully","actionCode":"GWMS_ACCEPT"}
+      ],
+      "copyRealMailNo":"36YPH337263201000935107"}]}
+    """.trimIndent()
+
+    @Test fun extractsHandoffLastMileNumber() {
+        val snap = CainiaoParser.parse(handoffShape)
+        assertNotNull(snap)
+        assertEquals("AP00839790702074", snap!!.trackingNumber)
+        assertEquals(2, snap.events.size)
+        // The downstream courier number is picked up so a new leg can be created for it.
+        assertTrue(snap.relatedTrackingNumbers.contains("36YPH337263201000935107"))
+    }
+
     @Test fun parsesSectionsShape() {
         val snap = CainiaoParser.parse(sectionsShape)
         assertNotNull(snap)
