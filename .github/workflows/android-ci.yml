@@ -55,6 +55,13 @@ jobs:
       - name: Assemble Debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
 
+      - name: Print Room schema
+        if: always()
+        run: |
+          echo "===ROOM_SCHEMA_BEGIN==="
+          find app/schemas -name '*.json' -print -exec cat {} \; 2>/dev/null || echo "no schema generated"
+          echo "===ROOM_SCHEMA_END==="
+
       - name: Publish Unit Test Report
         if: always()
         uses: mikepenz/action-junit-report@v6
