@@ -20,6 +20,8 @@ object CarrierDetector {
     // Australia Post often exposes a 14-digit article number while UBI retains the
     // same identifier with an AP prefix (for example AP00839790702074).
     private val CAINIAO_AP = Regex("^AP[0-9]{14}$", RegexOption.IGNORE_CASE)
+    // UBI and Cainiao are two services in the same network; AP article numbers
+    // should therefore create both legs in automatic mode.
     private val CAINIAO = Regex("^CN[A-Za-z0-9]{8,20}N?$", RegexOption.IGNORE_CASE)
     private val IMILE = Regex("^IML?[A-Za-z0-9]{6,22}$", RegexOption.IGNORE_CASE)
 
@@ -37,7 +39,10 @@ object CarrierDetector {
             if (AUSPOST_CONSIGNMENT.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (MORNING_GLOBAL.matches(n)) add(Carrier.MORNING_GLOBAL)
             if (IMILE.matches(n)) add(Carrier.IMILE)
-            if (CAINIAO_AP.matches(n)) add(Carrier.CAINIAO)
+            if (CAINIAO_AP.matches(n)) {
+                add(Carrier.CAINIAO)
+                add(Carrier.AUSTRALIA_POST)
+            }
             if (CAINIAO.matches(n)) add(Carrier.CAINIAO)
             if (AUSPOST_DOMESTIC.matches(n) && !IMILE.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (ARAMEX.matches(n)) add(Carrier.ARAMEX)

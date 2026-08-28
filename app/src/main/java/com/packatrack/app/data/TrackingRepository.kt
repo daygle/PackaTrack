@@ -53,35 +53,36 @@ class TrackingRepository(
         val number = FingerprintUtil.normalize(rawNumber)
         require(number.length >= 6) { "Tracking number looks too short" }
 
-        legs.findByTrackingNumber(number)?.let { return it.shipmentId }
+        legs.findByTrackingNumber(number)?.let { existing ->
+            // An older install may already contain this number under only one carrier.
+            // Complete the auto setup when the same number is added again.
+            if (carrierOverride == null) {
+                detectCarriers(number).drop(1).forEach { detected ->
+                    if (legs.findByTrackingNumberAndCarrier(number, detected.id) == null) {
+                        addCourier(existing.shipmentId, number, detected)
+                    }
+                }
+            }
+            return existing.shipmentId
+        }
 
         val now = System.currentTimeMillis()
         val detectedCarriers = detectCarriers(number)
-        val carrier = carrierOverride ?: detectedCarriers.firstOrNull() ?: Carrier.CAINIAO
+        val carriersToAdd = if (carrierOverride != null) listOf(carrierOverride) else {
+            detectedCarriers.ifEmpty { listOf(Carrier.CAINIAO) }
+        }
         val shipmentId = shipments.insert(
             ShipmentEntity(createdAt = now),
         )
-        legs.insert(
-            TrackingLegEntity(
-                shipmentId = shipmentId,
-                trackingNumber = number,
-                carrierId = carrier.id,
-                createdAt = now,
-            ),
-        )
-        // Auto mode means all matching carrier interpretations are tracked. Keep one
-        // physical parcel with separate legs; manual carrier selection remains one leg.
-        if (carrierOverride == null) {
-            detectedCarriers.drop(1).forEach { detected ->
-                legs.insert(
-                    TrackingLegEntity(
-                        shipmentId = shipmentId,
-                        trackingNumber = number,
-                        carrierId = detected.id,
-                        createdAt = now,
-                    ),
-                )
-            }
+        carriersToAdd.forEach { detected ->
+            legs.insert(
+                TrackingLegEntity(
+                    shipmentId = shipmentId,
+                    trackingNumber = number,
+                    carrierId = detected.id,
+                    createdAt = now,
+                ),
+            )
         }
         // Record the order this parcel started as (name and/or link), if either was given.
         val orderName = title?.takeIf { it.isNotBlank() }
@@ -96,6 +97,8 @@ class TrackingRepository(
                 ),
             )
         }
+        // Poll every auto-created leg immediately, including all carrier interpretations.
+        // The caller performs the first refresh after this method returns.
         return shipmentId
     }
 
@@ -126,9 +129,8 @@ class TrackingRepository(
         val number = FingerprintUtil.normalize(rawNumber)
         require(number.length >= 6) { "Tracking number looks too short" }
 
-        legs.findByTrackingNumber(number)?.let { return it.id }
-
         val carrier = carrierOverride ?: detectCarriers(number).firstOrNull() ?: Carrier.CAINIAO
+        legs.findByTrackingNumberAndCarrier(number, carrier.id)?.let { return it.id }
         val now = System.currentTimeMillis()
         val legId = legs.insert(
             TrackingLegEntity(
@@ -315,7 +317,8 @@ class TrackingRepository(
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
-        val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount) ?: return null
+        val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount)
+            ?: return LegPoll(dataChanged = false, changes = emptyList())
 
         // Cainiao/UBI commonly reports the destination-carrier number in the same
         // response. Keep it as a second leg so its scans can be fetched independently.

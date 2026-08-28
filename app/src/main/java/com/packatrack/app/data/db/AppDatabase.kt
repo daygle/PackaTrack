@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         EventEntity::class,
         ChangeEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,7 +35,8 @@ abstract class AppDatabase : RoomDatabase() {
                     "packatrack.db",
                 )
                     // Schema still evolving pre-release (v2 introduced courier legs; v3 added
-                    // per-parcel orders). Rather than ship fragile hand-written migrations for a
+                    // per-parcel orders; v4 allows the same number to be tracked by multiple
+                    // carrier legs). Rather than ship fragile hand-written migrations for a
                     // pre-1.0 app, rebuild cleanly on any version change.
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()

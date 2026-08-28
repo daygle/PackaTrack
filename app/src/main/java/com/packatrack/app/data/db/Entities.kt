@@ -36,7 +36,7 @@ data class ShipmentEntity(
     tableName = "tracking_legs",
     indices = [
         Index("shipmentId"),
-        Index(value = ["trackingNumber"], unique = true),
+        Index(value = ["trackingNumber", "carrierId"], unique = true),
     ],
 )
 data class TrackingLegEntity(

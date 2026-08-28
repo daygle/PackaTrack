@@ -48,6 +48,9 @@ interface LegDao {
     @Query("SELECT * FROM tracking_legs WHERE trackingNumber = :number LIMIT 1")
     suspend fun findByTrackingNumber(number: String): TrackingLegEntity?
 
+    @Query("SELECT * FROM tracking_legs WHERE trackingNumber = :number AND carrierId = :carrierId LIMIT 1")
+    suspend fun findByTrackingNumberAndCarrier(number: String, carrierId: String): TrackingLegEntity?
+
     @Query("SELECT COUNT(*) FROM tracking_legs WHERE shipmentId = :shipmentId")
     suspend fun countForShipment(shipmentId: Long): Int
 
