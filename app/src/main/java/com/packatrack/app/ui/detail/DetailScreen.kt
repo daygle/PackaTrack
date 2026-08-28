@@ -26,9 +26,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -49,6 +51,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import com.packatrack.app.notify.Notifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,10 +72,9 @@ import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.data.db.TrackingLegEntity
 import com.packatrack.app.ui.components.CarrierChip
 import com.packatrack.app.ui.components.StatusPill
-import com.packatrack.app.ui.humanWeight
+import com.packatrack.app.ui.daysInTransit
 import com.packatrack.app.ui.overallStatusCode
 import com.packatrack.app.ui.parcelName
-import com.packatrack.app.ui.parcelWeight
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.MonoNumber
 import com.packatrack.app.ui.theme.statusColor
@@ -88,18 +91,27 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
 
     val entry by repo.observeShipment(id).collectAsStateWithLifecycle(initialValue = null)
     val changes by repo.observeChangesFor(id).collectAsStateWithLifecycle(initialValue = emptyList())
-    val timeline by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
+    val timelineRaw by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val allParcels by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
+    val prefs = rememberAppContainer().prefs
 
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
     val orders = entry?.orders.orEmpty()
 
+    var historySort by remember { mutableStateOf(prefs.historySortOrder) }
+    val timeline = remember(timelineRaw, historySort) {
+        if (historySort == "oldest") timelineRaw.sortedBy { it.timeMs ?: 0L }
+        else timelineRaw.sortedByDescending { it.timeMs ?: 0L }
+    }
+
     var menuOpen by remember { mutableStateOf(value = false) }
-    var showAddCourier by remember { mutableStateOf(false) }
-    var showAddOrder by remember { mutableStateOf(false) }
-    var showCombine by remember { mutableStateOf(false) }
-    var showEdit by remember { mutableStateOf(false) }
+    var historySortMenuOpen by remember { mutableStateOf(false) }
+    var showAddCourier by remember { mutableStateOf(value = false) }
+    var showAddOrder by remember { mutableStateOf(value = false) }
+    var showCombine by remember { mutableStateOf(value = false) }
+    var showEdit by remember { mutableStateOf(value = false) }
+    var syncing by remember { mutableStateOf(value = false) }
 
     val legById = remember(legs) { legs.associateBy { it.id } }
 
@@ -129,12 +141,12 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
                                 leadingIcon = { Icon(Icons.AutoMirrored.Filled.CallMerge, null) },
-                                text = { Text("Combine with another parcel") },
+                                text = { Text("Combine With Another Parcel") },
                                 onClick = { menuOpen = false; showCombine = true },
                             )
                             DropdownMenuItem(
                                 leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                                text = { Text("Delete parcel", color = MaterialTheme.colorScheme.error) },
+                                text = { Text("Delete Parcel", color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     menuOpen = false
                                     scope.launch { repo.delete(id) }
@@ -153,81 +165,123 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
             )
         },
     ) { padding ->
-        LazyColumn(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+        PullToRefreshBox(
+            isRefreshing = syncing,
+            onRefresh = {
+                if (syncing) return@PullToRefreshBox
+                syncing = true
+                scope.launch {
+                    val outcome = repo.refreshShipment(id, force = true)
+                    Notifier.postChanges(context, outcome.notable.map { it.message })
+                    syncing = false
+                }
+            },
+            modifier = Modifier.padding(padding)
         ) {
-            item(key = "hero") {
-                HeroSection(entry)
-            }
+            LazyColumn(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background),
+            ) {
+                item(key = "hero") {
+                    HeroSection(entry, prefs)
+                }
 
-            item(key = "orders_title") {
-                SectionHeader(
-                    title = "Orders",
-                    count = orders.size,
-                    onAdd = { showAddOrder = true }
-                )
-            }
-            if (orders.isEmpty()) {
-                item(key = "orders_empty") {
-                    EmptySectionText("No orders linked. Add AliExpress orders here to track combined shipments easily.")
+                item(key = "couriers_title") {
+                    SectionHeader(
+                        title = "Tracking Numbers",
+                        count = legs.size
+                    ) { showAddCourier = true }
+                }
+                items(legs, key = { "leg_${it.id}" }) { leg ->
+                    CourierRow(
+                        leg = leg,
+                        canRemove = legs.size > 1,
+                        onOpenSite = {
+                            Carrier.fromId(leg.carrierId)?.let { carrier ->
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, carrier.publicUrl(leg.trackingNumber).toUri()),
+                                    )
+                                }
+                            }
+                        },
+                        onRemove = { scope.launch { repo.removeCourier(leg.id) } },
+                    )
+                }
+
+                item(key = "orders_title") {
+                    SectionHeader(
+                        title = "Orders",
+                        count = orders.size
+                    ) { showAddOrder = true }
+                }
+                if (orders.isEmpty()) {
+                    item(key = "orders_empty") {
+                        EmptySectionText("No orders linked. Add orders here to track combined shipments easily.")
+                    }
+                }
+                items(orders, key = { "order_${it.id}" }) { order ->
+                    OrderRow(
+                        order = order,
+                        onOpenLink = {
+                            order.orderUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+                            }
+                        },
+                        onRemove = { scope.launch { repo.removeOrder(order.id) } },
+                    )
+                }
+
+                if (changes.isNotEmpty()) {
+                item(key = "changes_title") { SectionHeader("Insights", count = changes.size) }
+                items(changes, key = { "chg_${it.id}" }) { change ->
+                    InsightRow(change.message, change.createdAt, prefs.dateTimeFormat)
                 }
             }
-            items(orders, key = { "order_${it.id}" }) { order ->
-                OrderRow(
-                    order = order,
-                    onOpenLink = {
-                        order.orderUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
-                        }
-                    },
-                    onRemove = { scope.launch { repo.removeOrder(order.id) } },
-                )
-            }
 
-            item(key = "couriers_title") {
+            item(key = "timeline_title") {
                 SectionHeader(
-                    title = "Tracking Numbers",
-                    count = legs.size,
-                    onAdd = { showAddCourier = true }
-                )
-            }
-            items(legs, key = { "leg_${it.id}" }) { leg ->
-                CourierRow(
-                    leg = leg,
-                    canRemove = legs.size > 1,
-                    onOpenSite = {
-                        Carrier.fromId(leg.carrierId)?.let { carrier ->
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, android.net.Uri.parse(carrier.publicUrl(leg.trackingNumber))),
+                    title = "Timeline",
+                    count = timeline.size,
+                    action = {
+                        Box {
+                            IconButton(onClick = { historySortMenuOpen = true }) {
+                                Icon(Icons.Default.Sort, "Sort History", modifier = Modifier.size(20.dp))
+                            }
+                            DropdownMenu(expanded = historySortMenuOpen, onDismissRequest = { historySortMenuOpen = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Newest First") },
+                                    onClick = {
+                                        historySort = "newest"
+                                        prefs.historySortOrder = "newest"
+                                        historySortMenuOpen = false
+                                    },
+                                    trailingIcon = { if (historySort == "newest") Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(16.dp)) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Oldest First") },
+                                    onClick = {
+                                        historySort = "oldest"
+                                        prefs.historySortOrder = "oldest"
+                                        historySortMenuOpen = false
+                                    },
+                                    trailingIcon = { if (historySort == "oldest") Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(16.dp)) }
                                 )
                             }
                         }
-                    },
-                    onRemove = { scope.launch { repo.removeCourier(leg.id) } },
+                    }
                 )
             }
-
-            if (changes.isNotEmpty()) {
-                item(key = "changes_title") { SectionHeader("Insights", count = changes.size) }
-                items(changes, key = { "chg_${it.id}" }) { change ->
-                    InsightRow(change.message, change.createdAt)
-                }
-            }
-
-            item(key = "timeline_title") { SectionHeader("Timeline", count = timeline.size) }
             if (timeline.isEmpty()) {
                 item(key = "timeline_empty") {
-                    EmptySectionText("Scanning for updates... Pull to refresh on home screen.")
+                    EmptySectionText("Scanning for updates...")
                 }
             }
             items(timeline, key = { "ev_${it.id}" }) { ev ->
                 val carrier = Carrier.fromId(legById[ev.legId]?.carrierId)
                 TimelineRow(
-                    time = TimeUtil.format(ev.timeMs) ?: "(time unknown)",
+                    time = TimeUtil.format(ev.timeMs, prefs.dateTimeFormat) ?: "(time unknown)",
                     description = ev.description,
                     location = ev.location,
                     statusCode = ev.statusCode,
@@ -236,7 +290,8 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     isLast = timeline.last() == ev
                 )
             }
-            item(key = "footer") { Spacer(Modifier.height(40.dp)) }
+                item(key = "footer") { Spacer(Modifier.height(40.dp)) }
+            }
         }
     }
 
@@ -248,7 +303,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                 showAddCourier = false
                 scope.launch {
                     repo.addCourier(id, number, carrier)
-                    repo.refreshShipment(id)
+                    repo.refreshShipment(id, force = true)
                 }
             },
         )
@@ -265,7 +320,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
         )
     }
 
-    if (showAddOrder && shipment != null) {
+    if ((showAddOrder) && (shipment != null)) {
         AddOrderDialog(
             onDismiss = { showAddOrder = false },
             onAdd = { name, link ->
@@ -278,18 +333,17 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     if (showEdit && shipment != null) {
         EditParcelDialog(
             initialTitle = shipment.title.orEmpty(),
-            initialWeight = shipment.weightGrams?.toInt()?.toString().orEmpty(),
             onDismiss = { showEdit = false },
-            onSave = { title, weight ->
+            onSave = { title ->
                 showEdit = false
-                scope.launch { repo.updateShipment(id, title, weight) }
+                scope.launch { repo.updateShipment(id, title) }
             },
         )
     }
 }
 
 @Composable
-private fun HeroSection(entry: ShipmentWithLegs?) {
+private fun HeroSection(entry: ShipmentWithLegs?, prefs: com.packatrack.app.data.PrefsStore) {
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
     val status = overallStatusCode(legs)
@@ -311,10 +365,19 @@ private fun HeroSection(entry: ShipmentWithLegs?) {
             )
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val days = daysInTransit(entry?.shipment?.createdAt ?: 0L, status)
                 Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    "Last updated: ${legs.mapNotNull { it.lastSyncAt }.maxOrNull()?.let { TimeUtil.format(it) } ?: "Never"}",
+                    "${if (days == 1) "1 day" else "$days days"} in transit",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.width(12.dp))
+                Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "Last updated: ${legs.asSequence().mapNotNull { it.lastSyncAt }.maxOrNull()?.let { TimeUtil.format(it, prefs.dateTimeFormat) } ?: "Never"}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -329,14 +392,6 @@ private fun HeroSection(entry: ShipmentWithLegs?) {
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                parcelWeight(shipment?.weightGrams, legs)?.let {
-                    AssistChip(
-                        onClick = {},
-                        label = { Text(humanWeight(it)) },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                }
                 AssistChip(
                     onClick = {},
                     label = { Text("${legs.size} Couriers") },
@@ -348,7 +403,7 @@ private fun HeroSection(entry: ShipmentWithLegs?) {
 }
 
 @Composable
-private fun SectionHeader(title: String, count: Int = 0, onAdd: (() -> Unit)? = null) {
+private fun SectionHeader(title: String, count: Int = 0, action: (@Composable () -> Unit)? = null, onAdd: (() -> Unit)? = null) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -367,12 +422,13 @@ private fun SectionHeader(title: String, count: Int = 0, onAdd: (() -> Unit)? = 
             )
             Spacer(Modifier.width(12.dp))
         }
+        action?.invoke()
         if (onAdd != null) {
             IconButton(
                 onClick = onAdd,
                 modifier = Modifier
                     .size(32.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
             ) {
                 Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
             }
@@ -466,7 +522,7 @@ private fun CourierRow(
 }
 
 @Composable
-private fun InsightRow(message: String, time: Long) {
+private fun InsightRow(message: String, time: Long, dateFormat: String) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -486,7 +542,7 @@ private fun InsightRow(message: String, time: Long) {
         Column {
             Text(message, style = MaterialTheme.typography.bodyMedium)
             Text(
-                TimeUtil.format(time) ?: "",
+                TimeUtil.format(time, dateFormat) ?: "",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.outline
             )
@@ -558,8 +614,10 @@ private fun AddCourierDialog(
     onDismiss: () -> Unit,
     onAdd: (number: String, carrier: Carrier?) -> Unit,
 ) {
-    var number by remember { mutableStateOf("") }
-    var override by remember { mutableStateOf<Carrier?>(null) }
+    var number by remember { mutableStateOf(value = "") }
+    var override by remember { mutableStateOf<Carrier?>(value = null) }
+    var showManual by remember { mutableStateOf(value = false) }
+
     val trimmed = number.trim()
     val detected = CarrierDetector.detect(trimmed)
     val chosen = override ?: detected
@@ -571,12 +629,12 @@ private fun AddCourierDialog(
             Button(
                 enabled = trimmed.length >= 6 && !duplicate,
                 onClick = { onAdd(trimmed, chosen) },
-            ) { Text("Add courier") }
+            ) { Text("Add Courier") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Add a courier") },
+        title = { Text("Add A Courier") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     "Track this same parcel with another provider's number.",
                     style = MaterialTheme.typography.bodySmall,
@@ -584,25 +642,64 @@ private fun AddCourierDialog(
                 )
                 OutlinedTextField(
                     value = number, onValueChange = { number = it },
-                    label = { Text("Tracking number") }, singleLine = true,
+                    label = { Text("Tracking Number") }, singleLine = true,
                     isError = duplicate,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (duplicate) {
                     Text("That number is already on this parcel.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
-                Text("Carrier", style = MaterialTheme.typography.labelLarge)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Carrier.entries.forEach { carrier ->
-                        androidx.compose.material3.FilterChip(
-                            selected = chosen == carrier,
-                            onClick = { override = carrier },
-                            label = { Text(carrier.displayName) },
-                        )
+
+                if (detected != null && !showManual) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.CloudSync,
+                                null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Auto-detected: ${detected.displayName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        TextButton(
+                            onClick = { showManual = true },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(24.dp)
+                        ) {
+                            Text("Change", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
-                }
-                if (override == null && detected != null) {
-                    Text("Auto-detected: ${detected.displayName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else if (trimmed.isNotBlank() || showManual) {
+                    Column {
+                        Text(
+                            if (detected == null && !showManual) "Courier not recognised — pick one below:" else "Select Courier:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Carrier.entries.forEach { carrier ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = chosen == carrier,
+                                    onClick = {
+                                        override = if (override == carrier) null else carrier
+                                        if (override != null) showManual = true
+                                    },
+                                    label = { Text(carrier.displayName) },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -619,7 +716,7 @@ private fun CombineDialog(
         onDismissRequest = onDismiss,
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Combine parcels") },
+        title = { Text("Combine Parcels") },
         text = {
             if (candidates.isEmpty()) {
                 Text("There are no other parcels to combine with.")
@@ -651,33 +748,30 @@ private fun CombineDialog(
 @Composable
 private fun EditParcelDialog(
     initialTitle: String,
-    initialWeight: String,
     onDismiss: () -> Unit,
-    onSave: (title: String?, weight: Double?) -> Unit,
+    onSave: (title: String?) -> Unit,
 ) {
-    var title by remember { mutableStateOf(initialTitle) }
-    var weight by remember { mutableStateOf(initialWeight) }
+    var title by remember { mutableStateOf(value = initialTitle) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
                 onClick = {
-                    onSave(title.trim().ifBlank { null }, weight.trim().toDoubleOrNull())
+                    onSave(title.trim().ifBlank { null })
                 },
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Edit parcel") },
+        title = { Text("Edit Parcel") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = title, onValueChange = { title = it },
-                    label = { Text("Parcel name (optional)") },
+                    label = { Text("Parcel Name (Optional)") },
                     supportingText = { Text("Leave blank to name it after its orders") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight in grams") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
     )
@@ -688,8 +782,8 @@ private fun AddOrderDialog(
     onDismiss: () -> Unit,
     onAdd: (name: String, orderUrl: String?) -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var link by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(value = "") }
+    var link by remember { mutableStateOf(value = "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -697,19 +791,19 @@ private fun AddOrderDialog(
             Button(
                 enabled = name.isNotBlank() || link.isNotBlank(),
                 onClick = { onAdd(name.trim(), link.trim().ifBlank { null }) },
-            ) { Text("Add order") }
+            ) { Text("Add Order") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Add an order") },
+        title = { Text("Add An Order") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Record another AliExpress order carried in this parcel.",
+                    "Record another order carried in this parcel.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Order name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = link, onValueChange = { link = it }, label = { Text("AliExpress order link (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Order Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = link, onValueChange = { link = it }, label = { Text("Order Link (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
     )

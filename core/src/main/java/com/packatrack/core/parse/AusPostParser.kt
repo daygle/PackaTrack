@@ -49,12 +49,11 @@ object AusPostParser {
         }
         collectEvents(item.optJSONArray("events"), number, events)
 
-        if (events.isEmpty() && JsonUtil.stringOr(item, "statusSummary") == null) return null
+        if (events.isEmpty() && (JsonUtil.stringOr(item, "statusSummary") == null)) return null
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
 
         return Snapshot(
             trackingNumber = number,
-            weightGrams = null,
             dimensionsCm = null,
             events = events,
         )

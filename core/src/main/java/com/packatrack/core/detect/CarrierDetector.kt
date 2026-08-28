@@ -18,7 +18,7 @@ object CarrierDetector {
     private val AUSPOST_DOMESTIC = Regex("^[A-Z]{2}[0-9]{8}[0-9A-Z]$", RegexOption.IGNORE_CASE)
     private val AUSPOST_CONSIGNMENT = Regex("^7[0-9]{12}$")
     private val CAINIAO = Regex("^CN[A-Za-z0-9]{8,20}N?$", RegexOption.IGNORE_CASE)
-    private val IMILE = Regex("^IM[L]?[A-Za-z0-9]{6,22}$", RegexOption.IGNORE_CASE)
+    private val IMILE = Regex("^IML?[A-Za-z0-9]{6,22}$", RegexOption.IGNORE_CASE)
 
     /** Aramex shipment numbers are all-digit, typically 10–12 long (best effort). */
     private val ARAMEX = Regex("^[0-9]{10,12}$")

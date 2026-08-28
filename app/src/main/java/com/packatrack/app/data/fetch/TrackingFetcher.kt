@@ -6,10 +6,10 @@ import com.packatrack.core.model.Snapshot
 /**
  * Fetches a tracking snapshot for one number from its carrier.
  *
- * [stageHint] is reserved for fetchers that need polling context; HTTP fetchers ignore it.
+ * @param pollCount is reserved for fetchers that need polling context; HTTP fetchers ignore it.
  */
 fun interface TrackingFetcher {
-    suspend fun fetch(carrier: Carrier, trackingNumber: String, stageHint: Int): Snapshot?
+    suspend fun fetch(carrier: Carrier, trackingNumber: String, pollCount: Int): Snapshot?
 }
 
 /**
@@ -30,7 +30,7 @@ class HttpTrackingFetcher(
     override suspend fun fetch(
         carrier: Carrier,
         trackingNumber: String,
-        stageHint: Int,
+        pollCount: Int,
     ): Snapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {
             when (carrier) {
@@ -83,7 +83,9 @@ class HttpTrackingFetcher(
         for (url in candidates) {
             val body = get(url, emptyMap()) ?: continue
             val snap = com.packatrack.core.parse.ImileParser.parse(body, number)
-            if (snap != null) return snap
+            if (snap != null) {
+                return snap
+            }
         }
         return null
     }

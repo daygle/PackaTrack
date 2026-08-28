@@ -20,8 +20,6 @@ data class ShipmentEntity(
     val title: String? = null,
     /** Legacy single order link; superseded by [OrderItemEntity]. Kept for older rows. */
     val orderUrl: String? = null,
-    /** Declared weight in grams (from the order or a carrier scan), optional. */
-    val weightGrams: Double? = null,
     /** True when this parcel was folded into another (kept for history, hidden by default). */
     val archived: Boolean = false,
     val createdAt: Long = 0L,
@@ -50,8 +48,6 @@ data class TrackingLegEntity(
     val carrierId: String,
     /** Comma-separated numbers this leg was previously tracked under. */
     val aliasNumbers: String = "",
-    /** Latest weight this carrier reported, in grams. */
-    val weightGrams: Double? = null,
     /** How many times this leg has been refreshed. */
     val pollCount: Int = 0,
     val lastSyncAt: Long? = null,

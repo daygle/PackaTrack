@@ -8,6 +8,8 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.packatrack.app.PackaTrackApp
 import com.packatrack.app.notify.Notifier
+import androidx.work.Constraints
+import androidx.work.NetworkType
 import java.util.concurrent.TimeUnit
 
 class SyncWorker(
@@ -25,22 +27,20 @@ class SyncWorker(
     }
 
     companion object {
-        fun schedule(context: Context, intervalHours: Int) {
+        fun schedule(context: Context, intervalHours: Int, wifiOnly: Boolean = false) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED)
+                .build()
+
             val request = PeriodicWorkRequestBuilder<SyncWorker>(
                 intervalHours.toLong().coerceIn(1, 48), TimeUnit.HOURS,
-            ).build()
+            )
+                .setConstraints(constraints)
+                .build()
+
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 "packatrack-periodic-sync",
                 ExistingPeriodicWorkPolicy.UPDATE,
-                request,
-            )
-        }
-
-        fun syncNow(context: Context) {
-            val request = androidx.work.OneTimeWorkRequestBuilder<SyncWorker>().build()
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                "packatrack-manual-sync",
-                androidx.work.ExistingWorkPolicy.REPLACE,
                 request,
             )
         }

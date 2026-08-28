@@ -25,7 +25,7 @@ object FingerprintUtil {
         val y = normalize(b)
         var len = 0
         val max = min(x.length, y.length)
-        while (len < max && x[x.length - 1 - len] == y[y.length - 1 - len]) len++
+        while ((len < max) && (x[x.length - 1 - len] == y[y.length - 1 - len])) len++
         return len
     }
 

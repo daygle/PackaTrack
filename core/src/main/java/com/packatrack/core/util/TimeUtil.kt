@@ -44,11 +44,18 @@ object TimeUtil {
         return null
     }
 
-    /** Formats epoch ms as "dd MMM yyyy, HH:mm" UTC for display fallback. */
-    fun format(ms: Long?): String? {
+    /** Formats epoch ms using [formatPattern] UTC for display. */
+    fun format(ms: Long?, formatPattern: String = "dd MMM yyyy, HH:mm"): String? {
         if (ms == null) return null
-        val fmt = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.US)
-        fmt.timeZone = TimeZone.getTimeZone("UTC")
-        return fmt.format(Date(ms))
+        return try {
+            val fmt = SimpleDateFormat(formatPattern, Locale.US)
+            fmt.timeZone = TimeZone.getTimeZone("UTC")
+            fmt.format(Date(ms))
+        } catch (_: Exception) {
+            // Fallback for safety
+            val fmt = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.US)
+            fmt.timeZone = TimeZone.getTimeZone("UTC")
+            fmt.format(Date(ms))
+        }
     }
 }

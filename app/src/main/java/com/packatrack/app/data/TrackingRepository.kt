@@ -48,7 +48,6 @@ class TrackingRepository(
         rawNumber: String,
         title: String?,
         orderUrl: String?,
-        weightGrams: Double?,
         carrierOverride: Carrier?,
     ): Long {
         val number = FingerprintUtil.normalize(rawNumber)
@@ -59,14 +58,13 @@ class TrackingRepository(
         val now = System.currentTimeMillis()
         val carrier = carrierOverride ?: detectCarrier(number) ?: Carrier.CAINIAO
         val shipmentId = shipments.insert(
-            ShipmentEntity(weightGrams = weightGrams, createdAt = now),
+            ShipmentEntity(createdAt = now),
         )
         legs.insert(
             TrackingLegEntity(
                 shipmentId = shipmentId,
                 trackingNumber = number,
                 carrierId = carrier.id,
-                weightGrams = weightGrams,
                 createdAt = now,
             ),
         )
@@ -142,17 +140,15 @@ class TrackingRepository(
         legs.deleteById(legId)
     }
 
-    /** Updates a parcel's custom name and declared weight. */
+    /** Updates a parcel's custom name. */
     suspend fun updateShipment(
         shipmentId: Long,
         title: String?,
-        weightGrams: Double?,
     ) {
         val current = shipments.byId(shipmentId) ?: return
         shipments.update(
             current.copy(
                 title = title?.takeIf { it.isNotBlank() },
-                weightGrams = weightGrams ?: current.weightGrams,
             ),
         )
     }
@@ -189,10 +185,9 @@ class TrackingRepository(
         changes.reassignShipment(sourceId, targetId)
         shipments.deleteById(sourceId)
 
-        // Carry the source's name / declared weight forward if the target lacked one.
+        // Carry the source's name forward if the target lacked one.
         val merged = target.copy(
             title = target.title ?: source.title,
-            weightGrams = target.weightGrams ?: source.weightGrams,
         )
         if (merged != target) shipments.update(merged)
 
@@ -219,21 +214,35 @@ class TrackingRepository(
 
     data class RefreshOutcome(val updated: Int, val notable: List<ChangeEntity>)
 
-    /** Refreshes every courier leg on every active parcel (oldest-sync first). */
-    suspend fun refreshAll(): RefreshOutcome {
+    /**
+     * Refreshes every courier leg on every active parcel (oldest-sync first).
+     * @param force When true, bypasses the background cooldown.
+     */
+    suspend fun refreshAll(force: Boolean = false): RefreshOutcome {
         val activeIds = shipments.all().asSequence().filterNot { it.archived }.map { it.id }.toSet()
-        return refreshLegs(legs.all().filter { it.shipmentId in activeIds })
+        return refreshLegs(legs.all().filter { it.shipmentId in activeIds }, force)
     }
 
-    /** Refreshes just the couriers on one parcel. */
-    suspend fun refreshShipment(shipmentId: Long): RefreshOutcome =
-        refreshLegs(legs.legsForShipment(shipmentId))
+    /**
+     * Refreshes just the couriers on one parcel.
+     * @param force When true, bypasses the background cooldown.
+     */
+    suspend fun refreshShipment(shipmentId: Long, force: Boolean = false): RefreshOutcome =
+        refreshLegs(legs.legsForShipment(shipmentId), force)
 
-    private suspend fun refreshLegs(toPoll: List<TrackingLegEntity>): RefreshOutcome {
+    private suspend fun refreshLegs(toPoll: List<TrackingLegEntity>, force: Boolean): RefreshOutcome {
         var updated = 0
         val notable = mutableListOf<ChangeEntity>()
         val consolidations = mutableListOf<Consolidation>()
+        val now = System.currentTimeMillis()
+
         for (leg in toPoll.sortedBy { it.lastSyncAt ?: 0L }) {
+            // Safeguard: Cooldown to prevent flooding carriers.
+            // Background sync: 10 minute cooldown.
+            // Manual refresh: 1 minute cooldown to prevent button spamming.
+            val cooldownMs = if (force) 60_000L else 10 * 60_000L
+            if (now - (leg.lastSyncAt ?: 0L) < cooldownMs) continue
+
             val result = refreshLeg(leg) ?: continue
             if (result.dataChanged) updated++
             notable += result.changes
@@ -274,7 +283,9 @@ class TrackingRepository(
         }
 
         val aliasCsv = (ownerLeg.aliasNumbers.split(',').filter { it.isNotBlank() } + c.sourceNumber)
-            .distinct().joinToString(",")
+            .asSequence()
+            .distinct()
+            .joinToString(",")
         legs.byId(c.ownerLegId)?.let { legs.update(it.copy(aliasNumbers = aliasCsv)) }
         return change
     }
@@ -296,10 +307,14 @@ class TrackingRepository(
         val now = System.currentTimeMillis()
         val firstPoll = leg.pollCount == 0
 
-        val prevEvents = events.eventsForLeg(leg.id).map {
+        val prevEvents = events.eventsForLeg(leg.id).asSequence().map {
             TrackingEvent(it.trackingNumber, it.timeMs, it.description, it.location, it.statusCode)
-        }
-        val prevSnapshot = Snapshot(FingerprintUtil.normalize(leg.trackingNumber), leg.weightGrams, null, prevEvents)
+        }.toList()
+        val prevSnapshot = Snapshot(
+            trackingNumber = FingerprintUtil.normalize(leg.trackingNumber),
+            dimensionsCm = null,
+            events = prevEvents
+        )
         val detected = ChangeLogService.detect(mapOf(prevSnapshot.trackingNumber to prevSnapshot), snapshot)
 
         // Renumbering & consolidation: the carrier now reports this leg under a different number.
@@ -310,7 +325,7 @@ class TrackingRepository(
         val renumberedTo = FingerprintUtil.normalize(snapshot.trackingNumber)
         val numberChanged = renumberedTo != FingerprintUtil.normalize(leg.trackingNumber)
         val owner = if (numberChanged) legs.findByTrackingNumber(renumberedTo) else null
-        val adopted = numberChanged && (owner == null || owner.id == leg.id)
+        val adopted = numberChanged && ((owner == null) || (owner.id == leg.id))
         val consolidation = if (!adopted && owner != null && owner.shipmentId != leg.shipmentId) {
             Consolidation(
                 sourceLegId = leg.id,
@@ -325,7 +340,9 @@ class TrackingRepository(
         if (adopted) {
             val oldNo = mutable.trackingNumber
             val aliasCsv = (listOf(oldNo) + mutable.aliasNumbers.split(',').filter { it.isNotBlank() })
-                .distinct().joinToString(",")
+                .asSequence()
+                .distinct()
+                .joinToString(",")
             mutable = mutable.copy(trackingNumber = renumberedTo, aliasNumbers = aliasCsv)
             val msg = ChangeLogService.humanReadable(ParcelChange.Renumbered(oldNo, snapshot.trackingNumber))
             if (changes.countByMessage(mutable.shipmentId, "RENUMBERED", msg) == 0) {
@@ -342,10 +359,9 @@ class TrackingRepository(
                 val oEvents = events.eventsForLeg(firstLeg.id)
                 if (oEvents.isEmpty()) return@mapNotNull null
                 Snapshot(
-                    firstLeg.trackingNumber,
-                    firstLeg.weightGrams ?: other.weightGrams,
-                    null,
-                    oEvents.map { e -> TrackingEvent(e.trackingNumber, e.timeMs, e.description, e.location, e.statusCode) },
+                    trackingNumber = firstLeg.trackingNumber,
+                    dimensionsCm = null,
+                    events = oEvents.asSequence().map { e -> TrackingEvent(e.trackingNumber, e.timeMs, e.description, e.location, e.statusCode) }.toList(),
                 )
             }.associateBy { it.trackingNumber }
             val combined = ChangeLogService.detectCombination(others, snapshot)
@@ -365,14 +381,13 @@ class TrackingRepository(
             }
         }
 
-        // Weight & progress from the same-number comparison path. Skipped on the very first
+        // Progress from the same-number comparison path. Skipped on the very first
         // poll — there is no prior state for a scan to have "changed" from, so a fresh parcel
         // does not spam a notification for its opening scan.
         if (!firstPoll) {
             for (change in detected) {
                 if (adopted && change is ParcelChange.Progress) continue
                 val type = when (change) {
-                    is ParcelChange.WeightChanged -> "WEIGHT"
                     is ParcelChange.Progress -> "PROGRESS"
                     else -> null
                 } ?: continue
@@ -386,7 +401,6 @@ class TrackingRepository(
         }
 
         // Persist new events (IGNORE on unique index keeps duplicates out).
-        val snapWeight = snapshot.weightGrams ?: mutable.weightGrams
         if (snapshot.events.isNotEmpty()) {
             events.insertAll(
                 snapshot.events.map {
@@ -403,14 +417,11 @@ class TrackingRepository(
             )
         }
         val latest = snapshot.events.maxByOrNull { it.timeMs ?: 0L }
-        val weightMoved = snapshot.weightGrams != null && mutable.weightGrams != null &&
-            !FingerprintUtil.weightClose(snapshot.weightGrams, mutable.weightGrams)
         // Snapshots are cumulative, so a size change means the carrier added scans.
-        val dataChanged = snapshot.events.size != prevEvents.size || adopted || weightMoved
+        val dataChanged = snapshot.events.size != prevEvents.size || adopted
 
         legs.update(
             mutable.copy(
-                weightGrams = snapWeight,
                 pollCount = mutable.pollCount + 1,
                 lastSyncAt = now,
                 lastStatusCode = latest?.statusCode ?: mutable.lastStatusCode,

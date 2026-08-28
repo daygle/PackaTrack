@@ -1,20 +1,19 @@
 <resources>
     <string name="app_name">PackaTrack</string>
-    <string name="add_shipment">Add parcel</string>
-    <string name="tracking_number_hint">Tracking number</string>
-    <string name="title_hint">Name (optional)</string>
-    <string name="order_url_hint">AliExpress order link (optional)</string>
-    <string name="weight_hint">Weight in grams (optional)</string>
+    <string name="add_shipment">Add Parcel</string>
+    <string name="tracking_number_hint">Tracking Number</string>
+    <string name="title_hint">Name (Optional)</string>
+    <string name="order_url_hint">Order Link (Optional)</string>
     <string name="settings">Settings</string>
-    <string name="auspost_api_key">Australia Post API key</string>
+    <string name="auspost_api_key">Australia Post API Key</string>
     <string name="auspost_key_hint">Free key from developers.auspost.com.au</string>
-    <string name="sync_interval">Background sync interval</string>
+    <string name="sync_interval">Background Sync Interval</string>
     <string name="refresh">Refresh</string>
     <string name="delete">Delete</string>
-    <string name="open_web_tracking">Open on carrier website</string>
-    <string name="open_order">Open order page</string>
-    <string name="no_shipments">No parcels yet. Add your first tracking number from AliExpress.</string>
-    <string name="changes_title">Parcel changes</string>
+    <string name="open_web_tracking">Open On Carrier Website</string>
+    <string name="open_order">Open Order Page</string>
+    <string name="no_shipments">No parcels yet. Add your first tracking number.</string>
+    <string name="changes_title">Parcel Changes</string>
     <string name="events_title">Timeline</string>
     <string name="fetch_failed">Could not reach carrier</string>
 </resources>

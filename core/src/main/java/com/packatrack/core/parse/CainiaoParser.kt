@@ -50,9 +50,7 @@ object CainiaoParser {
         }
 
         if (events.isEmpty()) {
-            val nodes = pkg.optJSONObject("logisticsTrace")
-                ?.optJSONArray("traceNodeList")
-            if (nodes != null) {
+            pkg.optJSONObject("logisticsTrace")?.optJSONArray("traceNodeList")?.let { nodes ->
                 for (i in 0 until nodes.length()) {
                     val n = nodes.optJSONObject(i) ?: continue
                     events += TrackingEvent(
@@ -66,13 +64,12 @@ object CainiaoParser {
             }
         }
 
-        if (events.isEmpty() && firstNonBlank(pkg, "status") == null) return null
+        if (events.isEmpty() && (firstNonBlank(pkg, "status") == null)) return null
 
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
 
         return Snapshot(
             trackingNumber = number,
-            weightGrams = pkg.optDoubleOrNull("weight")?.times(1000.0),
             dimensionsCm = null,
             events = events,
         )
@@ -92,13 +89,4 @@ object CainiaoParser {
 
     private fun firstNonBlank(obj: JSONObject, vararg keys: String): String? =
         keys.firstNotNullOfOrNull { obj.optString(it).takeIf { s -> s.isNotBlank() } }
-
-    private fun JSONObject.optDoubleOrNull(key: String): Double? {
-        if (!has(key)) return null
-        return when (val v = opt(key)) {
-            is Number -> v.toDouble()
-            is String -> v.toDoubleOrNull()
-            else -> null
-        }
-    }
 }

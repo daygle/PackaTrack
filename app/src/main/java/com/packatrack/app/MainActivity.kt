@@ -44,9 +44,8 @@ private fun PackaTrackNavHost() {
     ) {
         composable("home") {
             HomeScreen(
-                onOpenDetail = { id -> nav.navigate("detail/$id") },
-                onOpenSettings = { nav.navigate("settings") },
-            )
+                onOpenDetail = { id -> nav.navigate("detail/$id") }
+            ) { nav.navigate("settings") }
         }
         composable(
             route = "detail/{id}",

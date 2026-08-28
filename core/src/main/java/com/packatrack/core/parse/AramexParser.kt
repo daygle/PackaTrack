@@ -46,7 +46,7 @@ object AramexParser {
 
         if (events.isEmpty()) return null
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
-        return Snapshot(requestedNumber, null, null, events)
+        return Snapshot(requestedNumber, null, events)
     }
 
     /** Finds the array of scan rows regardless of which envelope Aramex used. */

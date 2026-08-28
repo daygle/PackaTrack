@@ -22,6 +22,6 @@ class PackaTrackApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         Notifier.createChannel(this)
-        SyncWorker.schedule(this, container.prefs.syncIntervalHours)
+        SyncWorker.schedule(this, container.prefs.syncIntervalHours, container.prefs.wifiOnlySync)
     }
 }

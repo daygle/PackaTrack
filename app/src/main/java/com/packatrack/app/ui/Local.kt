@@ -31,12 +31,6 @@ fun parcelName(
 fun statusLabel(code: String?): String =
     code?.lowercase()?.replace('_', ' ')?.replaceFirstChar { it.uppercase() } ?: "Waiting for scans"
 
-fun humanWeight(g: Double?): String = when {
-    g == null -> "—"
-    g >= 1000.0 -> String.format(java.util.Locale.US, "%.2f kg", g / 1000.0)
-    else -> String.format(java.util.Locale.US, "%.0f g", g)
-}
-
 /**
  * The status shown for a whole parcel — the furthest-along of its couriers, but an
  * exception on any leg always wins so problems surface.
@@ -50,12 +44,16 @@ private val STATUS_ORDER = listOf(
 )
 
 fun overallStatusCode(legs: List<TrackingLegEntity>): String? {
-    val codes = legs.mapNotNull { it.lastStatusCode?.uppercase() }
+    val codes = legs.asSequence().mapNotNull { it.lastStatusCode?.uppercase() }.toList()
     if (codes.isEmpty()) return null
     if (codes.any { it == "EXCEPTION" }) return "EXCEPTION"
     return STATUS_ORDER.firstOrNull { it in codes } ?: codes.first()
 }
 
-/** Best declared/observed weight to show for a parcel. */
-fun parcelWeight(shipmentWeight: Double?, legs: List<TrackingLegEntity>): Double? =
-    shipmentWeight ?: legs.mapNotNull { it.weightGrams }.maxOrNull()
+/** Calculates how many days a parcel has been active. */
+fun daysInTransit(createdAt: Long, lastStatusCode: String?): Int {
+    val now = System.currentTimeMillis()
+    val diff = now - createdAt
+    val days = (diff / (1000 * 60 * 60 * 24)).toInt()
+    return days.coerceAtLeast(0)
+}

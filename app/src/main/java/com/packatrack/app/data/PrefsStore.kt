@@ -29,7 +29,7 @@ class PrefsStore(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_NOTIFY_EXCEPTIONS, value).apply()
 
     var notifyOnTransit: Boolean
-        get() = prefs.getBoolean(KEY_NOTIFY_TRANSIT, false)
+        get() = prefs.getBoolean(KEY_NOTIFY_TRANSIT, true)
         set(value) = prefs.edit().putBoolean(KEY_NOTIFY_TRANSIT, value).apply()
 
     var wifiOnlySync: Boolean
@@ -40,6 +40,22 @@ class PrefsStore(context: Context) {
         get() = prefs.getString(KEY_THEME, "system") ?: "system"
         set(value) = prefs.edit().putString(KEY_THEME, value).apply()
 
+    var sortOrder: String
+        get() = prefs.getString(KEY_SORT_ORDER, "newest") ?: "newest"
+        set(value) = prefs.edit().putString(KEY_SORT_ORDER, value).apply()
+
+    var dateTimeFormat: String
+        get() = prefs.getString(KEY_DATE_FORMAT, "dd MMM yyyy, HH:mm") ?: "dd MMM yyyy, HH:mm"
+        set(value) = prefs.edit().putString(KEY_DATE_FORMAT, value).apply()
+
+    var historySortOrder: String
+        get() = prefs.getString(KEY_HISTORY_SORT, "newest") ?: "newest"
+        set(value) = prefs.edit().putString(KEY_HISTORY_SORT, value).apply()
+
+    var autoArchiveDelivered: Boolean
+        get() = prefs.getBoolean(KEY_AUTO_ARCHIVE, false)
+        set(value) = prefs.edit().putBoolean(KEY_AUTO_ARCHIVE, value).apply()
+
     companion object {
         const val KEY_AUSPOST_KEY = "auspost_key"
         const val KEY_SYNC_HOURS = "sync_interval_hours"
@@ -49,5 +65,9 @@ class PrefsStore(context: Context) {
         const val KEY_NOTIFY_TRANSIT = "notify_transit"
         const val KEY_WIFI_ONLY = "wifi_only_sync"
         const val KEY_THEME = "theme_mode"
+        const val KEY_SORT_ORDER = "sort_order"
+        const val KEY_DATE_FORMAT = "date_time_format"
+        const val KEY_HISTORY_SORT = "history_sort_order"
+        const val KEY_AUTO_ARCHIVE = "auto_archive_delivered"
     }
 }

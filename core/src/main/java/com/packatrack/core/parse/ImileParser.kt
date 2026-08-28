@@ -23,7 +23,7 @@ object ImileParser {
         val root = JsonUtil.objOrNull(json) ?: return null
 
         val code = JsonUtil.stringOr(root, "code") ?: root.optString("code")
-        if (code.isNotBlank() && code != "200" && !root.optBoolean("success", true)) return null
+        if (code.isNotBlank() && (code != "200") && (!root.optBoolean("success", true))) return null
 
         val data = root.optJSONObject("data") ?: return null
 
@@ -50,15 +50,8 @@ object ImileParser {
         if (events.isEmpty() && firstNonBlank(data, "status") == null) return null
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
 
-        // weight may be kg ("12.5") or grams; iMile uses kg strings.
-        val weightGrams = when {
-            data.has("weight") -> data.optString("weight").toDoubleOrNull()?.times(1000.0)
-            else -> null
-        }
-
         return Snapshot(
             trackingNumber = number,
-            weightGrams = weightGrams,
             dimensionsCm = null,
             events = events,
         )

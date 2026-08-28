@@ -20,11 +20,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -49,6 +51,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -60,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.packatrack.app.data.TrackingRepository.RefreshOutcome
 import com.packatrack.app.data.db.ShipmentWithLegs
@@ -67,10 +71,9 @@ import com.packatrack.app.notify.Notifier
 import com.packatrack.app.sync.SyncWorker
 import com.packatrack.app.ui.components.CarrierChip
 import com.packatrack.app.ui.components.StatusPill
-import com.packatrack.app.ui.humanWeight
+import com.packatrack.app.ui.daysInTransit
 import com.packatrack.app.ui.overallStatusCode
 import com.packatrack.app.ui.parcelName
-import com.packatrack.app.ui.parcelWeight
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.MonoNumber
 import com.packatrack.core.detect.CarrierDetector
@@ -90,8 +93,8 @@ fun HomeScreen(
     val shipments by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
     val recentChanges by repo.observeRecentChanges().collectAsStateWithLifecycle(initialValue = emptyList())
 
-    var syncing by remember { mutableStateOf(false) }
-    var showAddDialog by remember { mutableStateOf(false) }
+    var syncing by remember { mutableStateOf(value = false) }
+    var showAddDialog by remember { mutableStateOf(value = false) }
 
     // Manual refresh: a no-op while one is already running.
     fun runSync(block: suspend () -> RefreshOutcome) {
@@ -115,17 +118,17 @@ fun HomeScreen(
                             Text(
                                 "$inTransit in transit · ${shipments.size} total",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                             )
                         }
                     }
                 },
                 actions = {
-                    IconButton(onClick = { runSync { repo.refreshAll() } }) {
+                    IconButton(onClick = { runSync { repo.refreshAll(force = true) } }) {
                         if (syncing) {
                             CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh all")
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh All")
                         }
                     }
                     IconButton(onClick = onOpenSettings) {
@@ -143,34 +146,38 @@ fun HomeScreen(
             ExtendedFloatingActionButton(
                 onClick = { showAddDialog = true },
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Add parcel") },
+                text = { Text("Add Parcel") },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             )
         },
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp, top = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        PullToRefreshBox(
+            isRefreshing = syncing,
+            onRefresh = { runSync { repo.refreshAll() } },
+            modifier = Modifier.padding(padding)
         ) {
-            if (recentChanges.isNotEmpty()) {
-                item(key = "banner") { RecentChangesCard(recentChanges.take(3).map { it.message }) }
-            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp, top = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (recentChanges.isNotEmpty()) {
+                    item(key = "banner") { RecentChangesCard(recentChanges.asSequence().take(3).map { it.message }.toList()) }
+                }
 
-            if (shipments.isEmpty()) {
-                item(key = "empty") { EmptyState() }
-            }
+                if (shipments.isEmpty()) {
+                    item(key = "empty") { EmptyState() }
+                }
 
-            items(shipments, key = { it.shipment.id }) { entry ->
-                ParcelCard(
-                    entry = entry,
-                    onOpen = { onOpenDetail(entry.shipment.id) },
-                    onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
-                    onRefresh = { runSync { repo.refreshShipment(entry.shipment.id) } },
-                )
+                items(shipments, key = { it.shipment.id }) { entry ->
+                    ParcelCard(
+                        entry = entry,
+                        onOpen = { onOpenDetail(entry.shipment.id) },
+                        onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
+                        onRefresh = { runSync { repo.refreshShipment(entry.shipment.id, force = true) } },
+                    )
+                }
             }
         }
     }
@@ -178,16 +185,16 @@ fun HomeScreen(
     if (showAddDialog) {
         AddShipmentDialog(
             onDismiss = { showAddDialog = false },
-            onSave = { number, title, orderUrl, weight, carrier ->
+            onSave = { number, title, orderUrl, carrier ->
                 showAddDialog = false
                 // Always perform the add (never gated by an in-flight refresh), then poll
                 // just the new parcel.
                 syncing = true
                 scope.launch {
                     val newId = runCatching {
-                        repo.addShipment(number, title, orderUrl, weight, carrier)
+                        repo.addShipment(number, title, orderUrl, carrier)
                     }.getOrNull()
-                    val outcome = newId?.let { repo.refreshShipment(it) } ?: RefreshOutcome(0, emptyList())
+                    val outcome = newId?.let { repo.refreshShipment(it, force = true) } ?: RefreshOutcome(0, emptyList())
                     Notifier.postChanges(context, outcome.notable.map { it.message })
                     syncing = false
                 }
@@ -195,7 +202,7 @@ fun HomeScreen(
         )
     }
 
-    LaunchedEffectOnce { SyncWorker.schedule(context, container.prefs.syncIntervalHours) }
+    LaunchedEffectOnce { SyncWorker.schedule(context, container.prefs.syncIntervalHours, container.prefs.wifiOnlySync) }
 }
 
 @Composable
@@ -262,13 +269,13 @@ private fun EmptyState() {
             )
         }
         Spacer(Modifier.height(24.dp))
-        Text("No parcels tracking", style = MaterialTheme.typography.headlineSmall)
+        Text("No Parcels Tracking", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Add a tracking number to start monitoring your AliExpress shipments in one place.",
+            "Add a tracking number to start monitoring your shipments in one place.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
     }
 }
@@ -280,7 +287,7 @@ private fun ParcelCard(
     onDelete: () -> Unit,
     onRefresh: () -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(value = false) }
     val context = LocalContext.current
     val shipment = entry.shipment
     val legs = entry.legs
@@ -332,7 +339,7 @@ private fun ParcelCard(
                                         menuOpen = false
                                         runCatching {
                                             context.startActivity(
-                                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(carrier.publicUrl(leg.trackingNumber))),
+                                                Intent(Intent.ACTION_VIEW, carrier.publicUrl(leg.trackingNumber).toUri()),
                                             )
                                         }
                                     },
@@ -356,6 +363,13 @@ private fun ParcelCard(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 StatusPill(status)
+                Spacer(Modifier.width(8.dp))
+                val days = daysInTransit(shipment.createdAt, status)
+                Text(
+                    if (days == 1) "1 day" else "$days days",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
                 Spacer(Modifier.weight(1f))
                 legs.forEachIndexed { index, leg ->
                     if (index < 2) {
@@ -374,13 +388,13 @@ private fun ParcelCard(
 @Composable
 private fun AddShipmentDialog(
     onDismiss: () -> Unit,
-    onSave: (number: String, title: String?, orderUrl: String?, weightGrams: Double?, carrier: Carrier?) -> Unit,
+    onSave: (number: String, title: String?, orderUrl: String?, carrier: Carrier?) -> Unit,
 ) {
-    var number by remember { mutableStateOf("") }
-    var title by remember { mutableStateOf("") }
-    var orderUrl by remember { mutableStateOf("") }
-    var weight by remember { mutableStateOf("") }
-    var override by remember { mutableStateOf<Carrier?>(null) }
+    var number by remember { mutableStateOf(value = "") }
+    var title by remember { mutableStateOf(value = "") }
+    var orderUrl by remember { mutableStateOf(value = "") }
+    var override by remember { mutableStateOf<Carrier?>(value = null) }
+    var showManual by remember { mutableStateOf(value = false) }
 
     val detected = CarrierDetector.detect(number)
     val chosen = override ?: detected
@@ -394,43 +408,81 @@ private fun AddShipmentDialog(
                         number.trim(),
                         title.trim().ifBlank { null },
                         orderUrl.trim().ifBlank { null },
-                        weight.trim().toDoubleOrNull(),
                         chosen,
                     )
                 },
-            ) { Text("Save & track") }
+            ) { Text("Save & Track") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Add parcel") },
+        title = { Text("Add Parcel") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = number, onValueChange = { number = it },
-                    label = { Text("Tracking number") }, singleLine = true,
+                    label = { Text("Tracking Number") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Text(
-                    when {
-                        number.isBlank() -> "You can add more couriers to this parcel later."
-                        override != null -> "Carrier: ${chosen?.displayName}"
-                        detected != null -> "Detected carrier: ${detected.displayName}"
-                        else -> "Carrier not recognised — pick one below or it defaults to Cainiao UBI."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Carrier.entries.forEach { carrier ->
-                        androidx.compose.material3.FilterChip(
-                            selected = chosen == carrier,
-                            onClick = { override = if (override == carrier) null else carrier },
-                            label = { Text(carrier.displayName) },
-                        )
+
+                if ((detected != null) && !showManual) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.CloudSync,
+                                null,
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Auto-detected: ${detected.displayName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        TextButton(
+                            onClick = { showManual = true },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(24.dp)
+                        ) {
+                            Text("Change", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
+                } else if (number.isNotBlank() || showManual) {
+                    Column {
+                        Text(
+                            if (detected == null && !showManual) "Courier not recognised — pick one below:" else "Select Courier:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Carrier.entries.forEach { carrier ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = chosen == carrier,
+                                    onClick = {
+                                        override = if (override == carrier) null else carrier
+                                        if (override != null) showManual = true
+                                    },
+                                    label = { Text(carrier.displayName) },
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        "We'll try to auto-detect the courier from the number.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Order name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("AliExpress order link (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = weight, onValueChange = { weight = it }, label = { Text("Weight in grams (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Order Name (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text("Order Link (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
     )

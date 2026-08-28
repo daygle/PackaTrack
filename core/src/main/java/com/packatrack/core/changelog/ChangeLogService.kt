@@ -12,10 +12,8 @@ import com.packatrack.core.util.FingerprintUtil
  *
  *  - **Tracking number changed** – the old number no longer resolves but a new number's
  *    fingerprint suffix matches the old one (carriers append prefixes/suffixes when
- *    re-issuing), or the physical signature (weight/dimensions) matches within tolerance.
- *  - **Packages combined** – several earlier numbers converge into one new number with
- *    compatible weight (sum of parts ≈ new parcel, or items counted together).
- *  - **Weight changed** – reweigh at a hub.
+ *    re-issuing), or the physical signature matches within tolerance.
+ *  - **Packages combined** – several earlier numbers converge into one new number.
  *  - **Progress** – ordinary checkpoint added.
  */
 object ChangeLogService {
@@ -34,11 +32,6 @@ object ChangeLogService {
         // 1. Straight update on same number?
         val prevSame = previousByNumber[FingerprintUtil.normalize(current.trackingNumber)]
         if (prevSame != null) {
-            if (prevSame.weightGrams != null && current.weightGrams != null &&
-                !FingerprintUtil.weightClose(prevSame.weightGrams, current.weightGrams)
-            ) {
-                changes += ParcelChange.WeightChanged(prevSame.weightGrams, current.weightGrams)
-            }
             val prevLast = prevSame.events.maxByOrNull { it.timeMs ?: 0L }?.description
             val curLast = current.events.maxByOrNull { it.timeMs ?: 0L }?.description
             if (prevLast != curLast && curLast != null) {
@@ -51,12 +44,10 @@ object ChangeLogService {
         val renames = mutableListOf<Pair<String, String>>()
         for ((oldNo, oldSnap) in previousByNumber) {
             val numMatch = FingerprintUtil.commonSuffixLength(oldNo, current.trackingNumber) >= 8
-            val weightMatch =
-                FingerprintUtil.weightClose(oldSnap.weightGrams, current.weightGrams, 40.0)
             val dimsMatch =
                 oldSnap.dimensionsCm != null && current.dimensionsCm != null &&
                     kotlin.math.abs(oldSnap.dimensionsCm.lengthCm - current.dimensionsCm.lengthCm) <= 2.0
-            if (numMatch || (weightMatch && dimsMatch)) renames += oldNo to current.trackingNumber
+            if (numMatch || dimsMatch) renames += oldNo to current.trackingNumber
         }
         when {
             renames.isNotEmpty() ->
@@ -67,9 +58,8 @@ object ChangeLogService {
     }
 
     /**
-     * Detects "combined shipment": all [oldNumbers] previously tracked separately now
-     * report a newer shared event whose description mentions consolidation, or their
-     * accumulated weight equals [combinedSnapshot]'s weight within tolerance.
+     * Detects "combined shipment": all previously tracked separately now
+     * report a newer shared event whose description mentions consolidation.
      */
     fun detectCombination(
         previousByNumber: Map<String, Snapshot>,
@@ -87,15 +77,6 @@ object ChangeLogService {
             return ParcelChange.Combined(involved.keys.toList(), combinedSnapshot.trackingNumber)
         }
 
-        // Weight-sum heuristic: sum of predecessor weights ~= new parcel weight.
-        val weights = involved.values.mapNotNull { it.weightGrams }
-        val combinedWeight = combinedSnapshot.weightGrams ?: return null
-        if (weights.size == involved.size && weights.sum() > 0) {
-            val ratio = combinedWeight / weights.sum()
-            if (ratio in 0.85..1.15) {
-                return ParcelChange.Combined(involved.keys.toList(), combinedSnapshot.trackingNumber)
-            }
-        }
         return null
     }
 
