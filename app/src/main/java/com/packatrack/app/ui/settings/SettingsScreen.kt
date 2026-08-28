@@ -159,6 +159,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 runCatching { backupManager.export(uri, passphrase) }
                     .onSuccess {
                         backupError = null
+                        backupPassphrase = ""
                         Toast.makeText(context, "Portable backup exported", Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Export failed" }
@@ -173,6 +174,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 runCatching { backupManager.import(uri, passphrase) }
                     .onSuccess {
                         backupError = null
+                        restorePassphrase = ""
                         Toast.makeText(context, "Backup restored", Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Restore failed" }
@@ -478,18 +480,15 @@ fun SettingsScreen(onBack: () -> Unit) {
                                 }
                             }
 
-                            if (restorePassphrase.isEmpty() && backupPassphrase.length < 12) {
-                                // Simple hint if they haven't started typing a restore passphrase
-                                OutlinedTextField(
-                                    value = restorePassphrase,
-                                    onValueChange = { restorePassphrase = it; backupError = null },
-                                    label = { Text(stringResource(R.string.restore_passphrase_label)) },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                            }
+                            OutlinedTextField(
+                                value = restorePassphrase,
+                                onValueChange = { restorePassphrase = it; backupError = null },
+                                label = { Text(stringResource(R.string.restore_passphrase_label)) },
+                                visualTransformation = PasswordVisualTransformation(),
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            )
 
                             backupError?.let {
                                 Text(

@@ -28,11 +28,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -148,9 +146,13 @@ fun HomeScreen(
         if (syncing) return
         syncing = true
         scope.launch {
-            val outcome = block()
-            Notifier.postChanges(context, outcome.notable.map { it.message })
-            syncing = false
+            try {
+                val outcome = block()
+                Notifier.postChanges(context, outcome.notable.map { it.message })
+            } finally {
+                // Always clear the flag or a single failure would disable every refresh control.
+                syncing = false
+            }
         }
     }
 
@@ -313,12 +315,15 @@ fun HomeScreen(
                 // just the new parcel.
                 syncing = true
                 scope.launch {
-                    val newId = runCatching {
-                        repo.addShipment(number, title, orderUrl, carrier)
-                    }.getOrNull()
-                    val outcome = newId?.let { repo.refreshShipment(it, force = true) } ?: RefreshOutcome(0, emptyList())
-                    Notifier.postChanges(context, outcome.notable.map { it.message })
-                    syncing = false
+                    try {
+                        val newId = runCatching {
+                            repo.addShipment(number, title, orderUrl, carrier)
+                        }.getOrNull()
+                        val outcome = newId?.let { repo.refreshShipment(it, force = true) } ?: RefreshOutcome(0, emptyList())
+                        Notifier.postChanges(context, outcome.notable.map { it.message })
+                    } finally {
+                        syncing = false
+                    }
                 }
             },
         )

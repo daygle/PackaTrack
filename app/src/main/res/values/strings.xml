@@ -79,6 +79,7 @@
     <string name="item_name_label">Item Name</string>
 
     <string name="settings_title">Settings</string>
+    <string name="unlock">Unlock</string>
     <string name="system_status">System Status</string>
     <string name="notifications_permission">Notifications Permission</string>
     <string name="granted">Granted</string>

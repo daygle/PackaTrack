@@ -10,15 +10,23 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.navigation.NavType
@@ -60,11 +68,13 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        val container = (application as PackaTrackApp).container
-        if (container.prefs.biometricLock && !isAuthenticated) {
-            authenticate()
+    override fun onStop() {
+        super.onStop()
+        // Re-lock whenever the app leaves the screen; the lock screen re-prompts on return.
+        // Prompting here (onResume) would race the lock screen's own prompt and crash with
+        // "Only one biometric prompt can be active at once".
+        if ((application as PackaTrackApp).container.prefs.biometricLock) {
+            isAuthenticated = false
         }
     }
 
@@ -108,6 +118,20 @@ private fun LockScreen(onAuthenticate: () -> Unit) {
     ) {
         LaunchedEffect(Unit) {
             onAuthenticate()
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
+            // Shown so a cancelled or failed prompt can be retried; normally hidden behind
+            // the biometric dialog.
+            Button(onClick = onAuthenticate) {
+                Text(stringResource(R.string.unlock))
+            }
         }
     }
 }

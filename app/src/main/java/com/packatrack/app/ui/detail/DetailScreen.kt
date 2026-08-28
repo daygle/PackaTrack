@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -90,14 +92,15 @@ import androidx.compose.ui.res.stringResource
 @Composable
 fun DetailScreen(id: Long, onBack: () -> Unit) {
     val context = LocalContext.current
-    val repo = rememberAppContainer().repository
+    val container = rememberAppContainer()
+    val repo = container.repository
     val scope = rememberCoroutineScope()
 
     val entry by repo.observeShipment(id).collectAsStateWithLifecycle(initialValue = null)
     val changes by repo.observeChangesFor(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val timelineRaw by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val allParcels by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val prefs = rememberAppContainer().prefs
+    val prefs = container.prefs
 
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
@@ -262,7 +265,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                                         prefs.historySortOrder = "newest"
                                         historySortMenuOpen = false
                                     },
-                                    trailingIcon = { if (historySort == "newest") Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(16.dp)) }
+                                    trailingIcon = { if (historySort == "newest") Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.oldest_first)) },
@@ -271,7 +274,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                                         prefs.historySortOrder = "oldest"
                                         historySortMenuOpen = false
                                     },
-                                    trailingIcon = { if (historySort == "oldest") Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(16.dp)) }
+                                    trailingIcon = { if (historySort == "oldest") Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
                                 )
                             }
                         }
@@ -283,7 +286,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     EmptySectionText(stringResource(R.string.scanning_updates))
                 }
             }
-            items(timeline, key = { "ev_${it.id}" }) { ev ->
+            itemsIndexed(timeline, key = { _, ev -> "ev_${ev.id}" }) { index, ev ->
                 val carrier = Carrier.fromId(legById[ev.legId]?.carrierId)
                 TimelineRow(
                     time = TimeUtil.format(ev.timeMs, prefs.dateTimeFormat) ?: stringResource(R.string.time_unknown),
@@ -292,7 +295,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     statusCode = ev.statusCode,
                     carrierId = legById[ev.legId]?.carrierId,
                     carrierName = carrier?.displayName,
-                    isLast = timeline.last() == ev
+                    isLast = index == timeline.lastIndex
                 )
             }
                 item(key = "footer") { Spacer(Modifier.height(40.dp)) }

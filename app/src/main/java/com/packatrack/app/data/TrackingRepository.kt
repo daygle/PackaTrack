@@ -332,19 +332,23 @@ class TrackingRepository(
     private suspend fun applyConsolidation(c: Consolidation): ChangeEntity? {
         val ownerLeg = legs.byId(c.ownerLegId) ?: return null
 
-        events.deleteForLeg(c.sourceLegId)
-        legs.deleteById(c.sourceLegId)
+        // Atomic: a crash between dropping the source leg and merging must not leave
+        // the source parcel without its leg (or the merge half-applied).
+        return db.withTransaction {
+            events.deleteForLeg(c.sourceLegId)
+            legs.deleteById(c.sourceLegId)
 
-        val change = mergeParcels(targetId = c.ownerShipmentId, sourceId = c.sourceShipmentId) { label ->
-            "Cainiao consolidated “$label” into this parcel"
+            val change = mergeParcels(targetId = c.ownerShipmentId, sourceId = c.sourceShipmentId) { label ->
+                "Cainiao consolidated “$label” into this parcel"
+            }
+
+            val aliasCsv = (ownerLeg.aliasNumbers.split(',').filter { it.isNotBlank() } + c.sourceNumber)
+                .asSequence()
+                .distinct()
+                .joinToString(",")
+            legs.byId(c.ownerLegId)?.let { legs.update(it.copy(aliasNumbers = aliasCsv)) }
+            change
         }
-
-        val aliasCsv = (ownerLeg.aliasNumbers.split(',').filter { it.isNotBlank() } + c.sourceNumber)
-            .asSequence()
-            .distinct()
-            .joinToString(",")
-        legs.byId(c.ownerLegId)?.let { legs.update(it.copy(aliasNumbers = aliasCsv)) }
-        return change
     }
 
     private data class LegPoll(
@@ -357,13 +361,11 @@ class TrackingRepository(
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
-        android.util.Log.d("TrackingRepository", "Refreshing leg ${leg.id}: ${carrier.displayName} #${leg.trackingNumber}")
         val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount)
         if (snapshot == null) {
             android.util.Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName} #${leg.trackingNumber})")
             return LegPoll(dataChanged = false, changes = emptyList())
         }
-        android.util.Log.d("TrackingRepository", "Got ${snapshot.events.size} events for leg ${leg.id}")
 
         // Cainiao/UBI commonly reports the destination-carrier number in the same
         // response. Keep it as a second leg so its scans can be fetched independently.
@@ -399,8 +401,8 @@ class TrackingRepository(
 
         // Renumbering & consolidation: the carrier now reports this leg under a different number.
         //  - If no other leg owns that number, this leg simply renumbers (adopts it).
-        //  - If another *parcel's* leg already owns it, Cainiao has merged the two shipments —
-        //    flag this parcel to be consolidated into that one after the poll loop.
+        //  - If another *parcel's* leg already owns it, Cainiao has merged the two shipments,
+        //    so flag this parcel to be consolidated into that one after the poll loop.
         //  - If our own parcel already owns it (a second leg converged), do nothing.
         val renumberedTo = FingerprintUtil.normalize(snapshot.trackingNumber)
         val numberChanged = renumberedTo != FingerprintUtil.normalize(leg.trackingNumber)
@@ -482,7 +484,6 @@ class TrackingRepository(
 
         // Persist new events (IGNORE on unique index keeps duplicates out).
         if (snapshot.events.isNotEmpty()) {
-            android.util.Log.d("TrackingRepository", "Storing ${snapshot.events.size} events for leg ${mutable.id}")
             events.insertAll(
                 snapshot.events.map {
                     EventEntity(
@@ -500,7 +501,6 @@ class TrackingRepository(
         val latest = snapshot.events.maxByOrNull { it.timeMs ?: 0L }
         // Snapshots are cumulative, so a size change means the carrier added scans.
         val dataChanged = snapshot.events.size != prevEvents.size || adopted
-        android.util.Log.d("TrackingRepository", "Leg ${mutable.id}: ${snapshot.events.size} events, dataChanged=$dataChanged")
 
         legs.update(
             mutable.copy(
