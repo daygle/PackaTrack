@@ -6,6 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.packatrack.app.data.DatabaseKey
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
     entities = [
@@ -54,14 +56,18 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "packatrack.db",
-                )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
-                    .build()
-                    .also { instance = it }
+                instance ?: run {
+                    val appContext = context.applicationContext
+                    // The database file is encrypted at rest with SQLCipher. The key is random,
+                    // generated once and wrapped by the Android Keystore (see DatabaseKey).
+                    System.loadLibrary("sqlcipher")
+                    val factory = SupportOpenHelperFactory(DatabaseKey.getOrCreate(appContext))
+                    Room.databaseBuilder(appContext, AppDatabase::class.java, "packatrack.db")
+                        .openHelperFactory(factory)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                        .build()
+                        .also { instance = it }
+                }
             }
     }
 }
