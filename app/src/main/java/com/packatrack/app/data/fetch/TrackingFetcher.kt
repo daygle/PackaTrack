@@ -6,7 +6,7 @@ import com.packatrack.core.model.Snapshot
 /**
  * Fetches a tracking snapshot for one number from its carrier.
  *
- * [stageHint] lets offline/demo fetchers replay progressive stories; HTTP fetchers ignore it.
+ * [stageHint] is reserved for fetchers that need polling context; HTTP fetchers ignore it.
  */
 fun interface TrackingFetcher {
     suspend fun fetch(carrier: Carrier, trackingNumber: String, stageHint: Int): Snapshot?

@@ -8,7 +8,6 @@ import com.packatrack.app.data.db.OrderItemEntity
 import com.packatrack.app.data.db.ShipmentEntity
 import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.data.db.TrackingLegEntity
-import com.packatrack.app.data.fetch.DemoTrackingFetcher
 import com.packatrack.app.data.fetch.HttpTrackingFetcher
 import com.packatrack.core.changelog.ChangeLogService
 import com.packatrack.core.model.Carrier
@@ -30,7 +29,6 @@ class TrackingRepository(
     private val changes = db.changeDao()
 
     val httpFetcher = HttpTrackingFetcher { prefs.ausPostApiKey }
-    val demoFetcher = DemoTrackingFetcher()
 
     /* ---------- observers ---------- */
 
@@ -428,11 +426,7 @@ class TrackingRepository(
     }
 
     private suspend fun fetchSnapshot(carrier: Carrier, number: String, stageHint: Int): Snapshot? =
-        if (prefs.demoMode) {
-            if (DemoTrackingFetcher.isDemoNumber(number)) demoFetcher.fetch(carrier, number, stageHint) else null
-        } else {
-            httpFetcher.fetch(carrier, number, stageHint)
-        }
+        httpFetcher.fetch(carrier, number, stageHint)
 
     private fun detectCarrier(number: String): Carrier? =
         com.packatrack.core.detect.CarrierDetector.detect(number)

@@ -15,7 +15,7 @@ Native Android app, Kotlin + Jetpack Compose, Room, WorkManager, OkHttp.
 ./gradlew :core:testDebugUnitTest
 ```
 
-Open `app-debug.apk` on a device/emulator (API 24+). The app starts in **demo mode** so it works with zero setup.
+Open `app-debug.apk` on a device/emulator (API 24+). Cainiao tracking works without an API key; Australia Post tracking requires an `AUTH-KEY` configured in Settings.
 
 ## Continuous integration
 
@@ -59,17 +59,6 @@ The reverse also happens: Cainiao often **consolidates several of your orders un
 
 The public endpoints are undocumented and occasionally change; PackaTrack treats an unreachable carrier gracefully (no crash, parcel stays visible, "Open on carrier website" always works).
 
-## Demo mode (offline)
-
-Demo mode is ON by default. Add these fictional numbers to see every feature without keys:
-
-- `DEMO600087654321` — Cainiao-style journey that is **renumbered** to `AU600087654321` when Australia Post takes over, then out-for-delivery → delivered.
-- `DEMO111222333` — a small parcel that gets **consolidated** into another shipment.
-- `CNDEMOCOMBO9X` — the combined parcel; its weight (480 g) matches the sum of the two parcels above, which is how PackaTrack recognises it.
-- `DEMOJOIN01` **and** `DEMOJOIN02` — add both as separate parcels, then refresh a few times: Cainiao gives them one shared number (`CNJOINED8888`) and PackaTrack **auto-consolidates the two parcels into one**, keeping both orders and both old numbers.
-
-Each manual refresh advances the story one step.
-
 ### Automatic consolidation
 
 When several parcels you track separately are **merged by Cainiao under one tracking number**, PackaTrack notices on the next refresh — as soon as a carrier reports one parcel under another's number, the two are the same physical shipment, so their orders, couriers and history are folded into a single parcel automatically (the redundant duplicate number becomes alias history, and a change note + notification records it). This is deterministic: it triggers on an exact shared number, not a weight guess.
@@ -87,14 +76,14 @@ Pure Kotlin, fully unit-tested (26 tests), no Android dependencies:
 ## Project layout
 
 ```
-core/   Pure tracking engine: models, parsers, detectors, change logic, demo data
+core/   Pure tracking engine: models, parsers, detectors and change logic
 app/    Android app: Room database, OkHttp fetchers, WorkManager sync, Compose UI
 ```
 
 - `core/src/main/java/com/packatrack/core/parse/` — Cainiao / Australia Post / iMile parsers
 - `core/src/main/java/com/packatrack/core/changelog/ChangeLogService.kt` — renumber/combine detection
 - `app/src/main/java/com/packatrack/app/data/TrackingRepository.kt` — sync + detection orchestration
-- `app/src/main/java/com/packatrack/app/data/fetch/` — live + demo fetchers
+- `app/src/main/java/com/packatrack/app/data/fetch/` — live carrier fetchers
 
 ## Toolchain
 
@@ -107,4 +96,4 @@ Gradle 9.7.1 wrapper, AGP 9.3.2 (built-in Kotlin), Kotlin 2.3.10, Compose BOM 20
 - **Order** (`orders`) — an AliExpress order carried in a parcel (name + optional link); a parcel has one or many, so a Cainiao-consolidated parcel lists every order inside it.
 - **Event** (`events`) — a scan, tied to its leg and parcel, merged into the parcel's timeline.
 
-The database is versioned; upgrading from an earlier schema rebuilds locally (demo data regenerates on the next refresh).
+The database is versioned; upgrading from an earlier schema rebuilds locally.

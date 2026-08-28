@@ -36,8 +36,7 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                     // Schema still evolving pre-release (v2 introduced courier legs; v3 added
                     // per-parcel orders). Rather than ship fragile hand-written migrations for a
-                    // pre-1.0 app, rebuild cleanly on any version change; demo data regenerates on
-                    // the next refresh.
+                    // pre-1.0 app, rebuild cleanly on any version change.
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { instance = it }
