@@ -2,81 +2,29 @@ package com.packatrack.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.core.content.edit
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 
-/** User-configurable tracking behaviour backed by Keystore-encrypted preferences. */
+/**
+ * User-configurable tracking behaviour.
+ *
+ * Non-secret settings are stored as plain values; the one secret we keep — the Australia Post
+ * API key — is encrypted with an Android Keystore key via [KeystoreCrypto] before being written.
+ */
 class PrefsStore(context: Context) {
-    private val prefs: SharedPreferences
-
-    init {
-        val appContext = context.applicationContext
-        prefs = openEncryptedPrefs(appContext)
-        migrateLegacy(appContext.getSharedPreferences("packatrack_prefs", Context.MODE_PRIVATE))
-    }
-
-    /**
-     * Opens the Keystore-encrypted preferences, recovering from a corrupt or
-     * unreadable keyset. The master key can become undecryptable after a
-     * restore-to-new-device or a Keystore reset; when that happens
-     * [EncryptedSharedPreferences.create] throws and — because this runs during
-     * app construction — would crash every launch. In that case the stored data
-     * is unrecoverable anyway, so we drop the file and start fresh instead.
-     */
-    private fun openEncryptedPrefs(appContext: Context): SharedPreferences {
-        return try {
-            createEncryptedPrefs(appContext)
-        } catch (e: Exception) {
-            Log.e(TAG, "Encrypted preferences unreadable; recreating", e)
-            appContext.deleteSharedPreferences(SECURE_PREFS_NAME)
-            try {
-                createEncryptedPrefs(appContext)
-            } catch (e2: Exception) {
-                Log.e(TAG, "Falling back to plain preferences", e2)
-                appContext.getSharedPreferences(FALLBACK_PREFS_NAME, Context.MODE_PRIVATE)
-            }
-        }
-    }
-
-    private fun createEncryptedPrefs(appContext: Context): SharedPreferences {
-        val masterKey = MasterKey.Builder(appContext)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        return EncryptedSharedPreferences.create(
-            appContext,
-            SECURE_PREFS_NAME,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
-
-    private fun migrateLegacy(legacy: SharedPreferences) {
-        if (prefs.getBoolean(KEY_MIGRATED, false) || !legacy.all.keys.any { it != KEY_MIGRATED }) return
-        prefs.edit {
-            legacy.getString(KEY_AUSPOST_KEY, null)?.let { putString(KEY_AUSPOST_KEY, it) }
-            if (legacy.contains(KEY_SYNC_HOURS)) putInt(KEY_SYNC_HOURS, legacy.getInt(KEY_SYNC_HOURS, 6))
-            if (legacy.contains(KEY_NOTIFICATIONS)) putBoolean(KEY_NOTIFICATIONS, legacy.getBoolean(KEY_NOTIFICATIONS, true))
-            if (legacy.contains(KEY_NOTIFY_DELIVERED)) putBoolean(KEY_NOTIFY_DELIVERED, legacy.getBoolean(KEY_NOTIFY_DELIVERED, true))
-            if (legacy.contains(KEY_NOTIFY_EXCEPTIONS)) putBoolean(KEY_NOTIFY_EXCEPTIONS, legacy.getBoolean(KEY_NOTIFY_EXCEPTIONS, true))
-            if (legacy.contains(KEY_NOTIFY_TRANSIT)) putBoolean(KEY_NOTIFY_TRANSIT, legacy.getBoolean(KEY_NOTIFY_TRANSIT, true))
-            if (legacy.contains(KEY_WIFI_ONLY)) putBoolean(KEY_WIFI_ONLY, legacy.getBoolean(KEY_WIFI_ONLY, false))
-            if (legacy.contains(KEY_THEME)) putString(KEY_THEME, legacy.getString(KEY_THEME, "system"))
-            if (legacy.contains(KEY_SORT_ORDER)) putString(KEY_SORT_ORDER, legacy.getString(KEY_SORT_ORDER, "newest"))
-            if (legacy.contains(KEY_DATE_FORMAT)) putString(KEY_DATE_FORMAT, legacy.getString(KEY_DATE_FORMAT, DEFAULT_DATE_FORMAT))
-            if (legacy.contains(KEY_HISTORY_SORT)) putString(KEY_HISTORY_SORT, legacy.getString(KEY_HISTORY_SORT, "newest"))
-            if (legacy.contains(KEY_AUTO_ARCHIVE)) putBoolean(KEY_AUTO_ARCHIVE, legacy.getBoolean(KEY_AUTO_ARCHIVE, false))
-            if (legacy.contains(KEY_ACTIVITY_DISMISSED)) putLong(KEY_ACTIVITY_DISMISSED, legacy.getLong(KEY_ACTIVITY_DISMISSED, 0L))
-            putBoolean(KEY_MIGRATED, true)
-        }
-        legacy.edit().clear().apply()
-    }
+    private val prefs: SharedPreferences =
+        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     var ausPostApiKey: String?
         get() = prefs.getString(KEY_AUSPOST_KEY, null)
-        set(value) = prefs.edit { if (value.isNullOrBlank()) remove(KEY_AUSPOST_KEY) else putString(KEY_AUSPOST_KEY, value.trim()) }
+            ?.let { stored -> runCatching { String(KeystoreCrypto.decryptFromBase64(stored)) }.getOrNull() }
+        set(value) = prefs.edit {
+            val trimmed = value?.trim()
+            if (trimmed.isNullOrEmpty()) {
+                remove(KEY_AUSPOST_KEY)
+            } else {
+                putString(KEY_AUSPOST_KEY, KeystoreCrypto.encryptToBase64(trimmed.toByteArray()))
+            }
+        }
 
     var syncIntervalHours: Int
         get() = prefs.getInt(KEY_SYNC_HOURS, 6)
@@ -127,9 +75,7 @@ class PrefsStore(context: Context) {
         set(value) = prefs.edit { putLong(KEY_ACTIVITY_DISMISSED, value) }
 
     companion object {
-        private const val TAG = "PrefsStore"
-        private const val SECURE_PREFS_NAME = "packatrack_prefs_secure"
-        private const val FALLBACK_PREFS_NAME = "packatrack_prefs_fallback"
+        private const val PREFS_NAME = "packatrack_prefs"
         private const val DEFAULT_DATE_FORMAT = "dd MMM yyyy, HH:mm"
         const val KEY_AUSPOST_KEY = "auspost_key"
         const val KEY_SYNC_HOURS = "sync_interval_hours"
@@ -144,6 +90,5 @@ class PrefsStore(context: Context) {
         const val KEY_HISTORY_SORT = "history_sort_order"
         const val KEY_AUTO_ARCHIVE = "auto_archive_delivered"
         const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
-        private const val KEY_MIGRATED = "encrypted_preferences_migrated"
     }
 }
