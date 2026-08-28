@@ -2,6 +2,7 @@ package com.packatrack.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
@@ -12,17 +13,44 @@ class PrefsStore(context: Context) {
 
     init {
         val appContext = context.applicationContext
+        prefs = openEncryptedPrefs(appContext)
+        migrateLegacy(appContext.getSharedPreferences("packatrack_prefs", Context.MODE_PRIVATE))
+    }
+
+    /**
+     * Opens the Keystore-encrypted preferences, recovering from a corrupt or
+     * unreadable keyset. The master key can become undecryptable after a
+     * restore-to-new-device or a Keystore reset; when that happens
+     * [EncryptedSharedPreferences.create] throws and — because this runs during
+     * app construction — would crash every launch. In that case the stored data
+     * is unrecoverable anyway, so we drop the file and start fresh instead.
+     */
+    private fun openEncryptedPrefs(appContext: Context): SharedPreferences {
+        return try {
+            createEncryptedPrefs(appContext)
+        } catch (e: Exception) {
+            Log.e(TAG, "Encrypted preferences unreadable; recreating", e)
+            appContext.deleteSharedPreferences(SECURE_PREFS_NAME)
+            try {
+                createEncryptedPrefs(appContext)
+            } catch (e2: Exception) {
+                Log.e(TAG, "Falling back to plain preferences", e2)
+                appContext.getSharedPreferences(FALLBACK_PREFS_NAME, Context.MODE_PRIVATE)
+            }
+        }
+    }
+
+    private fun createEncryptedPrefs(appContext: Context): SharedPreferences {
         val masterKey = MasterKey.Builder(appContext)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
-        prefs = EncryptedSharedPreferences.create(
+        return EncryptedSharedPreferences.create(
             appContext,
-            "packatrack_prefs_secure",
+            SECURE_PREFS_NAME,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
-        migrateLegacy(appContext.getSharedPreferences("packatrack_prefs", Context.MODE_PRIVATE))
     }
 
     private fun migrateLegacy(legacy: SharedPreferences) {
@@ -99,6 +127,9 @@ class PrefsStore(context: Context) {
         set(value) = prefs.edit { putLong(KEY_ACTIVITY_DISMISSED, value) }
 
     companion object {
+        private const val TAG = "PrefsStore"
+        private const val SECURE_PREFS_NAME = "packatrack_prefs_secure"
+        private const val FALLBACK_PREFS_NAME = "packatrack_prefs_fallback"
         private const val DEFAULT_DATE_FORMAT = "dd MMM yyyy, HH:mm"
         const val KEY_AUSPOST_KEY = "auspost_key"
         const val KEY_SYNC_HOURS = "sync_interval_hours"
