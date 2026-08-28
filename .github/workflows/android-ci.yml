@@ -5,7 +5,6 @@ on:
     branches: [ main ]
   pull_request:
 
-# Let the test-report step publish a check with annotations.
 permissions:
   contents: read
   checks: write
@@ -16,9 +15,19 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Unit tests + debug APK
+  # Verify the integrity of the Gradle Wrapper to prevent supply chain attacks.
+  validation:
+    name: Gradle Wrapper Validation
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: gradle/actions/wrapper-validation@v4
+
+  # Main build pipeline: Lint, Test, and Build.
+  build-and-test:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+    needs: validation
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -28,51 +37,43 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
 
-      # The current AndroidX/Compose dependencies require compileSdk 37. setup-android v4
-      # resolves the published Android 17 platform as platforms;android-37.
+      # Sets up the Android SDK environment.
+      # We omit explicit 'packages' to allow AGP to auto-provision the correct SDK versions (e.g., API 37).
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+
+      # Official Gradle Action for robust caching and build insights.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          packages: 'platform-tools platforms;android-37 build-tools;37.0.0'
+          gradle-version: wrapper
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Run Static Analysis and Unit Tests
+        run: ./gradlew lintDebug testDebugUnitTest --stacktrace
 
-      - name: Run core unit tests
-        run: ./gradlew :core:testDebugUnitTest --stacktrace
-
-      - name: Debug - List test results
-        if: always()
-        run: find . -name "*.xml" | grep test-results || echo "No XML files found"
-
-      - name: Assemble debug APK
+      - name: Assemble Debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
 
-      - name: Run Android lint
-        run: ./gradlew :app:lintDebug --stacktrace
-
-      - name: Publish unit-test report
+      - name: Publish Unit Test Report
         if: always()
         uses: mikepenz/action-junit-report@v6
         with:
           report_paths: '**/build/test-results/test*UnitTest/TEST-*.xml'
-          check_name: Unit test report
+          check_name: Unit Test Report
           include_passed: true
 
-      - name: Upload test results
+      - name: Upload Reports and Results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results
+          name: reports-and-results
           path: |
-            core/build/test-results/**/*.xml
-            app/build/test-results/**/*.xml
-            app/build/reports/lint-results-debug.*
+            **/build/reports/
+            **/build/test-results/**/*.xml
           if-no-files-found: warn
 
-      - name: Upload debug APK
+      - name: Upload Debug APK
         if: success()
         uses: actions/upload-artifact@v7
         with:
