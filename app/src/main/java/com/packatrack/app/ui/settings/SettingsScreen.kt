@@ -77,6 +77,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.packatrack.app.data.BackupManager
@@ -259,13 +260,13 @@ fun SettingsScreen(onBack: () -> Unit) {
                     trailingContent = {
                         if (!isIgnoringBatteryOptimizations) {
                             TextButton(onClick = {
-                                val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = "package:${context.packageName}".toUri()
+                                }
                                 runCatching { context.startActivity(intent) }
                                     .onFailure {
-                                        // Fallback to app details if the specific battery settings aren't reachable
-                                        val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                            data = Uri.fromParts("package", context.packageName, null)
-                                        }
+                                        // Fallback to the settings list if the direct prompt fails
+                                        val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                         context.startActivity(fallback)
                                     }
                             }) {
