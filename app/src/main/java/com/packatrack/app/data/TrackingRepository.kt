@@ -16,6 +16,7 @@ import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.FingerprintUtil
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class TrackingRepository(
     context: Context,
@@ -37,6 +38,12 @@ class TrackingRepository(
     fun observeShipment(id: Long): Flow<ShipmentWithLegs?> = shipments.observeWithLegs(id)
     fun observeEvents(shipmentId: Long): Flow<List<EventEntity>> = events.observeForShipment(shipmentId)
     fun observeChangesFor(shipmentId: Long): Flow<List<ChangeEntity>> = changes.observeFor(shipmentId)
+
+    /** Earliest scan time per shipment (shipmentId → first event ms), for "days in transit". */
+    fun observeFirstEventTimes(): Flow<Map<Long, Long>> =
+        events.observeFirstEventTimes().map { rows ->
+            rows.mapNotNull { row -> row.firstMs?.let { row.shipmentId to it } }.toMap()
+        }
 
     /* ---------- parcel mutations ---------- */
 
@@ -91,7 +98,7 @@ class TrackingRepository(
             orders.insert(
                 OrderItemEntity(
                     shipmentId = shipmentId,
-                    name = orderName ?: "Order",
+                    name = orderName ?: "Item",
                     orderUrl = orderLink,
                     createdAt = now,
                 ),
@@ -107,7 +114,7 @@ class TrackingRepository(
         orders.insert(
             OrderItemEntity(
                 shipmentId = shipmentId,
-                name = name.trim().ifBlank { "Order" },
+                name = name.trim().ifBlank { "Item" },
                 orderUrl = orderUrl?.takeIf { it.isNotBlank() },
                 createdAt = System.currentTimeMillis(),
             ),

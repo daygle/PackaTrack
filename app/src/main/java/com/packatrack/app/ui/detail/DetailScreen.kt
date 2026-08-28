@@ -104,6 +104,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
         if (historySort == "oldest") timelineRaw.sortedBy { it.timeMs ?: 0L }
         else timelineRaw.sortedByDescending { it.timeMs ?: 0L }
     }
+    val firstEventMs = remember(timelineRaw) { timelineRaw.mapNotNull { it.timeMs }.minOrNull() }
 
     var menuOpen by remember { mutableStateOf(value = false) }
     var historySortMenuOpen by remember { mutableStateOf(false) }
@@ -184,7 +185,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     .background(MaterialTheme.colorScheme.background),
             ) {
                 item(key = "hero") {
-                    HeroSection(entry, prefs)
+                    HeroSection(entry, firstEventMs, prefs)
                 }
 
                 item(key = "couriers_title") {
@@ -212,13 +213,13 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
 
                 item(key = "orders_title") {
                     SectionHeader(
-                        title = "Orders",
+                        title = "Items",
                         count = orders.size
                     ) { showAddOrder = true }
                 }
                 if (orders.isEmpty()) {
                     item(key = "orders_empty") {
-                        EmptySectionText("No orders linked. Add orders here to track combined shipments easily.")
+                        EmptySectionText("No items linked. Add items here to track combined shipments easily.")
                     }
                 }
                 items(orders, key = { "order_${it.id}" }) { order ->
@@ -343,7 +344,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
 }
 
 @Composable
-private fun HeroSection(entry: ShipmentWithLegs?, prefs: com.packatrack.app.data.PrefsStore) {
+private fun HeroSection(entry: ShipmentWithLegs?, firstEventMs: Long?, prefs: com.packatrack.app.data.PrefsStore) {
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
     val status = overallStatusCode(legs)
@@ -365,7 +366,7 @@ private fun HeroSection(entry: ShipmentWithLegs?, prefs: com.packatrack.app.data
             )
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val days = daysInTransit(entry?.shipment?.createdAt ?: 0L, status)
+                val days = daysInTransit(firstEventMs ?: shipment?.createdAt)
                 Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.width(4.dp))
                 Text(
@@ -791,18 +792,18 @@ private fun AddOrderDialog(
             Button(
                 enabled = name.isNotBlank() || link.isNotBlank(),
                 onClick = { onAdd(name.trim(), link.trim().ifBlank { null }) },
-            ) { Text("Add Order") }
+            ) { Text("Add Item") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        title = { Text("Add An Order") },
+        title = { Text("Add An Item") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    "Record another order carried in this parcel.",
+                    "Record another item carried in this parcel.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Order Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Item Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = link, onValueChange = { link = it }, label = { Text("Order Link (Optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }
         },
