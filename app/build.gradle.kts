@@ -36,6 +36,13 @@ android {
     }
 }
 
+// Export the Room schema so migrations can be diffed in review and verified by
+// migration tests. Room validates each version's schema against this directory
+// at compile time.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(project(":core"))
 

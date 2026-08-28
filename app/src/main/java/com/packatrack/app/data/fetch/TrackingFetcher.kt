@@ -25,8 +25,9 @@ class HttpTrackingFetcher(
 
     private val client = okhttp3.OkHttpClient.Builder()
         .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-        // Tracking endpoints are explicitly HTTPS; do not follow a redirect to an
-        // unexpected host or protocol where request metadata could be exposed.
+        // Never let OkHttp auto-follow redirects: it would forward request headers
+        // (including the AusPost AUTH-KEY, which OkHttp does not strip) to whatever
+        // host the redirect points at. get() follows same-host HTTPS hops itself.
         .followRedirects(false)
         .followSslRedirects(false)
         .build()
@@ -50,7 +51,7 @@ class HttpTrackingFetcher(
         }.getOrNull()
     }
 
-    private fun get(url: String, headers: Map<String, String>): String? {
+    private fun get(url: String, headers: Map<String, String>, redirectsLeft: Int = MAX_REDIRECTS): String? {
         val builder = okhttp3.Request.Builder().url(url)
             // Let OkHttp add Accept-Encoding: gzip itself so it also decompresses the
             // response transparently. Setting the header manually would make us receive
@@ -62,6 +63,20 @@ class HttpTrackingFetcher(
         headers.forEach { (k, v) -> builder.header(k, v) }
         return try {
             client.newCall(builder.build()).execute().use { resp ->
+                if (resp.code in 300..399) {
+                    val target = resp.header("Location")?.let { resp.request.url.resolve(it) }
+                    // Follow a redirect only when it stays on the same host over HTTPS,
+                    // so request headers (e.g. the AusPost AUTH-KEY) are never sent to
+                    // another host. Anything else is treated as no data.
+                    return@use if (target != null && redirectsLeft > 0 &&
+                        target.isHttps && target.host == resp.request.url.host
+                    ) {
+                        get(target.toString(), headers, redirectsLeft - 1)
+                    } else {
+                        android.util.Log.w("TrackingFetcher", "Not following redirect ${resp.code} $url -> ${target ?: "?"}")
+                        null
+                    }
+                }
                 val body = resp.body.string()
                 android.util.Log.d("TrackingFetcher", "GET $url → ${resp.code} (${body.length} bytes)")
                 if (!resp.isSuccessful) {
@@ -154,5 +169,9 @@ class HttpTrackingFetcher(
             if (snap != null) return snap
         }
         return null
+    }
+
+    private companion object {
+        const val MAX_REDIRECTS = 5
     }
 }
