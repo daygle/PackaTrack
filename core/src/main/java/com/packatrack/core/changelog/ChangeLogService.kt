@@ -38,7 +38,7 @@ object ChangeLogService {
                 .filterNot { it.description in previousDescriptions }
                 .maxByOrNull { it.timeMs ?: Long.MIN_VALUE }
             if (newestNewEvent != null) {
-                changes += ParcelChange.Progress(newestNewEvent.description)
+                changes += ParcelChange.Progress(newestNewEvent.description, newestNewEvent.timeMs)
             }
             return changes
         }
@@ -89,7 +89,13 @@ object ChangeLogService {
             "Tracking number changed from ${change.oldNumber} -> ${change.newNumber}"
         is ParcelChange.Combined ->
             "${change.mergedFrom.size} parcels combined into ${change.into}"
-        is ParcelChange.Progress -> change.description
+        is ParcelChange.Progress -> {
+            val stamp = change.timeMs
+                ?.let { java.time.Instant.ofEpochMilli(it).toString().replace('T', ' ').substringBefore('.') }
+                ?.let { " — $it UTC" }
+                ?: ""
+            "${change.description}$stamp"
+        }
         is ParcelChange.WeightChanged ->
             "Package re-weighed: ${change.fromGrams?.toInt() ?: "?"} g -> ${change.toGrams.toInt()} g"
     }

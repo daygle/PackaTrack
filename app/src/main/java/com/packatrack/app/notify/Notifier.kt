@@ -55,7 +55,7 @@ object Notifier {
                 SUMMARY_ID,
                 NotificationCompat.Builder(context, CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_stat_parcel)
-                    .setContentTitle("PackaTrack update")
+                    .setContentTitle("PackaTrack Update")
                     .setContentText(messages.first())
                     .setStyle(style)
                     .setAutoCancel(true)

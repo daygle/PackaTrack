@@ -1,8 +1,6 @@
 package com.packatrack.core.changelog
 
 import com.packatrack.core.model.ParcelChange
-import com.packatrack.core.model.Snapshot
-import com.packatrack.core.model.TrackingEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -62,5 +60,30 @@ class ChangeLogServiceTest {
                 ParcelChange.Renumbered("old12345678", "new12345678"),
             ).contains("old12345678"),
         )
+    }
+
+    @Test fun progressCarriesEventTimeMs() {
+        val prev = Snapshot("CNX111", null,
+            listOf(TrackingEvent("CNX111", 1L, "Arrived Sydney")))
+        val cur = Snapshot("CNX111", null,
+            listOf(TrackingEvent("CNX111", 1_700_000_000_000L, "Out for delivery")))
+
+        val changes = ChangeLogService.detect(mapOf("CNX111" to prev), cur)
+        val progress = changes[0] as ParcelChange.Progress
+        assertEquals(1_700_000_000_000L, progress.timeMs)
+    }
+
+    @Test fun humanReadableProgressAppendsUtcStamp() {
+        val line = ChangeLogService.humanReadable(
+            ParcelChange.Progress("Arrived at sorting facility", 1_700_000_000_000L),
+        )
+        assertTrue(line.startsWith("Arrived at sorting facility"))
+        assertTrue(line.contains("2023-11-14 22:13"))
+        assertTrue(line.endsWith("UTC"))
+    }
+
+    @Test fun humanReadableProgressWithoutTimeOmitsStamp() {
+        val line = ChangeLogService.humanReadable(ParcelChange.Progress("Arrived at sorting facility"))
+        assertEquals("Arrived at sorting facility", line)
     }
 }

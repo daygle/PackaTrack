@@ -244,7 +244,7 @@ class TrackingRepository(
         val change = ChangeEntity(
             shipmentId = targetId,
             type = "COMBINED",
-            message = message(sourceLabel),
+            message = "${parcelLabel(targetId)}: ${message(sourceLabel)}",
             createdAt = System.currentTimeMillis(),
         )
         changes.insert(change)
@@ -366,6 +366,21 @@ class TrackingRepository(
         val consolidation: Consolidation? = null,
     )
 
+    /**
+     * Display label for a parcel, mirroring the home-list naming: custom title first, then
+     * the first order name (with a "+N more" suffix), then the first tracking number. Used to
+     * prefix change messages so notifications identify which parcel changed.
+     */
+    private suspend fun parcelLabel(shipmentId: Long): String {
+        val shipment = shipments.byId(shipmentId) ?: return "Parcel"
+        shipment.title?.takeIf { it.isNotBlank() }?.let { return it }
+        val orderItems = orders.ordersForShipment(shipmentId)
+        orderItems.firstOrNull()?.let { first ->
+            return if (orderItems.size == 1) first.name else "${first.name} +${orderItems.size - 1} more"
+        }
+        return legs.legsForShipment(shipmentId).firstOrNull()?.trackingNumber ?: "Parcel"
+    }
+
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
@@ -434,7 +449,7 @@ class TrackingRepository(
                 .distinct()
                 .joinToString(",")
             mutable = mutable.copy(trackingNumber = renumberedTo, aliasNumbers = aliasCsv)
-            val msg = ChangeLogService.humanReadable(ParcelChange.Renumbered(oldNo, snapshot.trackingNumber))
+            val msg = "${parcelLabel(mutable.shipmentId)}: ${ChangeLogService.humanReadable(ParcelChange.Renumbered(oldNo, snapshot.trackingNumber))}"
             if (changes.countByMessage(mutable.shipmentId, "RENUMBERED", msg) == 0) {
                 newChanges += ChangeEntity(shipmentId = mutable.shipmentId, type = "RENUMBERED", message = msg, createdAt = now)
             }
@@ -456,14 +471,14 @@ class TrackingRepository(
             }.associateBy { it.trackingNumber }
             val combined = ChangeLogService.detectCombination(others, snapshot)
             if (combined != null) {
-                val msg = ChangeLogService.humanReadable(combined)
+                val msg = "${parcelLabel(mutable.shipmentId)}: ${ChangeLogService.humanReadable(combined)}"
                 if (changes.countByMessage(mutable.shipmentId, "COMBINED", msg) == 0) {
                     newChanges += ChangeEntity(shipmentId = mutable.shipmentId, type = "COMBINED", message = msg, createdAt = now)
                 }
                 for (absorbedNo in others.keys) {
                     if (FingerprintUtil.normalize(absorbedNo) == renumberedTo) continue
                     val absorbed = legs.findByTrackingNumber(absorbedNo) ?: continue
-                    val foldMsg = "Folded into combined parcel ${snapshot.trackingNumber}"
+                    val foldMsg = "${parcelLabel(absorbed.shipmentId)}: Folded into combined parcel ${snapshot.trackingNumber}"
                     if (changes.countByMessage(absorbed.shipmentId, "COMBINED", foldMsg) == 0) {
                         changes.insert(ChangeEntity(shipmentId = absorbed.shipmentId, type = "COMBINED", message = foldMsg, createdAt = now))
                     }
@@ -484,7 +499,7 @@ class TrackingRepository(
                 newChanges += ChangeEntity(
                     shipmentId = mutable.shipmentId,
                     type = type,
-                    message = ChangeLogService.humanReadable(change),
+                    message = "${parcelLabel(mutable.shipmentId)}: ${ChangeLogService.humanReadable(change)}",
                     createdAt = now,
                 )
             }
