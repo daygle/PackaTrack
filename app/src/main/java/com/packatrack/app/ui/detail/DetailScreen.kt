@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import kotlin.math.abs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -97,6 +98,16 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 @Composable
+/** A timeline entry that may combine duplicate scans from multiple carriers. */
+private data class TimelineDisplayEvent(
+    val timeMs: Long?,
+    val description: String,
+    val location: String?,
+    val statusCode: String?,
+    val carriers: List<Pair<String?, String?>>, // (carrierId, displayName)
+    val isLast: Boolean = false,
+)
+
 fun DetailScreen(id: Long, onBack: () -> Unit) {
     val context = LocalContext.current
     val container = rememberAppContainer()
@@ -115,8 +126,11 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
 
     var historySort by remember { mutableStateOf(prefs.historySortOrder) }
     val timeline = remember(timelineRaw, historySort) {
-        if (historySort == "oldest") timelineRaw.sortedBy { it.timeMs ?: 0L }
+        val sorted = if (historySort == "oldest") timelineRaw.sortedBy { it.timeMs ?: 0L }
         else timelineRaw.sortedByDescending { it.timeMs ?: 0L }
+        // Deduplicate scans from multiple carriers reporting the same event
+        // (e.g. Cainiao + UBI Smart Parcel share the same API response).
+        deduplicateTimeline(sorted, legById)
     }
     val firstEventMs = remember(timelineRaw) { timelineRaw.mapNotNull { it.timeMs }.minOrNull() }
 
@@ -293,15 +307,13 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                     EmptySectionText(stringResource(R.string.scanning_updates))
                 }
             }
-            itemsIndexed(timeline, key = { _, ev -> "ev_${ev.id}" }) { index, ev ->
-                val carrier = Carrier.fromId(legById[ev.legId]?.carrierId)
+            itemsIndexed(timeline, key = { _, ev -> "ev_${ev.timeMs}_${ev.description}" }) { index, ev ->
                 TimelineRow(
                     time = TimeUtil.format(ev.timeMs, prefs.dateTimeFormat) ?: stringResource(R.string.time_unknown),
                     description = ev.description,
                     location = ev.location,
                     statusCode = ev.statusCode,
-                    carrierId = legById[ev.legId]?.carrierId,
-                    carrierName = carrier?.displayName,
+                    carriers = ev.carriers,
                     isLast = index == timeline.lastIndex
                 )
             }
@@ -607,8 +619,7 @@ private fun TimelineRow(
     description: String,
     location: String?,
     statusCode: String?,
-    carrierId: String?,
-    carrierName: String?,
+    carriers: List<Pair<String?, String?>>,
     isLast: Boolean
 ) {
     Row(
@@ -639,7 +650,7 @@ private fun TimelineRow(
             Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(2.dp))
             Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
-            if (!location.isNullOrBlank() || !carrierName.isNullOrBlank()) {
+            if (!location.isNullOrBlank() || carriers.isNotEmpty()) {
                 Row(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -648,8 +659,9 @@ private fun TimelineRow(
                     location?.takeIf { it.isNotBlank() }?.let {
                         Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
                     }
-                    carrierName?.let {
-                        CarrierChip(carrierId, it)
+                    carriers.forEach { (carrierId, carrierName) ->
+                        carrierName?.let {
+                            CarrierChip(carrierId, it)
                     }
                 }
             }
@@ -858,4 +870,45 @@ private fun AddOrderDialog(
             }
         },
     )
+}
+
+/**
+ * Collapses duplicate scan events from multiple carriers (e.g. Cainiao + UBI Smart Parcel)
+ * that share the same timestamp and description into a single entry with multiple carrier chips.
+ */
+private fun deduplicateTimeline(
+    sorted: List<EventEntity>,
+    legById: Map<Long, TrackingLegEntity>,
+): List<TimelineDisplayEvent> {
+    if (sorted.isEmpty()) return emptyList()
+    val result = mutableListOf<TimelineDisplayEvent>()
+    var i = 0
+    while (i < sorted.size) {
+        val ev = sorted[i]
+        val evTime = ev.timeMs ?: 0L
+        val evDesc = ev.description
+        val carriers = mutableListOf<Pair<String?, String?>>()
+        // Collect all events within 60 seconds with the same description
+        while (i < sorted.size &&
+            abs((sorted[i].timeMs ?: 0L) - evTime) <= 60_000 &&
+            sorted[i].description == evDesc
+        ) {
+            val leg = legById[sorted[i].legId]
+            val carrier = Carrier.fromId(leg?.carrierId)
+            carriers.add(leg?.carrierId to carrier?.displayName)
+            i++
+        }
+        // Deduplicate carriers (same carrier reported twice)
+        val uniqueCarriers = carriers.distinctBy { it.first }
+        result.add(
+            TimelineDisplayEvent(
+                timeMs = ev.timeMs,
+                description = ev.description,
+                location = ev.location,
+                statusCode = ev.statusCode,
+                carriers = uniqueCarriers,
+            )
+        )
+    }
+    return result
 }
