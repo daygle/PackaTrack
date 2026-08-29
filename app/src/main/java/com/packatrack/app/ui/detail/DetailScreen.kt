@@ -119,14 +119,13 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     val changes by repo.observeChangesFor(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val timelineRaw by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val allParcels by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val prefs = container.prefs
-
-    val shipment = entry?.shipment
+    val prefs = container.prefs    val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
     val orders = entry?.orders.orEmpty()
+    val legById = remember(legs) { legs.associateBy { it.id } }
 
     var historySort by remember { mutableStateOf(prefs.historySortOrder) }
-    val timeline = remember(timelineRaw, historySort) {
+    val timeline = remember(timelineRaw, historySort, legById) {
         val sorted = if (historySort == "oldest") timelineRaw.sortedBy { it.timeMs ?: 0L }
         else timelineRaw.sortedByDescending { it.timeMs ?: 0L }
         // Deduplicate scans from multiple carriers reporting the same event
@@ -142,8 +141,6 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     var showCombine by remember { mutableStateOf(value = false) }
     var showEdit by remember { mutableStateOf(value = false) }
     var syncing by remember { mutableStateOf(value = false) }
-
-    val legById = remember(legs) { legs.associateBy { it.id } }
 
     Scaffold(
         topBar = {
