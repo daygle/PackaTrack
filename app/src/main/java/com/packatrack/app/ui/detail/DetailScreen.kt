@@ -78,6 +78,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.packatrack.app.data.db.OrderItemEntity
 import com.packatrack.app.data.db.ShipmentWithLegs
+import com.packatrack.app.data.db.EventEntity
 import com.packatrack.app.data.db.TrackingLegEntity
 import com.packatrack.app.ui.components.CarrierChip
 import com.packatrack.app.ui.components.StatusPill
