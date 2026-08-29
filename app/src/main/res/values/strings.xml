@@ -48,7 +48,7 @@
     <string name="parcel">Parcel</string>
     <string name="edit_parcel">Edit parcel</string>
     <string name="more">More</string>
-    <string name="combine_with_another">Combine With Another Parcel</string>
+    <string name="combine_with_another">Combine Parcel</string>
     <string name="delete_parcel">Delete Parcel</string>
     <string name="tracking_numbers_title">Tracking Numbers</string>
     <string name="items_title">Items</string>
