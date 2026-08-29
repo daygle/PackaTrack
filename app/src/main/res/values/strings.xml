@@ -26,6 +26,7 @@
     </plurals>
     <string name="actions">Actions</string>
     <string name="refresh">Refresh</string>
+    <string name="copy_tracking_number">Copy tracking number</string>
     <string name="latest_tracking_entry">Latest Tracking Entry</string>
     <string name="view_on_web">View on Web</string>
     <string name="archive">Archive</string>

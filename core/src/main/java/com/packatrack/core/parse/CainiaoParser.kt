@@ -153,10 +153,19 @@ object CainiaoParser {
     fun mapCode(raw: String?): String? {
         val c = raw?.uppercase() ?: return null
         return when {
-            c.contains("SIGNED") || c.contains("DELIVER") -> "DELIVERED"
-            c.contains("OUT_FOR_DELIVERY") || c == "DISPATCH" -> "OUT_FOR_DELIVERY"
-            c.contains("FAIL") || c.contains("ABNORMAL") || c.contains("RETURN") -> "EXCEPTION"
-            c.contains("GOT") || c.contains("ACCEPT") -> "IN_TRANSIT"
+            // Delivered
+            c.contains("SIGNED") || c.contains("DELIVER") ||
+                c.contains("PROOF_DELIVERY") || c.contains("END_DELIVERY") -> "DELIVERED"
+            // Out for delivery
+            c.contains("OUT_FOR_DELIVERY") || c == "DISPATCH" ||
+                c.contains("OUT_DELIVERY") || c.contains("LAST_MILE") -> "OUT_FOR_DELIVERY"
+            // Exception / failure
+            c.contains("FAIL") || c.contains("ABNORMAL") || c.contains("RETURN") ||
+                c.contains("LOST") || c.contains("CANCEL") -> "EXCEPTION"
+            // In transit - prefix-based patterns for Cainiao/UBI action codes
+            c.startsWith("LH_") || c.startsWith("CC_") || c.startsWith("SC_") ||
+                c.startsWith("GWMS_") || c.startsWith("WM_") ||
+                c.contains("GOT") || c.contains("ACCEPT") -> "IN_TRANSIT"
             else -> raw
         }
     }
