@@ -119,7 +119,8 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     val changes by repo.observeChangesFor(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val timelineRaw by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val allParcels by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val prefs = container.prefs    val shipment = entry?.shipment
+    val prefs = container.prefs
+    val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
     val orders = entry?.orders.orEmpty()
     val legById = remember(legs) { legs.associateBy { it.id } }
@@ -261,11 +262,13 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                 }
 
                 if (changes.isNotEmpty()) {
-                item(key = "changes_title") { SectionHeader(stringResource(R.string.insights_title), count = changes.size) }
-                items(changes, key = { "chg_${it.id}" }) { change ->
-                    InsightRow(change.message, change.createdAt, prefs.dateTimeFormat)
+                    item(key = "changes_title") {
+                        SectionHeader(stringResource(R.string.insights_title), count = changes.size)
+                    }
+                    items(changes, key = { "chg_${it.id}" }) { change ->
+                        InsightRow(change.message, change.createdAt, prefs.dateTimeFormat)
+                    }
                 }
-            }
 
             item(key = "timeline_title") {
                 SectionHeader(
