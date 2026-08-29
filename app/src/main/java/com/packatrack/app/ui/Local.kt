@@ -40,7 +40,7 @@ fun statusLabel(code: String?): String = when (code?.trim()?.uppercase()) {
 }
 
 /**
- * The status shown for a whole parcel — the furthest-along of its couriers, but an
+ * The status shown for a whole parcel - the furthest-along of its couriers, but an
  * exception on any leg always wins so problems surface.
  */
 private val STATUS_ORDER = listOf(

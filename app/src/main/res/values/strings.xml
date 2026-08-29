@@ -26,7 +26,7 @@
     </plurals>
     <string name="actions">Actions</string>
     <string name="refresh">Refresh</string>
-    <string name="latest_tracking_entry">Latest tracking entry</string>
+    <string name="latest_tracking_entry">Latest Tracking Entry</string>
     <string name="view_on_web">View on Web</string>
     <string name="archive">Archive</string>
     <string name="unarchive">Unarchive</string>
@@ -37,7 +37,7 @@
     <string name="tracking_number_label">Tracking Number</string>
     <string name="auto_detected">Auto-detected: %1$s</string>
     <string name="change_courier">Change</string>
-    <string name="courier_not_recognized">Courier not recognised — pick one below:</string>
+    <string name="courier_not_recognized">Courier not recognised - pick one below:</string>
     <string name="select_courier">Select Courier:</string>
     <string name="auto_detect_hint">We\'ll try to auto-detect the courier from the number.</string>
     <string name="item_name_optional">Item Name (Optional)</string>
@@ -84,17 +84,17 @@
     <string name="system_status">System Status</string>
     <string name="notifications_permission">Notifications Permission</string>
     <string name="granted">Granted</string>
-    <string name="denied_hint">Denied — Alerts will not be shown</string>
+    <string name="denied_hint">Denied - alerts will not be shown</string>
     <string name="fix">Fix</string>
     <string name="background_sync">Background Sync</string>
     <string name="sync_status_hint">Active · %1$dh interval %2$s</string>
     <string name="wifi_only_parentheses">(Wi-Fi only)</string>
     <string name="battery_usage">Battery Usage</string>
     <string name="unrestricted">Unrestricted</string>
-    <string name="optimized_hint">Optimized (May delay updates)</string>
+    <string name="optimized_hint">Optimized (may delay updates)</string>
     <string name="tracking_refresh">Tracking &amp; Refresh</string>
-    <string name="refresh_frequency">Refresh frequency</string>
-    <string name="wifi_only">Wi‑Fi Only</string>
+    <string name="refresh_frequency">Refresh Frequency</string>
+    <string name="wifi_only">Wi-Fi Only</string>
     <string name="wifi_only_hint">Reduce mobile data usage</string>
     <string name="notifications_group">Notifications</string>
     <string name="app_alerts">App Alerts</string>
@@ -123,6 +123,10 @@
     <string name="restore_passphrase_label">Restore Passphrase</string>
     <string name="biometric_lock">App Lock</string>
     <string name="biometric_lock_hint">Require biometric to open app</string>
+    <string name="transit_thresholds">Transit Thresholds</string>
+    <string name="transit_green_hint">Parcel is green when in transit for fewer days than this value</string>
+    <string name="transit_yellow_hint">Parcel turns yellow when in transit for more days than this value</string>
+    <string name="days_suffix">days</string>
     <string name="about">About</string>
     <string name="version_label">Version %1$s</string>
     <string name="github_repo">GitHub Repository</string>

@@ -16,7 +16,7 @@ fun interface TrackingFetcher {
  * Live HTTP fetchers built on each carrier's public endpoint.
  *
  * - Cainiao: public global detail JSON (no key).
- * - Australia Post: official v2 track API — needs a free AUTH-KEY in Settings.
+ * - Australia Post: official v2 track API - needs a free AUTH-KEY in Settings.
  * - iMile: customer-facing endpoint (best effort; may require updating if iMile changes it).
  */
 class HttpTrackingFetcher(
@@ -78,7 +78,7 @@ class HttpTrackingFetcher(
                     }
                 }
                 val body = resp.body.string()
-                android.util.Log.d("TrackingFetcher", "GET $url → ${resp.code} (${body.length} bytes)")
+                android.util.Log.d("TrackingFetcher", "GET $url -> ${resp.code} (${body.length} bytes)")
                 if (!resp.isSuccessful) {
                     android.util.Log.w("TrackingFetcher", "HTTP ${resp.code} for $url")
                     return@use null

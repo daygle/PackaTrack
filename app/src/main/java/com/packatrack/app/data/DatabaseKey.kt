@@ -10,7 +10,7 @@ import java.security.SecureRandom
  * The random key is generated once and stored wrapped by the Android Keystore (via
  * [KeystoreCrypto]), so it never touches disk in the clear. If the Keystore entry becomes
  * unreadable (e.g. a device Keystore reset) the wrapped key can't be recovered and the
- * encrypted database is unreadable — acceptable here as there is no released data to preserve.
+ * encrypted database is unreadable - acceptable here as there is no released data to preserve.
  */
 object DatabaseKey {
     private const val PREFS_NAME = "packatrack_db_key"

@@ -14,7 +14,7 @@ object BackupMerger {
      *
      * A shipment merges into an existing one when **any of its own legs** carries a tracking
      * number that is already in the database; otherwise it is new (maps to `null`). Each
-     * incoming shipment is evaluated independently — one shipment matching an existing parcel
+     * incoming shipment is evaluated independently - one shipment matching an existing parcel
      * must not change how the others are classified.
      *
      * @param existingShipmentIdByTrackingNumber tracking number -> id of the existing shipment

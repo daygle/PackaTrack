@@ -44,7 +44,7 @@ class TrackingRepository(
     fun observeEvents(shipmentId: Long): Flow<List<EventEntity>> = events.observeForShipment(shipmentId)
     fun observeChangesFor(shipmentId: Long): Flow<List<ChangeEntity>> = changes.observeFor(shipmentId)
 
-    /** Earliest scan time per shipment (shipmentId → first event ms), for "days in transit". */
+    /** Earliest scan time per shipment (shipmentId -> first event ms), for "days in transit". */
     fun observeFirstEventTimes(): Flow<Map<Long, Long>> =
         events.observeFirstEventTimes().map { rows ->
             rows.mapNotNull { row -> row.firstMs?.let { row.shipmentId to it } }.toMap()
@@ -472,7 +472,7 @@ class TrackingRepository(
         }
 
         // Progress from the same-number comparison path. Skipped on the very first
-        // poll — there is no prior state for a scan to have "changed" from, so a fresh parcel
+        // poll - there is no prior state for a scan to have "changed" from, so a fresh parcel
         // does not spam a notification for its opening scan.
         if (!firstPoll) {
             for (change in detected) {

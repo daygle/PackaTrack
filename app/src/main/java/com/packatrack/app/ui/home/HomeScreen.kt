@@ -80,7 +80,10 @@ import com.packatrack.app.ui.overallStatusCode
 import com.packatrack.app.ui.parcelName
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.MonoNumber
-import com.packatrack.app.ui.theme.daysInTransitColor
+import com.packatrack.app.ui.theme.daysInTransitColor as daysInTransitColorDynamic
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import kotlinx.coroutines.launch
@@ -140,7 +143,15 @@ fun HomeScreen(
 
     var syncing by remember { mutableStateOf(value = false) }
     var showAddDialog by remember { mutableStateOf(initialNumber != null) }
-    var activityDismissedAt by remember { mutableLongStateOf(container.prefs.recentActivityDismissedAt) }
+    var activityDismissedAt by remember {
+        val stored = container.prefs.recentActivityDismissedAt
+        // Auto-mark changes as seen on each recomposition (app open / config change)
+        // so the banner only appears for genuinely new activity.
+        if (stored == 0L && recentChanges.isNotEmpty()) {
+            container.prefs.recentActivityDismissedAt = recentChanges.maxOf { it.createdAt }
+        }
+        mutableLongStateOf(stored)
+    }
     val visibleChanges = recentChanges.filter { it.createdAt > activityDismissedAt }
 
     // Manual refresh: a no-op while one is already running.
@@ -427,6 +438,7 @@ private fun ParcelCard(
 ) {
     var menuOpen by remember { mutableStateOf(value = false) }
     val context = LocalContext.current
+    val container = rememberAppContainer()
     val shipment = entry.shipment
     val legs = entry.legs
     val primary = legs.firstOrNull()
@@ -442,8 +454,11 @@ private fun ParcelCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        val days = daysInTransit(firstEventMs ?: shipment.createdAt)
-        Column(Modifier.padding(16.dp)) {
+    val days = daysInTransit(firstEventMs ?: shipment.createdAt)
+    val greenThreshold = container.prefs.transitGreenDays
+    val yellowThreshold = container.prefs.transitYellowDays
+    val transitColor = daysInTransitColorDynamic(days, greenThreshold, yellowThreshold)
+    Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -462,10 +477,10 @@ private fun ParcelCard(
                 Text(
                     pluralStringResource(R.plurals.day_count, days, days),
                     style = MaterialTheme.typography.labelSmall,
-                    color = daysInTransitColor,
+                    color = transitColor,
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(daysInTransitColor.copy(alpha = 0.12f))
+                        .background(transitColor.copy(alpha = 0.12f))
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 )
                 Spacer(Modifier.width(4.dp))
@@ -517,11 +532,21 @@ private fun ParcelCard(
             latestEvent?.let { event ->
                 Spacer(Modifier.height(12.dp))
                 Column {
-                    Text(
-                        stringResource(R.string.latest_tracking_entry),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.latest_tracking_entry),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        event.timeMs?.let { timeMs ->
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                formatEventDateTime(timeMs, container.prefs.dateTimeFormat),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            )
+                        }
+                    }
                     Text(
                         event.description,
                         style = MaterialTheme.typography.bodyMedium,
@@ -662,4 +687,13 @@ private fun AddShipmentDialog(
             }
         },
     )
+}
+
+private fun formatEventDateTime(timeMs: Long, pattern: String): String {
+    val sdf = try {
+        SimpleDateFormat(pattern, Locale.getDefault())
+    } catch (_: IllegalArgumentException) {
+        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+    }
+    return sdf.format(Date(timeMs))
 }

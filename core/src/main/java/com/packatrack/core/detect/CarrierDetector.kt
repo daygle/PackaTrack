@@ -26,7 +26,7 @@ object CarrierDetector {
     private val CAINIAO = Regex("^CN[A-Za-z0-9]{8,20}N?$", RegexOption.IGNORE_CASE)
     private val IMILE = Regex("^IML?[A-Za-z0-9]{6,22}$", RegexOption.IGNORE_CASE)
 
-    /** Aramex shipment numbers are all-digit, typically 10–12 long (best effort). */
+    /** Aramex shipment numbers are all-digit, typically 10-12 long (best effort). */
     private val ARAMEX = Regex("^[0-9]{10,12}$")
     /** Morning Global uses an MG prefix in the wild (best effort). */
     private val MORNING_GLOBAL = Regex("^MG[A-Za-z0-9]{6,20}$", RegexOption.IGNORE_CASE)

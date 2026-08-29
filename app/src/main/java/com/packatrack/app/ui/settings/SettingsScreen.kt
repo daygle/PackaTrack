@@ -120,6 +120,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     var themeMode by remember { mutableStateOf(prefs.themeMode) }
     var dateFormat by remember { mutableStateOf(prefs.dateTimeFormat) }
     var biometricLock by remember { mutableStateOf(prefs.biometricLock) }
+    var transitGreenDays by remember { mutableIntStateOf(prefs.transitGreenDays) }
+    var transitYellowDays by remember { mutableIntStateOf(prefs.transitYellowDays) }
 
     // --- Permission & System Monitoring ---
     val powerManager = remember { context.getSystemService(PowerManager::class.java) }
@@ -389,6 +391,59 @@ fun SettingsScreen(onBack: () -> Unit) {
                         }
                     },
                     leadingContent = { Icon(Icons.Default.Security, null, tint = MaterialTheme.colorScheme.primary) }
+                )
+            }
+
+            // --- Transit Thresholds Section ---
+            SettingsCard {
+                SettingsGroupHeader(stringResource(R.string.transit_thresholds))
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.transit_green_hint)) },
+                    supportingContent = {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            listOf(7, 10, 15, 21, 30).forEach { value ->
+                                FilterChip(
+                                    selected = transitGreenDays == value,
+                                    onClick = {
+                                        transitGreenDays = value
+                                        prefs.transitGreenDays = value
+                                    },
+                                    label = { Text("$value ${stringResource(R.string.days_suffix)}", style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = { Icon(Icons.Default.CalendarToday, null, tint = Color(0xFF10B981)) }
+                )
+
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.transit_yellow_hint)) },
+                    supportingContent = {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            listOf(15, 21, 30, 45, 60).forEach { value ->
+                                FilterChip(
+                                    selected = transitYellowDays == value,
+                                    onClick = {
+                                        transitYellowDays = value
+                                        prefs.transitYellowDays = value
+                                    },
+                                    label = { Text("$value ${stringResource(R.string.days_suffix)}", style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = { Icon(Icons.Default.CalendarToday, null, tint = Color(0xFFF59E0B)) }
                 )
             }
 

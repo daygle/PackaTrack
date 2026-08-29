@@ -60,7 +60,7 @@ data class TrackingLegEntity(
  * One AliExpress order carried inside a parcel.
  *
  * When Cainiao consolidates several orders under one tracking number, that shared-number
- * parcel holds several of these — so the physical shipment is one parcel, but its contents
+ * parcel holds several of these - so the physical shipment is one parcel, but its contents
  * (and their order links) are recorded individually.
  */
 @Entity(tableName = "orders", indices = [Index("shipmentId")])
@@ -92,7 +92,7 @@ data class ShipmentWithLegs(
 )
 data class EventEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    /** Parcel this event belongs to — used for the merged timeline. */
+    /** Parcel this event belongs to - used for the merged timeline. */
     val shipmentId: Long,
     /** Courier leg that produced this event. */
     val legId: Long,

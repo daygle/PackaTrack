@@ -7,8 +7,8 @@ import androidx.core.content.edit
 /**
  * User-configurable tracking behaviour.
  *
- * Non-secret settings are stored as plain values; the one secret we keep — the Australia Post
- * API key — is encrypted with an Android Keystore key via [KeystoreCrypto] before being written.
+ * Non-secret settings are stored as plain values; the one secret we keep - the Australia Post
+ * API key - is encrypted with an Android Keystore key via [KeystoreCrypto] before being written.
  */
 class PrefsStore(context: Context) {
     private val prefs: SharedPreferences =
@@ -78,6 +78,14 @@ class PrefsStore(context: Context) {
         get() = prefs.getLong(KEY_ACTIVITY_DISMISSED, 0L)
         set(value) = prefs.edit { putLong(KEY_ACTIVITY_DISMISSED, value) }
 
+    var transitGreenDays: Int
+        get() = prefs.getInt(KEY_TRANSIT_GREEN, 15)
+        set(value) = prefs.edit { putInt(KEY_TRANSIT_GREEN, value.coerceAtLeast(1)) }
+
+    var transitYellowDays: Int
+        get() = prefs.getInt(KEY_TRANSIT_YELLOW, 30)
+        set(value) = prefs.edit { putInt(KEY_TRANSIT_YELLOW, value.coerceAtLeast(1)) }
+
     companion object {
         private const val PREFS_NAME = "packatrack_prefs"
         private const val DEFAULT_DATE_FORMAT = "dd MMM yyyy, HH:mm"
@@ -95,5 +103,7 @@ class PrefsStore(context: Context) {
         const val KEY_AUTO_ARCHIVE = "auto_archive_delivered"
         const val KEY_BIOMETRIC_LOCK = "biometric_lock"
         const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
+        const val KEY_TRANSIT_GREEN = "transit_green_days"
+        const val KEY_TRANSIT_YELLOW = "transit_yellow_days"
     }
 }

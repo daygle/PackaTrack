@@ -23,6 +23,15 @@ private val Emerald = Color(0xFF10B981)
 /** Warm accent used for the parcel age / transit-duration badge. */
 val daysInTransitColor = Color(0xFFB45309)
 
+/** Green when transit days < greenThreshold, amber when < yellowThreshold, red otherwise. */
+@Composable
+fun daysInTransitColor(days: Int, greenThreshold: Int = 15, yellowThreshold: Int = 30): Color =
+    when {
+        days < greenThreshold -> Color(0xFF10B981)  // green
+        days < yellowThreshold -> Color(0xFFF59E0B)  // amber/yellow
+        else -> Color(0xFFEF4444)  // red
+    }
+
 private val LightColors = lightColorScheme(
     primary = Indigo,
     onPrimary = Color.White,
@@ -43,7 +52,7 @@ private val LightColors = lightColorScheme(
     surfaceVariant = Color(0xFFF1F5F9),
     onSurfaceVariant = Color(0xFF475569),
     // `outline` is used only for secondary text/icons in this app (borders use
-    // outlineVariant), so keep it dark enough to read — slate-500, not slate-300.
+    // outlineVariant), so keep it dark enough to read - slate-500, not slate-300.
     outline = Color(0xFF64748B),
     outlineVariant = Color(0xFFE2E8F0),
     error = Color(0xFFEF4444),
@@ -68,7 +77,7 @@ private val DarkColors = darkColorScheme(
     onSurface = Color(0xFFF8FAFC),
     surfaceVariant = Color(0xFF334155),
     onSurfaceVariant = Color(0xFF94A3B8),
-    // Secondary text/icons on dark surfaces — lift to slate-400 so it stays legible.
+    // Secondary text/icons on dark surfaces - lift to slate-400 so it stays legible.
     outline = Color(0xFF94A3B8),
     outlineVariant = Color(0xFF334155),
     error = Color(0xFFFCA5A5),

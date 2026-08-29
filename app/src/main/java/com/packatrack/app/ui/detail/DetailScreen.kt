@@ -79,7 +79,7 @@ import com.packatrack.app.ui.overallStatusCode
 import com.packatrack.app.ui.parcelName
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.MonoNumber
-import com.packatrack.app.ui.theme.daysInTransitColor
+import com.packatrack.app.ui.theme.daysInTransitColor as daysInTransitColorCompat
 import com.packatrack.app.ui.theme.statusColor
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
@@ -375,12 +375,15 @@ private fun HeroSection(entry: ShipmentWithLegs?, firstEventMs: Long?, prefs: co
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val days = daysInTransit(firstEventMs ?: shipment?.createdAt)
-                Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = daysInTransitColor)
+                val greenThreshold = prefs.transitGreenDays
+                val yellowThreshold = prefs.transitYellowDays
+                val transitColor = daysInTransitColorCompat(days, greenThreshold, yellowThreshold)
+                Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = transitColor)
                 Spacer(Modifier.width(4.dp))
                 Text(
                     stringResource(R.string.days_in_transit_label, pluralStringResource(R.plurals.day_count, days, days)),
                     style = MaterialTheme.typography.labelMedium,
-                    color = daysInTransitColor
+                    color = transitColor
                 )
                 Spacer(Modifier.width(12.dp))
                 Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)

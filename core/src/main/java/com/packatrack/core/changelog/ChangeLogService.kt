@@ -10,11 +10,11 @@ import com.packatrack.core.util.FingerprintUtil
  * Compares two consecutive [Snapshot]s (previous vs. latest poll) for parcels under the
  * same user order and produces human-readable [ParcelChange]s:
  *
- *  - **Tracking number changed** – the old number no longer resolves but a new number's
+ *  - **Tracking number changed** - the old number no longer resolves but a new number's
  *    fingerprint suffix matches the old one (carriers append prefixes/suffixes when
  *    re-issuing), or the physical signature matches within tolerance.
- *  - **Packages combined** – several earlier numbers converge into one new number.
- *  - **Progress** – ordinary checkpoint added.
+ *  - **Packages combined** - several earlier numbers converge into one new number.
+ *  - **Progress** - ordinary checkpoint added.
  */
 object ChangeLogService {
 
@@ -86,11 +86,11 @@ object ChangeLogService {
     /** Generates short display lines for the UI/notifications. */
     fun humanReadable(change: ParcelChange): String = when (change) {
         is ParcelChange.Renumbered ->
-            "Tracking number changed from ${change.oldNumber} → ${change.newNumber}"
+            "Tracking number changed from ${change.oldNumber} -> ${change.newNumber}"
         is ParcelChange.Combined ->
             "${change.mergedFrom.size} parcels combined into ${change.into}"
         is ParcelChange.Progress -> change.description
         is ParcelChange.WeightChanged ->
-            "Package re-weighed: ${change.fromGrams?.toInt() ?: "?"} g → ${change.toGrams.toInt()} g"
+            "Package re-weighed: ${change.fromGrams?.toInt() ?: "?"} g -> ${change.toGrams.toInt()} g"
     }
 }

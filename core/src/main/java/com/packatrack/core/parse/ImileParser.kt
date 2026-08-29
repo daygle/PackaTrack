@@ -15,7 +15,7 @@ import org.json.JSONObject
  *  A) {"code":"200","data":{"waybillNo":"..","weight":"12.5","status":"...", "records":[
  *        {"time":"2026-07-01 10:22","status":"In transit","content":"Arrived at Sydney hub",
  *          "location":"Sydney AU"}]}}
- *  B) code != "200" / {"success":false,"message":"waybill not found"} → null (caller treats as not-found)
+ *  B) code != "200" / {"success":false,"message":"waybill not found"} -> null (caller treats as not-found)
  */
 object ImileParser {
 

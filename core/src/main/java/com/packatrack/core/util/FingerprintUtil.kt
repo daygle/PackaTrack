@@ -35,7 +35,7 @@ object FingerprintUtil {
 
     /**
      * Two weights are considered "same parcel" within the default tolerance
-     * (couriers round in steps of 10–50g). Nulls never match.
+     * (couriers round in steps of 10-50g). Nulls never match.
      */
     fun weightClose(w1: Double?, w2: Double?, toleranceGrams: Double = 30.0): Boolean {
         if (w1 == null || w2 == null) return false

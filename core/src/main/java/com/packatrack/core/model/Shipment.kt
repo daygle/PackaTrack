@@ -1,7 +1,7 @@
 package com.packatrack.core.model
 
 /**
- * A shipment as tracked by PackaTrack — a parcel that may pass through several
+ * A shipment as tracked by PackaTrack - a parcel that may pass through several
  * carriers and tracking numbers over its lifetime.
  */
 data class Shipment(

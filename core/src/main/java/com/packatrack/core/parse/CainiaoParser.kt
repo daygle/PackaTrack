@@ -18,7 +18,7 @@ import org.json.JSONObject
  *  C) {"success":true,"module":[{"mailNo":"<number>","status":"TRANSIT",
  *        "detailList":[{"time":1704189060000,"timeStr":"2024-01-02 10:11",
  *          "desc":"Parcel data processed","standerdDesc":"...","actionCode":"GWMS_ACCEPT"}]}]}
- *     This is what the live endpoint returns today — a top-level "module" array whose
+ *     This is what the live endpoint returns today - a top-level "module" array whose
  *     elements carry a flat "detailList". Shapes A/B are kept for older/alternate responses.
  *
  * Weight is reported in kilograms; PackaTrack stores grams.
@@ -32,7 +32,7 @@ object CainiaoParser {
             return null
         }
 
-        // Shape C — live global endpoint: {"module":[{"mailNo":..,"detailList":[..]}]}
+        // Shape C - live global endpoint: {"module":[{"mailNo":..,"detailList":[..]}]}
         root.optJSONArray("module")?.let { modules ->
             for (i in 0 until modules.length()) {
                 val pkg = modules.optJSONObject(i) ?: continue
@@ -42,7 +42,7 @@ object CainiaoParser {
             }
         }
 
-        // Shapes A/B — {"data":{"<number>":{..}}}
+        // Shapes A/B - {"data":{"<number>":{..}}}
         val data = root.optJSONObject("data")
         if (data == null || data.length() == 0) {
             android.util.Log.d("CainiaoParser", "No data in response: ${json.take(300)}")
