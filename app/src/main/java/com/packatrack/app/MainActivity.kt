@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -64,25 +66,25 @@ class MainActivity : FragmentActivity() {
         }
 
         // Keep splash screen visible until the database is ready (max 3 seconds)
-        var dbReady = false
-        splashScreen.setKeepOnScreenCondition { !dbReady }
+        val app = (application as PackaTrackApp)
+        splashScreen.setKeepOnScreenCondition { app.containerState.value == null }
 
         // Mark database as ready after first frame renders
         setContent {
-            val container = (application as PackaTrackApp).container
-            // Database is ready once we can observe shipments
-            LaunchedEffect(Unit) {
-                dbReady = true
-            }
+            val container by app.containerState.collectAsStateWithLifecycle()
 
-            val isLockEnabled = container.prefs.biometricLock
+            if (container != null) {
+                val isLockEnabled = container!!.prefs.biometricLock
 
-            PackaTrackTheme {
-                if (isLockEnabled && !isAuthenticated) {
-                    LockScreen(onAuthenticate = { authenticate() })
-                } else {
-                    PackaTrackNavHost(intent)
+                PackaTrackTheme {
+                    if (isLockEnabled && !isAuthenticated) {
+                        LockScreen(onAuthenticate = { authenticate() })
+                    } else {
+                        PackaTrackNavHost(intent)
+                    }
                 }
+            } else {
+                LoadingScreen()
             }
         }
     }

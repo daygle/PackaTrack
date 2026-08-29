@@ -97,6 +97,7 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
@@ -597,9 +598,14 @@ private fun AddShipmentDialog(
     var override by remember { mutableStateOf<Carrier?>(value = null) }
     var showManual by remember { mutableStateOf(value = false) }
 
+    val container = rememberAppContainer()
     val detectedCarriers = CarrierDetector.detectAll(number)
     val detected = detectedCarriers.firstOrNull()
     val chosen = override
+
+    val needsAusPostKey = (chosen == Carrier.AUSTRALIA_POST || (chosen == null && detectedCarriers.contains(Carrier.AUSTRALIA_POST)))
+    val hasAusPostKey = !container.prefs.ausPostApiKey.isNullOrBlank()
+
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
@@ -624,6 +630,29 @@ private fun AddShipmentDialog(
                     label = { Text(stringResource(R.string.tracking_number_label)) }, singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                if (needsAusPostKey && !hasAusPostKey) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(Icons.Default.Warning, null, modifier = Modifier.size(20.dp))
+                            Text(
+                                stringResource(R.string.auspost_key_missing_warning),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
 
                 if ((detected != null) && !showManual) {
                     Row(

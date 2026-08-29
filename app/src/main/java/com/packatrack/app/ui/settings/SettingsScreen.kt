@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -127,6 +128,11 @@ fun SettingsScreen(onBack: () -> Unit) {
     var transitYellowDays by remember { mutableIntStateOf(prefs.transitYellowDays) }
     var transitOrangeDays by remember { mutableIntStateOf(prefs.transitOrangeDays) }
 
+    val biometricManager = remember { BiometricManager.from(context) }
+    var biometricStatus by remember {
+        mutableIntStateOf(biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG))
+    }
+
     // --- Permission & System Monitoring ---
     val powerManager = remember { context.getSystemService(PowerManager::class.java) }
     var hasNotificationPermission by remember {
@@ -152,6 +158,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     true
                 }
                 isIgnoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
+                biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -329,11 +336,20 @@ fun SettingsScreen(onBack: () -> Unit) {
             SettingsCard {
                 SettingsGroupHeader(stringResource(R.string.biometric_lock))
 
+                val isBiometricAvailable = biometricStatus == BiometricManager.BIOMETRIC_SUCCESS
+                val biometricError = when (biometricStatus) {
+                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "No biometric hardware found"
+                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Biometric hardware unavailable"
+                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "No biometrics enrolled"
+                    else -> null
+                }
+
                 SettingSwitchItem(
                     title = stringResource(R.string.biometric_lock),
-                    subtitle = stringResource(R.string.biometric_lock_hint),
+                    subtitle = biometricError ?: stringResource(R.string.biometric_lock_hint),
                     icon = Icons.Default.Security,
                     checked = biometricLock,
+                    enabled = isBiometricAvailable || biometricLock, // Allow disabling even if error
                     onCheckedChange = {
                         biometricLock = it
                         prefs.biometricLock = it

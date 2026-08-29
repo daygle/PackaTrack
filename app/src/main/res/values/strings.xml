@@ -43,6 +43,7 @@
     <string name="auto_detect_hint">We\'ll try to auto-detect the courier from the number.</string>
     <string name="item_name_optional">Item Name (Optional)</string>
     <string name="order_link_optional">Order Link (Optional)</string>
+    <string name="auspost_key_missing_warning">Australia Post tracking requires an API key in Settings.</string>
 
     <string name="back">Back</string>
     <string name="parcel">Parcel</string>
