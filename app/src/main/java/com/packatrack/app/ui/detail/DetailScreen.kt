@@ -98,7 +98,6 @@ import com.packatrack.app.R
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
-@Composable
 /** A timeline entry that may combine duplicate scans from multiple carriers. */
 private data class TimelineDisplayEvent(
     val timeMs: Long?,
@@ -109,6 +108,7 @@ private data class TimelineDisplayEvent(
     val isLast: Boolean = false,
 )
 
+@Composable
 fun DetailScreen(id: Long, onBack: () -> Unit) {
     val context = LocalContext.current
     val container = rememberAppContainer()
