@@ -145,13 +145,14 @@ fun HomeScreen(
     var syncing by remember { mutableStateOf(value = false) }
     var showAddDialog by remember { mutableStateOf(initialNumber != null) }
     var activityDismissedAt by remember {
-        val stored = container.prefs.recentActivityDismissedAt
-        // Auto-mark changes as seen on each recomposition (app open / config change)
-        // so the banner only appears for genuinely new activity.
-        if (stored == 0L && recentChanges.isNotEmpty()) {
-            container.prefs.recentActivityDismissedAt = recentChanges.maxOf { it.createdAt }
+        androidx.compose.runtime.mutableLongStateOf(container.prefs.recentActivityDismissedAt)
+    }
+    LaunchedEffect(recentChanges) {
+        if (activityDismissedAt == 0L && recentChanges.isNotEmpty()) {
+            val newest = recentChanges.maxOf { it.createdAt }
+            container.prefs.recentActivityDismissedAt = newest
+            activityDismissedAt = newest
         }
-        mutableLongStateOf(stored)
     }
     val visibleChanges = recentChanges.filter { it.createdAt > activityDismissedAt }
 

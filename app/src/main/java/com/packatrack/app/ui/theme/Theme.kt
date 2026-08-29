@@ -134,7 +134,7 @@ fun PackaTrackTheme(
     content: @Composable () -> Unit,
 ) {
     val app = LocalContext.current.applicationContext as PackaTrackApp
-    val themeMode = app.container.prefs.themeMode
+    val themeMode = app.containerState.value?.prefs?.themeMode ?: "system"
     val useDark = when (themeMode) {
         "dark" -> true
         "light" -> false

@@ -283,7 +283,11 @@ class TrackingRepository(
      * @param force When true, bypasses the background cooldown.
      */
     suspend fun refreshAll(force: Boolean = false): RefreshOutcome = refreshMutex.withLock {
-        val activeIds = shipments.all().asSequence().filterNot { it.archived }.map { it.id }.toSet()
+        val activeIds = shipments.all()
+            .asSequence()
+            .filterNot(ShipmentEntity::archived)
+            .map(ShipmentEntity::id)
+            .toSet()
         refreshLegs(legs.all().filter { it.shipmentId in activeIds }, force)
     }
 

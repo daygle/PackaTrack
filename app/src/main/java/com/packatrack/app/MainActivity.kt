@@ -27,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,8 +72,8 @@ class MainActivity : FragmentActivity() {
         setContent {
             val container by app.containerState.collectAsStateWithLifecycle()
 
-            if (container != null) {
-                val isLockEnabled = container!!.prefs.biometricLock
+            container?.let { readyContainer ->
+                val isLockEnabled = readyContainer.prefs.biometricLock
 
                 PackaTrackTheme {
                     if (isLockEnabled && !isAuthenticated) {
@@ -83,7 +82,7 @@ class MainActivity : FragmentActivity() {
                         PackaTrackNavHost(intent)
                     }
                 }
-            } else {
+            } ?: run {
                 LoadingScreen()
             }
         }
@@ -94,7 +93,8 @@ class MainActivity : FragmentActivity() {
         // Re-lock whenever the app leaves the screen; the lock screen re-prompts on return.
         // Prompting here (onResume) would race the lock screen's own prompt and crash with
         // "Only one biometric prompt can be active at once".
-        if ((application as PackaTrackApp).container.prefs.biometricLock) {
+        val app = application as PackaTrackApp
+        if (app.containerState.value?.prefs?.biometricLock == true) {
             isAuthenticated = false
         }
     }

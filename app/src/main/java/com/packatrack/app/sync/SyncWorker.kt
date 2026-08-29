@@ -18,12 +18,18 @@ class SyncWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val container = (applicationContext as PackaTrackApp).container
-        val outcome = container.repository.refreshAll()
-        if (outcome.notable.isNotEmpty()) {
-            Notifier.postChanges(applicationContext, outcome.notable.map { it.message })
+        val container = (applicationContext as PackaTrackApp).containerState.value
+            ?: return Result.retry()
+        return runCatching {
+            val outcome = container.repository.refreshAll()
+            if (outcome.notable.isNotEmpty()) {
+                Notifier.postChanges(applicationContext, outcome.notable.map { it.message })
+            }
+            Result.success()
+        }.getOrElse { error ->
+            android.util.Log.e("SyncWorker", "Background sync failed", error)
+            Result.retry()
         }
-        return Result.success()
     }
 
     companion object {

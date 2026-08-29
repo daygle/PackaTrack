@@ -29,21 +29,18 @@ object Notifier {
 
     fun postChanges(context: Context, messages: List<String>) {
         if (messages.isEmpty()) return
-        val prefs = (context.applicationContext as? PackaTrackApp)?.container?.prefs
-        if (prefs != null) {
-            if (!prefs.notificationsEnabled) return
-            val filtered = messages.filter { message ->
-                val text = message.lowercase()
-                when {
-                    text.contains("deliver") -> prefs.notifyOnDelivered
-                    text.contains("exception") || text.contains("failed") || text.contains("delay") || text.contains("customs") || text.contains("return") -> prefs.notifyOnExceptions
-                    else -> prefs.notifyOnTransit
-                }
+        val prefs = (context.applicationContext as? PackaTrackApp)?.containerState?.value?.prefs
+            ?: return
+        if (!prefs.notificationsEnabled) return
+        val filtered = messages.filter { message ->
+            val text = message.lowercase()
+            when {
+                text.contains("deliver") -> prefs.notifyOnDelivered
+                text.contains("exception") || text.contains("failed") || text.contains("delay") || text.contains("customs") || text.contains("return") -> prefs.notifyOnExceptions
+                else -> prefs.notifyOnTransit
             }
-            if (filtered.isEmpty()) return
-            return post(context, filtered)
         }
-        post(context, messages)
+        if (filtered.isNotEmpty()) post(context, filtered)
     }
 
     private fun post(context: Context, messages: List<String>) {

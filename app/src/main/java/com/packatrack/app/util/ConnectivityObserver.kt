@@ -44,14 +44,16 @@ class NetworkConnectivityObserver(
                 }
             }
 
-            connectivityManager.registerNetworkCallback(
-                NetworkRequest.Builder()
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                    .build(),
-                callback,
-            )
+            runCatching {
+                connectivityManager.registerNetworkCallback(
+                    NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build(),
+                    callback,
+                )
+            }.onFailure { close(it) }
             awaitClose {
-                connectivityManager.unregisterNetworkCallback(callback)
+                runCatching { connectivityManager.unregisterNetworkCallback(callback) }
             }
         }.distinctUntilChanged()
     }
