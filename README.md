@@ -15,6 +15,7 @@
 - 📦 **Consolidation Support**: Manage multiple AliExpress orders consolidated into a single physical shipment.
 - 🏗️ **Multi-Courier Timelines**: Attach multiple tracking numbers to a single parcel and see a unified, merged timeline of all scans.
 - 🔔 **Intelligent Notifications**: Get alerted for delivered parcels, renumbering events, and combined shipments.
+- 🎨 **Visual Transit Tracking**: At-a-glance color coding (Green, Yellow, Orange, Red) based on parcel age, with fully customizable day thresholds.
 - 🛡️ **Privacy-First & Secure**:
     - **No Servers**: Your tracking data stays on your device.
     - **Encrypted Database**: At-rest encryption using **SQLCipher** (AES-256).
