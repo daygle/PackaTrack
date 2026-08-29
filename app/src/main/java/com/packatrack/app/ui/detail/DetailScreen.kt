@@ -663,6 +663,7 @@ private fun TimelineRow(
                     carriers.forEach { (carrierId, carrierName) ->
                         carrierName?.let {
                             CarrierChip(carrierId, it)
+                        }
                     }
                 }
             }
