@@ -127,6 +127,7 @@
     <string name="transit_thresholds">Transit Thresholds</string>
     <string name="transit_green_hint">Parcel is green when in transit for fewer days than this value</string>
     <string name="transit_yellow_hint">Parcel turns yellow when in transit for more days than this value</string>
+    <string name="transit_orange_hint">Parcel turns orange when in transit for more days than this value</string>
     <string name="days_suffix">days</string>
     <string name="about">About</string>
     <string name="version_label">Version %1$s</string>

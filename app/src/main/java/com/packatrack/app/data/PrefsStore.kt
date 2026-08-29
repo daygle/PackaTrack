@@ -86,6 +86,10 @@ class PrefsStore(context: Context) {
         get() = prefs.getInt(KEY_TRANSIT_YELLOW, 30)
         set(value) = prefs.edit { putInt(KEY_TRANSIT_YELLOW, value.coerceAtLeast(1)) }
 
+    var transitOrangeDays: Int
+        get() = prefs.getInt(KEY_TRANSIT_ORANGE, 45)
+        set(value) = prefs.edit { putInt(KEY_TRANSIT_ORANGE, value.coerceAtLeast(1)) }
+
     companion object {
         private const val PREFS_NAME = "packatrack_prefs"
         private const val DEFAULT_DATE_FORMAT = "dd MMM yyyy, HH:mm"
@@ -105,5 +109,6 @@ class PrefsStore(context: Context) {
         const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
         const val KEY_TRANSIT_GREEN = "transit_green_days"
         const val KEY_TRANSIT_YELLOW = "transit_yellow_days"
+        const val KEY_TRANSIT_ORANGE = "transit_orange_days"
     }
 }

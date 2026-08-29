@@ -396,7 +396,8 @@ private fun HeroSection(entry: ShipmentWithLegs?, firstEventMs: Long?, prefs: co
                 val days = daysInTransit(firstEventMs ?: shipment?.createdAt)
                 val greenThreshold = prefs.transitGreenDays
                 val yellowThreshold = prefs.transitYellowDays
-                val transitColor = daysInTransitColorCompat(days, greenThreshold, yellowThreshold)
+                val orangeThreshold = prefs.transitOrangeDays
+                val transitColor = daysInTransitColorCompat(days, greenThreshold, yellowThreshold, orangeThreshold)
                 Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = transitColor)
                 Spacer(Modifier.width(4.dp))
                 Text(

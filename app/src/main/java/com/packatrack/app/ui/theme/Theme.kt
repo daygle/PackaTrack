@@ -23,12 +23,13 @@ private val Emerald = Color(0xFF10B981)
 /** Warm accent used for the parcel age / transit-duration badge. */
 val daysInTransitColor = Color(0xFFB45309)
 
-/** Green when transit days < greenThreshold, amber when < yellowThreshold, red otherwise. */
+/** Green when transit days < greenThreshold, amber when < yellowThreshold, orange when < orangeThreshold, red otherwise. */
 @Composable
-fun daysInTransitColor(days: Int, greenThreshold: Int = 15, yellowThreshold: Int = 30): Color =
+fun daysInTransitColor(days: Int, greenThreshold: Int = 15, yellowThreshold: Int = 30, orangeThreshold: Int = 45): Color =
     when {
         days < greenThreshold -> Color(0xFF10B981)  // green
         days < yellowThreshold -> Color(0xFFF59E0B)  // amber/yellow
+        days < orangeThreshold -> Color(0xFFF97316)  // orange
         else -> Color(0xFFEF4444)  // red
     }
 

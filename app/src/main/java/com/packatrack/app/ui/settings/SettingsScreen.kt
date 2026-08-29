@@ -91,6 +91,9 @@ import kotlinx.coroutines.launch
 
 private val intervals = listOf(1, 2, 6, 12, 24)
 private val themes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
+private val greenOptions = listOf(7, 10, 15, 21, 30)
+private val yellowOptions = listOf(15, 21, 30, 45, 60)
+private val orangeOptions = listOf(30, 45, 60, 75, 90)
 private val dateFormats = listOf(
     "dd MMM yyyy, HH:mm" to "28 Aug, 12:30",
     "MMM dd, yyyy HH:mm" to "Aug 28, 12:30",
@@ -122,6 +125,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var biometricLock by remember { mutableStateOf(prefs.biometricLock) }
     var transitGreenDays by remember { mutableIntStateOf(prefs.transitGreenDays) }
     var transitYellowDays by remember { mutableIntStateOf(prefs.transitYellowDays) }
+    var transitOrangeDays by remember { mutableIntStateOf(prefs.transitOrangeDays) }
 
     // --- Permission & System Monitoring ---
     val powerManager = remember { context.getSystemService(PowerManager::class.java) }
@@ -406,12 +410,24 @@ fun SettingsScreen(onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            listOf(7, 10, 15, 21, 30).forEach { value ->
+                            greenOptions.forEach { value ->
                                 FilterChip(
                                     selected = transitGreenDays == value,
                                     onClick = {
                                         transitGreenDays = value
                                         prefs.transitGreenDays = value
+                                        // Ensure Yellow > Green
+                                        if (transitYellowDays <= value) {
+                                            val next = yellowOptions.firstOrNull { it > value } ?: yellowOptions.last()
+                                            transitYellowDays = next
+                                            prefs.transitYellowDays = next
+                                        }
+                                        // Ensure Orange > Yellow
+                                        if (transitOrangeDays <= transitYellowDays) {
+                                            val next = orangeOptions.firstOrNull { it > transitYellowDays } ?: orangeOptions.last()
+                                            transitOrangeDays = next
+                                            prefs.transitOrangeDays = next
+                                        }
                                     },
                                     label = { Text("$value ${stringResource(R.string.days_suffix)}", style = MaterialTheme.typography.labelSmall) }
                                 )
@@ -431,12 +447,24 @@ fun SettingsScreen(onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            listOf(15, 21, 30, 45, 60).forEach { value ->
+                            yellowOptions.forEach { value ->
                                 FilterChip(
                                     selected = transitYellowDays == value,
                                     onClick = {
                                         transitYellowDays = value
                                         prefs.transitYellowDays = value
+                                        // Ensure Green < Yellow
+                                        if (transitGreenDays >= value) {
+                                            val next = greenOptions.lastOrNull { it < value } ?: greenOptions.first()
+                                            transitGreenDays = next
+                                            prefs.transitGreenDays = next
+                                        }
+                                        // Ensure Orange > Yellow
+                                        if (transitOrangeDays <= value) {
+                                            val next = orangeOptions.firstOrNull { it > value } ?: orangeOptions.last()
+                                            transitOrangeDays = next
+                                            prefs.transitOrangeDays = next
+                                        }
                                     },
                                     label = { Text("$value ${stringResource(R.string.days_suffix)}", style = MaterialTheme.typography.labelSmall) }
                                 )
@@ -444,6 +472,43 @@ fun SettingsScreen(onBack: () -> Unit) {
                         }
                     },
                     leadingContent = { Icon(Icons.Default.CalendarToday, null, tint = Color(0xFFF59E0B)) }
+                )
+
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.transit_orange_hint)) },
+                    supportingContent = {
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            orangeOptions.forEach { value ->
+                                FilterChip(
+                                    selected = transitOrangeDays == value,
+                                    onClick = {
+                                        transitOrangeDays = value
+                                        prefs.transitOrangeDays = value
+                                        // Ensure Yellow < Orange
+                                        if (transitYellowDays >= value) {
+                                            val next = yellowOptions.lastOrNull { it < value } ?: yellowOptions.first()
+                                            transitYellowDays = next
+                                            prefs.transitYellowDays = next
+                                        }
+                                        // Ensure Green < Yellow
+                                        if (transitGreenDays >= transitYellowDays) {
+                                            val next = greenOptions.lastOrNull { it < transitYellowDays } ?: greenOptions.first()
+                                            transitGreenDays = next
+                                            prefs.transitGreenDays = next
+                                        }
+                                    },
+                                    label = { Text("$value ${stringResource(R.string.days_suffix)}", style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = { Icon(Icons.Default.CalendarToday, null, tint = Color(0xFFF97316)) }
                 )
             }
 

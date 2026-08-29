@@ -457,7 +457,8 @@ private fun ParcelCard(
     val days = daysInTransit(firstEventMs ?: shipment.createdAt)
     val greenThreshold = container.prefs.transitGreenDays
     val yellowThreshold = container.prefs.transitYellowDays
-    val transitColor = daysInTransitColorDynamic(days, greenThreshold, yellowThreshold)
+    val orangeThreshold = container.prefs.transitOrangeDays
+    val transitColor = daysInTransitColorDynamic(days, greenThreshold, yellowThreshold, orangeThreshold)
     Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
