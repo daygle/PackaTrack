@@ -1,6 +1,8 @@
 package com.packatrack.core.changelog
 
 import com.packatrack.core.model.ParcelChange
+import com.packatrack.core.model.Snapshot
+import com.packatrack.core.model.TrackingEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
