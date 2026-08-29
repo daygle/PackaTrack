@@ -50,25 +50,22 @@ jobs:
           gradle-version: wrapper
 
       - name: Run Static Analysis and Unit Tests
+        id: run-tests
         run: ./gradlew lintDebug testDebugUnitTest --stacktrace
 
       - name: Assemble Debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
 
-      - name: Print Room schema
-        if: always()
-        run: |
-          echo "===ROOM_SCHEMA_BEGIN==="
-          find app/schemas -name '*.json' -print -exec cat {} \; 2>/dev/null || echo "no schema generated"
-          echo "===ROOM_SCHEMA_END==="
-
       - name: Publish Unit Test Report
-        if: always()
+        # Only publish when tests actually ran (passed or failed with results); skip when
+        # the build died before tests ran (e.g. compile error) so we don't post an empty check.
+        if: always() && (steps.run-tests.outcome == 'success' || steps.run-tests.outcome == 'failure')
         uses: mikepenz/action-junit-report@v6
         with:
           report_paths: '**/build/test-results/test*UnitTest/TEST-*.xml'
           check_name: Unit Test Report
           include_passed: true
+          require_tests: false
 
       - name: Upload Reports and Results
         if: always()
@@ -141,5 +138,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: instrumented-test-reports
-          path: app/build/reports/androidTests/
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/connected/
           if-no-files-found: warn
