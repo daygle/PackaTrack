@@ -3,6 +3,10 @@ package com.packatrack.core.changelog
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.util.FingerprintUtil
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * The heart of PackaTrack's "understands AliExpress" logic.
@@ -91,12 +95,22 @@ object ChangeLogService {
             "${change.mergedFrom.size} parcels combined into ${change.into}"
         is ParcelChange.Progress -> {
             val stamp = change.timeMs
-                ?.let { java.time.Instant.ofEpochMilli(it).toString().replace('T', ' ').substringBefore('.') }
-                ?.let { " — $it UTC" }
+                ?.let { formatUtcTimestamp(it) }
+                ?.let { " — $it" }
                 ?: ""
             "${change.description}$stamp"
         }
         is ParcelChange.WeightChanged ->
             "Package re-weighed: ${change.fromGrams?.toInt() ?: "?"} g -> ${change.toGrams.toInt()} g"
+    }
+
+    /**
+     * Formats epoch millis as "yyyy-MM-dd HH:mm" in UTC.
+     * Uses SimpleDateFormat (available on all API levels) instead of java.time.Instant.
+     */
+    private fun formatUtcTimestamp(timeMs: Long): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
+        sdf.timeZone = TimeZone.getTimeZone("UTC")
+        return sdf.format(Date(timeMs)) + " UTC"
     }
 }
