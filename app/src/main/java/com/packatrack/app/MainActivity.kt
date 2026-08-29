@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricPrompt
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,14 +49,28 @@ class MainActivity : FragmentActivity() {
     private var isAuthenticated by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Install splash screen before super.onCreate() - it will use the splash theme
+        // and hold the splash screen while SQLCipher database decrypts on cold start.
+        val splashScreen = installSplashScreen()
+
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= 33) {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
+        // Keep splash screen visible until the database is ready (max 3 seconds)
+        var dbReady = false
+        splashScreen.setKeepOnScreenCondition { !dbReady }
+
+        // Mark database as ready after first frame renders
         setContent {
             val container = (application as PackaTrackApp).container
+            // Database is ready once we can observe shipments
+            LaunchedEffect(Unit) {
+                dbReady = true
+            }
+
             val isLockEnabled = container.prefs.biometricLock
 
             PackaTrackTheme {

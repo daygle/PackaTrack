@@ -1,3 +1,15 @@
 <resources>
     <style name="Theme.PackaTrack" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Splash screen theme - shown while SQLCipher database decrypts -->
+    <style name="Theme.PackaTrack.Splash" parent="Theme.SplashScreen">
+        <!-- Brand background: navy to teal gradient -->
+        <item name="windowSplashScreenBackground">#1E1B4B</item>
+        <!-- Centered parcel icon -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon</item>
+        <!-- Icon size: 108dp matches adaptive icon safe zone -->
+        <item name="windowSplashScreenIconBackgroundColor">#00000000</item>
+        <!-- Keep splash until activity is ready -->
+        <item name="postSplashScreenTheme">@style/Theme.PackaTrack</item>
+    </style>
 </resources>

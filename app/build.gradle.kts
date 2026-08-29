@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.biometric)
+    implementation("androidx.core:core-splashscreen:1.2.0-alpha02")
 
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
