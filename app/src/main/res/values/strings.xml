@@ -13,8 +13,7 @@
     <string name="tab_active">Active</string>
     <string name="tab_archived">Archived</string>
     <string name="add_parcel">Add Parcel</string>
-    <string name="recent_activity">Recent Activity</string>
-    <string name="dismiss_activity">Dismiss recent activity</string>
+    <string name="new_activity">New tracking activity</string>
     <string name="no_results">No Results</string>
     <string name="no_parcels">No Parcels Tracking</string>
     <string name="search_empty_hint">Try searching for something else.</string>

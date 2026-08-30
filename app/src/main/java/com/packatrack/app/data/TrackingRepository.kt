@@ -260,6 +260,7 @@ class TrackingRepository(
             legs.deleteForShipment(shipmentId)
             shipments.deleteById(shipmentId)
         }
+        prefs.clearActivitySeen(shipmentId)
     }
 
     /** Hides a parcel from the main list. */
