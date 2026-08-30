@@ -23,7 +23,7 @@ class SyncWorker(
         return runCatching {
             val outcome = container.repository.refreshAll()
             if (outcome.notable.isNotEmpty()) {
-                Notifier.postChanges(applicationContext, outcome.notable.map { it.message })
+                Notifier.postChanges(applicationContext, outcome.notable)
             }
             Result.success()
         }.getOrElse { error ->

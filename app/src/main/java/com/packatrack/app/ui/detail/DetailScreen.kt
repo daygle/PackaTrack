@@ -199,7 +199,7 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                 syncing = true
                 scope.launch {
                     val outcome = repo.refreshShipment(id, force = true)
-                    Notifier.postChanges(context, outcome.notable.map { it.message })
+                    Notifier.postChanges(context, outcome.notable)
                     syncing = false
                 }
             },

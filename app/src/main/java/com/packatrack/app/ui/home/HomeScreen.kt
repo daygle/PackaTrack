@@ -179,7 +179,7 @@ fun HomeScreen(
         scope.launch {
             try {
                 val outcome = block()
-                Notifier.postChanges(context, outcome.notable.map { it.message })
+                Notifier.postChanges(context, outcome.notable)
             } finally {
                 // Always clear the flag or a single failure would disable every refresh control.
                 syncing = false
@@ -343,7 +343,7 @@ fun HomeScreen(
                             repo.addShipment(number, title, orderUrl, carrier)
                         }.getOrNull()
                         val outcome = newId?.let { repo.refreshShipment(it, force = true) } ?: RefreshOutcome(0, emptyList())
-                        Notifier.postChanges(context, outcome.notable.map { it.message })
+                        Notifier.postChanges(context, outcome.notable)
                     } finally {
                         syncing = false
                     }
