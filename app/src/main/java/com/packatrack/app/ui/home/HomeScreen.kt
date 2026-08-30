@@ -53,7 +53,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -144,17 +144,33 @@ fun HomeScreen(
 
     var syncing by remember { mutableStateOf(value = false) }
     var showAddDialog by remember { mutableStateOf(initialNumber != null) }
-    var activityDismissedAt by remember {
-        androidx.compose.runtime.mutableLongStateOf(container.prefs.recentActivityDismissedAt)
-    }
+
+    // First launch after install: treat the existing tracking history as already seen so
+    // parcels don't all light up at once. This establishes the per-parcel "seen" baseline
+    // (see PrefsStore.activitySeenAt).
     LaunchedEffect(recentChanges) {
-        if (activityDismissedAt == 0L && recentChanges.isNotEmpty()) {
-            val newest = recentChanges.maxOf { it.createdAt }
-            container.prefs.recentActivityDismissedAt = newest
-            activityDismissedAt = newest
+        if (container.prefs.recentActivityDismissedAt == 0L && recentChanges.isNotEmpty()) {
+            container.prefs.recentActivityDismissedAt = recentChanges.maxOf { it.createdAt }
         }
     }
-    val visibleChanges = recentChanges.filter { it.createdAt > activityDismissedAt }
+
+    // Newest change timestamp per parcel, and an in-memory overlay of the "seen" timestamps
+    // updated when a parcel is opened so its highlight clears immediately (SharedPreferences
+    // isn't observable, so we can't recompose off it directly).
+    val newestChangeByShipment = remember(recentChanges) {
+        recentChanges.groupBy { it.shipmentId }.mapValues { (_, list) -> list.maxOf { it.createdAt } }
+    }
+    val activitySeen = remember { mutableStateMapOf<Long, Long>() }
+    fun hasNewActivity(shipmentId: Long): Boolean {
+        val newest = newestChangeByShipment[shipmentId] ?: return false
+        val seen = activitySeen[shipmentId] ?: container.prefs.activitySeenAt(shipmentId)
+        return newest > seen
+    }
+    fun markActivitySeen(shipmentId: Long) {
+        val now = System.currentTimeMillis()
+        container.prefs.markActivitySeen(shipmentId, now)
+        activitySeen[shipmentId] = now
+    }
 
     // Manual refresh: a no-op while one is already running.
     fun runSync(block: suspend () -> RefreshOutcome) {
@@ -286,19 +302,6 @@ fun HomeScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 96.dp, top = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (visibleChanges.isNotEmpty()) {
-                    item(key = "banner") {
-                        RecentChangesCard(
-                            messages = visibleChanges.asSequence().take(3).map { it.message }.toList(),
-                            onDismiss = {
-                                val newest = recentChanges.maxOfOrNull { it.createdAt } ?: System.currentTimeMillis()
-                                container.prefs.recentActivityDismissedAt = newest
-                                activityDismissedAt = newest
-                            },
-                        )
-                    }
-                }
-
                 if (filteredShipments.isEmpty()) {
                     item(key = "empty") { EmptyState(isSearch = searchQuery.isNotEmpty()) }
                 }
@@ -308,7 +311,11 @@ fun HomeScreen(
                         entry = entry,
                         firstEventMs = firstEventTimes[entry.shipment.id],
                         latestEvent = latestEvents[entry.shipment.id],
-                        onOpen = { onOpenDetail(entry.shipment.id) },
+                        hasNewActivity = hasNewActivity(entry.shipment.id),
+                        onOpen = {
+                            markActivitySeen(entry.shipment.id)
+                            onOpenDetail(entry.shipment.id)
+                        },
                         onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
                         onArchive = { scope.launch {
                             if (entry.shipment.archived) repo.unarchive(entry.shipment.id)
@@ -351,54 +358,6 @@ fun HomeScreen(
 }
 
 @Composable
-private fun RecentChangesCard(messages: List<String>, onDismiss: () -> Unit) {
-    Card(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Column(Modifier.padding(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.NotificationsActive,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    stringResource(R.string.recent_activity),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = stringResource(R.string.dismiss_activity),
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            messages.forEach {
-                Text(
-                    "•  $it",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun EmptyState(isSearch: Boolean = false) {
     Column(
         Modifier
@@ -433,6 +392,7 @@ private fun ParcelCard(
     entry: ShipmentWithLegs,
     firstEventMs: Long?,
     latestEvent: com.packatrack.app.data.db.EventEntity?,
+    hasNewActivity: Boolean,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onArchive: () -> Unit,
@@ -447,14 +407,25 @@ private fun ParcelCard(
     val title = parcelName(shipment, entry.orders, legs)
     val status = overallStatusCode(legs)
 
+    // Parcels with tracking changes the user hasn't opened yet get an accent border, a tinted
+    // surface, and a bell beside the title. Opening the parcel clears the highlight.
     Card(
         onClick = onOpen,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        colors = CardDefaults.cardColors(
+            containerColor = if (hasNewActivity) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            if (hasNewActivity) 1.5.dp else 1.dp,
+            if (hasNewActivity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+        )
     ) {
     val days = daysInTransit(firstEventMs ?: shipment.createdAt)
     val greenThreshold = container.prefs.transitGreenDays
@@ -463,6 +434,15 @@ private fun ParcelCard(
     val transitColor = daysInTransitColorDynamic(days, greenThreshold, yellowThreshold, orangeThreshold)
     Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (hasNewActivity) {
+                    Icon(
+                        Icons.Outlined.NotificationsActive,
+                        contentDescription = stringResource(R.string.new_activity),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text(
                         title,

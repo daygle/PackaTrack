@@ -116,7 +116,6 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     val entry by repo.observeShipment(id).collectAsStateWithLifecycle(initialValue = null)
-    val changes by repo.observeChangesFor(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val timelineRaw by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val allParcels by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
     val prefs = container.prefs
@@ -259,15 +258,6 @@ fun DetailScreen(id: Long, onBack: () -> Unit) {
                         },
                         onRemove = { scope.launch { repo.removeOrder(order.id) } },
                     )
-                }
-
-                if (changes.isNotEmpty()) {
-                    item(key = "changes_title") {
-                        SectionHeader(stringResource(R.string.insights_title), count = changes.size)
-                    }
-                    items(changes, key = { "chg_${it.id}" }) { change ->
-                        InsightRow(change.message, change.createdAt, prefs.dateTimeFormat)
-                    }
                 }
 
             item(key = "timeline_title") {
@@ -582,35 +572,6 @@ private fun CourierRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun InsightRow(message: String, time: Long, dateFormat: String) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Box(
-            modifier = Modifier
-                .padding(top = 4.dp)
-                .size(24.dp)
-                .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
-        }
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(message, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                TimeUtil.format(time, dateFormat) ?: "",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline
-            )
         }
     }
 }
