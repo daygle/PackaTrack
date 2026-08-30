@@ -42,6 +42,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.packatrack.app.ui.detail.DetailScreen
+import com.packatrack.app.notify.Notifier
 import com.packatrack.app.ui.home.HomeScreen
 import com.packatrack.app.ui.settings.SettingsScreen
 import com.packatrack.app.ui.theme.PackaTrackTheme
@@ -53,6 +54,9 @@ class MainActivity : FragmentActivity() {
 
     private var isAuthenticated by mutableStateOf(false)
 
+    // Parcel to open on launch, set when the activity is started from a notification tap.
+    private var pendingShipmentId by mutableStateOf<Long?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install splash screen before super.onCreate() - it will use the splash theme
         // and hold the splash screen while SQLCipher database decrypts on cold start.
@@ -63,6 +67,8 @@ class MainActivity : FragmentActivity() {
         if (Build.VERSION.SDK_INT >= 33) {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+
+        pendingShipmentId = readOpenShipmentId(intent)
 
         // Keep splash screen visible until the database is ready (max 3 seconds)
         val app = (application as PackaTrackApp)
@@ -79,7 +85,11 @@ class MainActivity : FragmentActivity() {
                     if (isLockEnabled && !isAuthenticated) {
                         LockScreen(onAuthenticate = { authenticate() })
                     } else {
-                        PackaTrackNavHost(intent)
+                        PackaTrackNavHost(
+                            intent = intent,
+                            openShipmentId = pendingShipmentId,
+                            onOpenShipmentHandled = { pendingShipmentId = null },
+                        )
                     }
                 }
             } ?: run {
@@ -98,6 +108,16 @@ class MainActivity : FragmentActivity() {
             isAuthenticated = false
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // A notification tap while the activity is already alive arrives here, not onCreate.
+        setIntent(intent)
+        readOpenShipmentId(intent)?.let { pendingShipmentId = it }
+    }
+
+    private fun readOpenShipmentId(intent: Intent?): Long? =
+        intent?.getLongExtra(Notifier.EXTRA_OPEN_SHIPMENT_ID, -1L)?.takeIf { it > 0 }
 
     private fun authenticate() {
         val executor = ContextCompat.getMainExecutor(this)
@@ -184,12 +204,25 @@ private fun LoadingScreen() {
 }
 
 @Composable
-private fun PackaTrackNavHost(intent: Intent?) {
+private fun PackaTrackNavHost(
+    intent: Intent?,
+    openShipmentId: Long?,
+    onOpenShipmentHandled: () -> Unit,
+) {
     val nav = rememberNavController()
 
     val sharedText = if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
         intent.getStringExtra(Intent.EXTRA_TEXT)
     } else null
+
+    // Deep-link from a notification tap: open the parcel's detail on top of the list so
+    // Back returns to the list. Cleared once handled to avoid re-navigating on recompose.
+    LaunchedEffect(openShipmentId) {
+        if (openShipmentId != null) {
+            nav.navigate("detail/$openShipmentId")
+            onOpenShipmentHandled()
+        }
+    }
 
     NavHost(
         navController = nav,
