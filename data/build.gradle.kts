@@ -38,6 +38,7 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.google.api.client.android)
     implementation(libs.google.api.services.gmail)
+    implementation(libs.play.services.auth)
     implementation(libs.google.http.client.gson)
 
     testImplementation(libs.junit)
