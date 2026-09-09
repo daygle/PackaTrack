@@ -15,6 +15,7 @@ import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.FingerprintUtil
+import com.packatrack.app.R
 import kotlinx.coroutines.flow.Flow
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.map
@@ -22,7 +23,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class TrackingRepository(
-    context: Context,
+    private val context: Context,
     private val prefs: PrefsStore,
 ) {
     private val db = AppDatabase.get(context)
@@ -118,7 +119,7 @@ class TrackingRepository(
             orders.insert(
                 OrderItemEntity(
                     shipmentId = shipmentId,
-                    name = orderName ?: "Item",
+                    name = orderName ?: context.getString(R.string.item_default_name),
                     orderUrl = orderLink,
                     createdAt = now,
                 ),
@@ -134,7 +135,7 @@ class TrackingRepository(
         orders.insert(
             OrderItemEntity(
                 shipmentId = shipmentId,
-                name = name.trim().ifBlank { "Item" },
+                name = name.trim().ifBlank { context.getString(R.string.item_default_name) },
                 orderUrl = orderUrl?.takeIf { it.isNotBlank() },
                 createdAt = System.currentTimeMillis(),
             ),

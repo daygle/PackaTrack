@@ -70,6 +70,14 @@ class PrefsStore(context: Context) {
         get() = prefs.getBoolean(KEY_AUTO_ARCHIVE, false)
         set(value) = prefs.edit { putBoolean(KEY_AUTO_ARCHIVE, value) }
 
+    var smartImportEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SMART_IMPORT, false)
+        set(value) = prefs.edit { putBoolean(KEY_SMART_IMPORT, value) }
+
+    var smartImportAccount: String?
+        get() = prefs.getString(KEY_SMART_ACCOUNT, null)
+        set(value) = prefs.edit { putString(KEY_SMART_ACCOUNT, value) }
+
     var biometricLock: Boolean
         get() = prefs.getBoolean(KEY_BIOMETRIC_LOCK, false)
         set(value) = prefs.edit { putBoolean(KEY_BIOMETRIC_LOCK, value) }
@@ -124,6 +132,8 @@ class PrefsStore(context: Context) {
         const val KEY_DATE_FORMAT = "date_time_format"
         const val KEY_HISTORY_SORT = "history_sort_order"
         const val KEY_AUTO_ARCHIVE = "auto_archive_delivered"
+        const val KEY_SMART_IMPORT = "smart_import_enabled"
+        const val KEY_SMART_ACCOUNT = "smart_import_account"
         const val KEY_BIOMETRIC_LOCK = "biometric_lock"
         const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
         const val KEY_ACTIVITY_SEEN_PREFIX = "activity_seen_"

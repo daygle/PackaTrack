@@ -35,6 +35,8 @@ android {
 
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        resources.excludes += "META-INF/INDEX.LIST"
+        resources.excludes += "META-INF/DEPENDENCIES"
         jniLibs {
             keepDebugSymbols.add("**/libandroidx.graphics.path.so")
             keepDebugSymbols.add("**/libsqlcipher.so")
@@ -85,11 +87,20 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core.splashscreen)
 
+    implementation(libs.google.api.client.android)
+    implementation(libs.google.api.services.gmail)
+    implementation(libs.play.services.auth)
+    implementation(libs.google.http.client.gson)
+
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.kotlinx.coroutines.core)
+    androidTestImplementation(libs.mockk.android)
+    androidTestImplementation(libs.compose.ui.test.junit4)
 }

@@ -118,6 +118,16 @@
     <string name="auspost_hint">Required for live local tracking.</string>
     <string name="api_key_label">API Key</string>
     <string name="save_credentials">Save Credentials</string>
+    <string name="smart_import">Smart Import</string>
+    <string name="smart_import_hint">Automatically scan your email for new tracking numbers.</string>
+    <string name="smart_import_account">Account: %1$s</string>
+    <string name="smart_import_select_account">Select Google Account</string>
+
+    <string name="lock_title">PackaTrack Lock</string>
+    <string name="lock_subtitle">Authenticate to open the app</string>
+    <string name="auth_error">Authentication error: %1$s</string>
+    <string name="item_default_name">Item</string>
+
     <string name="appearance">Appearance</string>
     <string name="theme_mode">Theme Mode</string>
     <string name="date_format">Date Format</string>

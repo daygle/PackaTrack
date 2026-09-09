@@ -5,6 +5,7 @@ import android.content.Context
 import com.packatrack.app.data.PrefsStore
 import com.packatrack.app.data.TrackingRepository
 import com.packatrack.app.notify.Notifier
+import com.packatrack.app.sync.EmailImportWorker
 import com.packatrack.app.sync.SyncWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +52,7 @@ class PackaTrackApp : Application() {
                     initializedContainer.prefs.syncIntervalHours,
                     initializedContainer.prefs.wifiOnlySync
                 )
+                EmailImportWorker.schedule(this@PackaTrackApp)
             }
         }
     }

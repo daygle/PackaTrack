@@ -2,7 +2,12 @@
 
 package com.packatrack.app.ui.settings
 
+import android.accounts.AccountManager
+import android.app.Activity
 import android.Manifest
+import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.services.gmail.GmailScopes
+import java.util.Collections
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -89,6 +94,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.packatrack.app.R
 import com.packatrack.app.data.BackupManager
 import com.packatrack.app.data.ParcelSortOrder
+import com.packatrack.app.sync.EmailImportWorker
 import com.packatrack.app.sync.SyncWorker
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.PackaTrackTheme
@@ -129,6 +135,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     var sortOrder by remember { mutableStateOf(ParcelSortOrder.fromKey(prefs.sortOrder)) }
     var dateFormat by remember { mutableStateOf(prefs.dateTimeFormat) }
     var biometricLock by remember { mutableStateOf(prefs.biometricLock) }
+    var smartImportEnabled by remember { mutableStateOf(prefs.smartImportEnabled) }
+    var smartImportAccount by remember { mutableStateOf(prefs.smartImportAccount) }
     var transitGreenDays by remember { mutableIntStateOf(prefs.transitGreenDays) }
     var transitYellowDays by remember { mutableIntStateOf(prefs.transitYellowDays) }
     var transitOrangeDays by remember { mutableIntStateOf(prefs.transitOrangeDays) }
@@ -151,6 +159,21 @@ fun SettingsScreen(onBack: () -> Unit) {
     }
     var isIgnoringBatteryOptimizations by remember {
         mutableStateOf(powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true)
+    }
+
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val accountName = result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+            if (accountName != null) {
+                smartImportAccount = accountName
+                prefs.smartImportAccount = accountName
+                smartImportEnabled = true
+                prefs.smartImportEnabled = true
+                EmailImportWorker.schedule(context)
+            }
+        }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -531,6 +554,54 @@ fun SettingsScreen(onBack: () -> Unit) {
                     },
                     leadingContent = { Icon(Icons.Default.CalendarToday, null, tint = Color(0xFFF97316)) }
                 )
+            }
+
+            // --- Smart Import Section ---
+            SettingsCard {
+                SettingsGroupHeader(stringResource(R.string.smart_import))
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.smart_import)) },
+                    supportingContent = { Text(stringResource(R.string.smart_import_hint)) },
+                    leadingContent = { Icon(Icons.Default.CloudSync, null, tint = MaterialTheme.colorScheme.primary) },
+                    trailingContent = {
+                        Switch(
+                            checked = smartImportEnabled,
+                            onCheckedChange = { enabled ->
+                                if (enabled && smartImportAccount == null) {
+                                    val credential = GoogleAccountCredential.usingOAuth2(
+                                        context,
+                                        Collections.singleton(GmailScopes.GMAIL_READONLY)
+                                    )
+                                    accountPickerLauncher.launch(credential.newChooseAccountIntent())
+                                } else {
+                                    smartImportEnabled = enabled
+                                    prefs.smartImportEnabled = enabled
+                                    if (enabled) EmailImportWorker.schedule(context)
+                                }
+                            }
+                        )
+                    }
+                )
+
+                if (smartImportAccount != null) {
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.smart_import_account, smartImportAccount!!)) },
+                        trailingContent = {
+                            TextButton(onClick = {
+                                val credential = GoogleAccountCredential.usingOAuth2(
+                                    context,
+                                    Collections.singleton(GmailScopes.GMAIL_READONLY)
+                                )
+                                accountPickerLauncher.launch(credential.newChooseAccountIntent())
+                            }) {
+                                Text(stringResource(R.string.change_courier))
+                            }
+                        }
+                    )
+                }
             }
 
             // --- Appearance Section ---

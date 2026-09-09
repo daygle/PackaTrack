@@ -126,7 +126,7 @@ class MainActivity : FragmentActivity() {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
                     if (errorCode != BiometricPrompt.ERROR_USER_CANCELED && errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON) {
-                        Toast.makeText(applicationContext, "Authentication error: $errString", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(applicationContext, getString(R.string.auth_error, errString), Toast.LENGTH_SHORT).show()
                     }
                 }
 
@@ -141,9 +141,9 @@ class MainActivity : FragmentActivity() {
             })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("PackaTrack Lock")
-            .setSubtitle("Authenticate to open the app")
-            .setNegativeButtonText("Cancel")
+            .setTitle(getString(R.string.lock_title))
+            .setSubtitle(getString(R.string.lock_subtitle))
+            .setNegativeButtonText(getString(R.string.cancel))
             .build()
 
         biometricPrompt.authenticate(promptInfo)
