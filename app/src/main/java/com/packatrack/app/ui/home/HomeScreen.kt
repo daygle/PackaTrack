@@ -24,7 +24,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Delete
@@ -69,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import com.packatrack.app.R
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.packatrack.app.data.ParcelSortOrder
 import com.packatrack.app.data.TrackingRepository.RefreshOutcome
 import com.packatrack.app.data.db.ShipmentWithLegs
 import com.packatrack.app.notify.Notifier
@@ -122,6 +125,8 @@ fun HomeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Active, 1: Archived
+    var sortOrder by remember { mutableStateOf(ParcelSortOrder.fromKey(container.prefs.sortOrder)) }
+    var showSortMenu by remember { mutableStateOf(false) }
 
     val activeShipments by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
     val archivedShipments by repo.observeArchived().collectAsStateWithLifecycle(initialValue = emptyList())
@@ -130,8 +135,8 @@ fun HomeScreen(
     val latestEvents by repo.observeLatestEvents().collectAsStateWithLifecycle(initialValue = emptyMap())
 
     val currentShipments = if (selectedTab == 0) activeShipments else archivedShipments
-    val filteredShipments = remember(currentShipments, searchQuery) {
-        currentShipments.filter { entry ->
+    val filteredShipments = remember(currentShipments, searchQuery, sortOrder, latestEvents, firstEventTimes) {
+        val filtered = currentShipments.filter { entry ->
             val title = parcelName(entry.shipment, entry.orders, entry.legs)
             val numbers = entry.legs.map { it.trackingNumber }
             val status = overallStatusCode(entry.legs) ?: ""
@@ -139,6 +144,23 @@ fun HomeScreen(
             title.contains(searchQuery, ignoreCase = true) ||
                     numbers.any { it.contains(searchQuery, ignoreCase = true) } ||
                     status.contains(searchQuery, ignoreCase = true)
+        }
+
+        when (sortOrder) {
+            ParcelSortOrder.NAME -> filtered.sortedBy { parcelName(it.shipment, it.orders, it.legs).lowercase() }
+            ParcelSortOrder.DATE_ADDED -> filtered.sortedByDescending { it.shipment.createdAt }
+            ParcelSortOrder.LAST_ACTIVITY -> filtered.sortedByDescending { latestEvents[it.shipment.id]?.timeMs ?: 0L }
+            ParcelSortOrder.DAYS_IN_TRANSIT -> filtered.sortedByDescending {
+                val firstMs = firstEventTimes[it.shipment.id] ?: return@sortedByDescending 0L
+                System.currentTimeMillis() - firstMs
+            }
+            ParcelSortOrder.STATUS -> {
+                val rank = listOf("EXCEPTION", "OUT_FOR_DELIVERY", "PICKUP_AVAILABLE", "IN_TRANSIT", "LABEL_CREATED", "DELIVERED", null)
+                filtered.sortedBy { entry ->
+                    val code = overallStatusCode(entry.legs)
+                    rank.indexOf(code).takeIf { it >= 0 } ?: rank.size
+                }
+            }
         }
     }
 
@@ -249,6 +271,41 @@ fun HomeScreen(
                         if (!showSearch) {
                             IconButton(onClick = { showSearch = true }) {
                                 Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search))
+                            }
+                            Box {
+                                IconButton(onClick = { showSortMenu = true }) {
+                                    Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = stringResource(R.string.sort))
+                                }
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false }
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.sort_by),
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    ParcelSortOrder.entries.forEach { order ->
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(order.labelRes)) },
+                                            onClick = {
+                                                sortOrder = order
+                                                container.prefs.sortOrder = order.key
+                                                showSortMenu = false
+                                            },
+                                            trailingIcon = {
+                                                if (sortOrder == order) {
+                                                    Icon(
+                                                        Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
                             }
                             IconButton(onClick = { runSync { repo.refreshAll(force = true) } }) {
                                 if (syncing) {

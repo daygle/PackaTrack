@@ -44,6 +44,14 @@
     <string name="order_link_optional">Order Link (Optional)</string>
     <string name="auspost_key_missing_warning">Australia Post tracking requires an API key in Settings.</string>
 
+    <string name="sort">Sort</string>
+    <string name="sort_by">Sort By</string>
+    <string name="sort_last_activity">Last Activity</string>
+    <string name="sort_date_added">Date Added</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_days_in_transit">Days in Transit</string>
+    <string name="sort_status">Status</string>
+
     <string name="back">Back</string>
     <string name="parcel">Parcel</string>
     <string name="edit_parcel">Edit parcel</string>

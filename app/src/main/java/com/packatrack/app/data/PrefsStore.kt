@@ -55,7 +55,7 @@ class PrefsStore(context: Context) {
         set(value) = prefs.edit { putString(KEY_THEME, value) }
 
     var sortOrder: String
-        get() = prefs.getString(KEY_SORT_ORDER, "newest") ?: "newest"
+        get() = prefs.getString(KEY_SORT_ORDER, ParcelSortOrder.LAST_ACTIVITY.key) ?: ParcelSortOrder.LAST_ACTIVITY.key
         set(value) = prefs.edit { putString(KEY_SORT_ORDER, value) }
 
     var dateTimeFormat: String

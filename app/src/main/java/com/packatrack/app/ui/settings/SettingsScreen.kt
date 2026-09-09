@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 
 package com.packatrack.app.ui.settings
 
@@ -16,6 +16,8 @@ import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Info
@@ -85,6 +88,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.packatrack.app.R
 import com.packatrack.app.data.BackupManager
+import com.packatrack.app.data.ParcelSortOrder
 import com.packatrack.app.sync.SyncWorker
 import com.packatrack.app.ui.rememberAppContainer
 import com.packatrack.app.ui.theme.PackaTrackTheme
@@ -122,6 +126,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     var transit by remember { mutableStateOf(prefs.notifyOnTransit) }
     var wifiOnly by remember { mutableStateOf(prefs.wifiOnlySync) }
     var themeMode by remember { mutableStateOf(prefs.themeMode) }
+    var sortOrder by remember { mutableStateOf(ParcelSortOrder.fromKey(prefs.sortOrder)) }
     var dateFormat by remember { mutableStateOf(prefs.dateTimeFormat) }
     var biometricLock by remember { mutableStateOf(prefs.biometricLock) }
     var transitGreenDays by remember { mutableIntStateOf(prefs.transitGreenDays) }
@@ -552,6 +557,32 @@ fun SettingsScreen(onBack: () -> Unit) {
                     },
                     leadingContent = { Icon(Icons.Default.Palette, null, tint = MaterialTheme.colorScheme.primary) }
                 )
+
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.sort_by)) },
+                    supportingContent = {
+                        FlowRow(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ParcelSortOrder.entries.forEach { order ->
+                                FilterChip(
+                                    selected = sortOrder == order,
+                                    onClick = {
+                                        sortOrder = order
+                                        prefs.sortOrder = order.key
+                                    },
+                                    label = { Text(stringResource(order.labelRes), style = MaterialTheme.typography.labelSmall) }
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.Sort, null, tint = MaterialTheme.colorScheme.primary) }
+                )
+
+                HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.date_format)) },
