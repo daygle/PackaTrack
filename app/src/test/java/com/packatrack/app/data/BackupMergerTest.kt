@@ -1,7 +1,8 @@
 package com.packatrack.app.data
 
-import com.packatrack.app.data.db.ShipmentEntity
-import com.packatrack.app.data.db.TrackingLegEntity
+import com.packatrack.data.BackupMerger
+import com.packatrack.core.db.ShipmentEntity
+import com.packatrack.core.db.TrackingLegEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

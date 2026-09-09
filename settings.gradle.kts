@@ -27,3 +27,8 @@ rootProject.name = "PackaTrack"
 
 include(":app")
 include(":core")
+include(":data")
+include(":feature:home")
+include(":feature:detail")
+include(":feature:settings")
+include(":feature:common")

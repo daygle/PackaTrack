@@ -1,5 +1,6 @@
 package com.packatrack.app.data
 
+import com.packatrack.data.BackupCodec
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows

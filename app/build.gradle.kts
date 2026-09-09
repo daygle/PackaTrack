@@ -2,7 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.room)
+    alias(libs.plugins.hilt)
 }
 
 android {
@@ -15,7 +15,7 @@ android {
         targetSdk = 37
         versionCode = 1
         versionName = "1.0.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.packatrack.app.HiltTestRunner"
     }
 
     buildTypes {
@@ -52,45 +52,38 @@ android {
     }
 }
 
-// Export the Room schema (via the Room Gradle plugin) so schema changes are
-// visible in diffs and can back migration tests.
-room {
-    schemaDirectory("$projectDir/schemas")
-}
-
 dependencies {
     implementation(project(":core"))
+    implementation(project(":data"))
+    implementation(project(":feature:home"))
+    implementation(project(":feature:detail"))
+    implementation(project(":feature:settings"))
+    implementation(project(":feature:common"))
 
     val composeBom = platform(libs.compose.bom)
     implementation(composeBom)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.fragment.ktx)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)
     implementation(libs.navigation.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
-    implementation(libs.work.runtime.ktx)
-    implementation(libs.sqlcipher.android)
-    implementation(libs.okhttp)
-    implementation(libs.coil.compose)
-    implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.core.splashscreen)
 
-    implementation(libs.google.api.client.android)
-    implementation(libs.google.api.services.gmail)
-    implementation(libs.play.services.auth)
-    implementation(libs.google.http.client.gson)
+    // Backup/encryption tests exercise Room-backed database code directly.
+    testImplementation(libs.room.runtime)
+    testImplementation(libs.room.ktx)
+    androidTestImplementation(libs.room.runtime)
+    androidTestImplementation(libs.room.ktx)
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
 
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
@@ -102,5 +95,9 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.kotlinx.coroutines.core)
     androidTestImplementation(libs.mockk.android)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
 }

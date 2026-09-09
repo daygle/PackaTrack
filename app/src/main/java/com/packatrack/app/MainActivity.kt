@@ -34,20 +34,31 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.packatrack.app.ui.detail.DetailScreen
-import com.packatrack.app.notify.Notifier
-import com.packatrack.app.ui.home.HomeScreen
-import com.packatrack.app.ui.settings.SettingsScreen
-import com.packatrack.app.ui.theme.PackaTrackTheme
+import com.packatrack.data.PrefsStore
+import com.packatrack.data.TrackingRepository
+import com.packatrack.feature.common.R
+import com.packatrack.feature.detail.DetailScreen
+import com.packatrack.notify.Notifier
+import com.packatrack.feature.home.HomeScreen
+import com.packatrack.feature.settings.SettingsScreen
+import com.packatrack.feature.common.theme.PackaTrackTheme
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+
+    @Inject
+    lateinit var prefs: PrefsStore
+
+    @Inject
+    lateinit var repository: TrackingRepository
 
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* best effort */ }
@@ -58,8 +69,7 @@ class MainActivity : FragmentActivity() {
     private var pendingShipmentId by mutableStateOf<Long?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Install splash screen before super.onCreate() - it will use the splash theme
-        // and hold the splash screen while SQLCipher database decrypts on cold start.
+        // Install splash screen before super.onCreate()
         val splashScreen = installSplashScreen()
 
         enableEdgeToEdge()
@@ -70,41 +80,29 @@ class MainActivity : FragmentActivity() {
 
         pendingShipmentId = readOpenShipmentId(intent)
 
-        // Keep splash screen visible until the database is ready (max 3 seconds)
-        val app = (application as PackaTrackApp)
-        splashScreen.setKeepOnScreenCondition { app.containerState.value == null }
-
         // Mark database as ready after first frame renders
         setContent {
-            val container by app.containerState.collectAsStateWithLifecycle()
+            val isLockEnabled = prefs.biometricLock
+            val themeMode = prefs.themeMode
 
-            container?.let { readyContainer ->
-                val isLockEnabled = readyContainer.prefs.biometricLock
-
-                PackaTrackTheme {
-                    if (isLockEnabled && !isAuthenticated) {
-                        LockScreen(onAuthenticate = { authenticate() })
-                    } else {
-                        PackaTrackNavHost(
-                            intent = intent,
-                            openShipmentId = pendingShipmentId,
-                            onOpenShipmentHandled = { pendingShipmentId = null },
-                        )
-                    }
+            PackaTrackTheme(themeMode = themeMode) {
+                if (isLockEnabled && !isAuthenticated) {
+                    LockScreen(onAuthenticate = { authenticate() })
+                } else {
+                    PackaTrackNavHost(
+                        intent = intent,
+                        openShipmentId = pendingShipmentId,
+                        onOpenShipmentHandled = { pendingShipmentId = null },
+                    )
                 }
-            } ?: run {
-                LoadingScreen()
             }
         }
     }
 
     override fun onStop() {
         super.onStop()
-        // Re-lock whenever the app leaves the screen; the lock screen re-prompts on return.
-        // Prompting here (onResume) would race the lock screen's own prompt and crash with
-        // "Only one biometric prompt can be active at once".
-        val app = application as PackaTrackApp
-        if (app.containerState.value?.prefs?.biometricLock == true) {
+        // Re-lock whenever the app leaves the screen
+        if (prefs.biometricLock) {
             isAuthenticated = false
         }
     }
@@ -173,32 +171,6 @@ private fun LockScreen(onAuthenticate: () -> Unit) {
             Button(onClick = onAuthenticate) {
                 Text(stringResource(R.string.unlock))
             }
-        }
-    }
-}
-
-@Composable
-private fun LoadingScreen() {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(48.dp),
-                color = MaterialTheme.colorScheme.primary,
-                strokeWidth = 4.dp,
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
         }
     }
 }

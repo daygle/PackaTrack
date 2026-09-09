@@ -3,10 +3,11 @@ package com.packatrack.app.data
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.packatrack.app.data.db.AppDatabase
-import com.packatrack.app.data.db.EventEntity
-import com.packatrack.app.data.db.ShipmentEntity
-import com.packatrack.app.data.db.TrackingLegEntity
+import com.packatrack.data.BackupManager
+import com.packatrack.data.db.AppDatabase
+import com.packatrack.core.db.EventEntity
+import com.packatrack.core.db.ShipmentEntity
+import com.packatrack.core.db.TrackingLegEntity
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
