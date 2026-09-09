@@ -1,6 +1,9 @@
 package com.packatrack.app.sync
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -10,6 +13,7 @@ import com.packatrack.app.PackaTrackApp
 import com.packatrack.app.notify.Notifier
 import androidx.work.Constraints
 import androidx.work.NetworkType
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 class SyncWorker(
@@ -20,6 +24,20 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         val container = (applicationContext as PackaTrackApp).containerState.value
             ?: return Result.retry()
+
+        // Adaptive Sync: Skip during quiet hours (11 PM - 7 AM) or low battery (<15%) to save power.
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        if (hour >= 23 || hour < 7) return Result.success()
+
+        val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val batteryStatus = applicationContext.registerReceiver(null, ifilter)
+        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        if (level != -1 && scale != -1) {
+            val pct = level / scale.toFloat()
+            if (pct < 0.15f) return Result.success()
+        }
+
         return runCatching {
             val outcome = container.repository.refreshAll()
             if (outcome.notable.isNotEmpty()) {

@@ -322,6 +322,23 @@ class TrackingRepository(
         for (c in consolidations) {
             applyConsolidation(c)?.let { notable += it }
         }
+
+        if (prefs.autoArchiveDelivered) {
+            val affectedShipmentIds = toPoll.map { it.shipmentId }.distinct()
+            for (shipmentId in affectedShipmentIds) {
+                val shipmentLegs = legs.legsForShipment(shipmentId)
+                val isDelivered = shipmentLegs.isNotEmpty() && shipmentLegs.any {
+                    it.lastStatusCode?.uppercase() == "DELIVERED"
+                }
+                if (isDelivered) {
+                    val shipment = shipments.byId(shipmentId)
+                    if (shipment != null && !shipment.archived) {
+                        shipments.update(shipment.copy(archived = true))
+                    }
+                }
+            }
+        }
+
         return RefreshOutcome(updated, notable)
     }
 

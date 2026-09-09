@@ -63,6 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
@@ -635,6 +636,16 @@ private fun AddShipmentDialog(
     var orderUrl by remember { mutableStateOf(value = "") }
     var override by remember { mutableStateOf<Carrier?>(value = null) }
     var showManual by remember { mutableStateOf(value = false) }
+
+    val clipboard = LocalClipboard.current
+    LaunchedEffect(Unit) {
+        if (number.isBlank()) {
+            val clipText = clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text?.toString()?.trim()
+            if (!clipText.isNullOrBlank() && CarrierDetector.detectAll(clipText).isNotEmpty()) {
+                number = clipText
+            }
+        }
+    }
 
     val container = rememberAppContainer()
     val detectedCarriers = CarrierDetector.detectAll(number)
