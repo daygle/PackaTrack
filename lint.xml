@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+        google-http-client (transitive Gmail-auth dependency) bundles an unused
+        TrustAllX509TrustManager class, which this check flags. PackaTrack contains no
+        X509TrustManager implementations of its own - all traffic goes through OkHttp and
+        NetHttpTransport, both of which use the system trust store - so this check has no
+        legitimate target in this project and is disabled.
+    -->
+    <issue id="TrustAllX509TrustManager" severity="ignore" />
+</lint>

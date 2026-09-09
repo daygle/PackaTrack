@@ -17,13 +17,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-
-    lint {
-        // google-http-client (a Gmail-auth dependency) bundles an unused TrustAllX509TrustManager
-        // class, which security scanners flag. Our code never uses it - NetHttpTransport uses the
-        // system trust store - so baseline the known third-party findings; new issues still fail.
-        baseline = file("lint-baseline.xml")
-    }
 }
 
 room {
