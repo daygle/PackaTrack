@@ -40,7 +40,7 @@ object AramexParser {
                 timeMs = TimeUtil.parse(date),
                 description = desc,
                 location = firstNonBlank(r, "UpdateLocation", "location", "city"),
-                statusCode = ImileParser.mapToStatus(desc),
+                statusCode = mapToStatus(desc),
             )
         }
 
@@ -75,4 +75,25 @@ object AramexParser {
 
     private fun firstNonBlank(obj: JSONObject?, vararg keys: String): String? =
         obj?.let { o -> keys.firstNotNullOfOrNull { k -> o.optString(k).takeIf { s -> s.isNotBlank() } } }
+
+    /** Maps free-text status strings onto PackaTrack's normalized status codes. */
+    fun mapToStatus(text: String): String? {
+        val t = text.lowercase()
+        return when {
+            t.contains("delivered") || t.contains("signed") || t.contains("proof of delivery")
+                -> "DELIVERED"
+            t.contains("out for delivery") || t.contains("on vehicle") || t.contains("dispatcher")
+                -> "OUT_FOR_DELIVERY"
+            t.contains("held") && t.contains("collection") -> "PICKUP_AVAILABLE"
+            t.contains("fail") || t.contains("refus") || t.contains("return") ||
+                t.contains("damage") || t.contains("lost") || t.contains("cancel")
+                -> "EXCEPTION"
+            t.contains("transit") || t.contains("arrived") || t.contains("departed") ||
+                t.contains("sorted") || t.contains("received") || t.contains("picked up") ||
+                t.contains("accepted") -> "IN_TRANSIT"
+            t.contains("created") || t.contains("booked") || t.contains("manifested")
+                -> "LABEL_CREATED"
+            else -> null
+        }
+    }
 }

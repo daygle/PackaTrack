@@ -288,12 +288,7 @@ class TrackingRepository @Inject constructor(
      * @param force When true, bypasses the background cooldown.
      */
     suspend fun refreshAll(force: Boolean = false): RefreshOutcome = refreshMutex.withLock {
-        val activeIds = shipments.all()
-            .asSequence()
-            .filterNot(ShipmentEntity::archived)
-            .map(ShipmentEntity::id)
-            .toSet()
-        refreshLegs(legs.all().filter { it.shipmentId in activeIds }, force)
+        refreshLegs(legs.allActiveLegs(), force)
     }
 
     /**
@@ -482,17 +477,24 @@ class TrackingRepository @Inject constructor(
         }
 
         // Combination: does this leg's fresh snapshot look like several other parcels merged?
-        // Detection needs at least two other parcels, so skip the DB fan-out otherwise.
+        // Batch-load all legs and their first event to avoid N+1 queries.
+        val allLegs = legs.allActiveLegs()
         val otherShipments = shipments.all().filterNot { it.id == mutable.shipmentId || it.archived }
         if (otherShipments.size >= 2) {
+            val legsByShipment = allLegs.groupBy { it.shipmentId }
+            val candidateLegIds = otherShipments
+                .mapNotNull { legsByShipment[it.id]?.firstOrNull()?.id }
+            val eventsByLeg = if (candidateLegIds.isNotEmpty()) {
+                events.eventsForLegs(candidateLegIds).groupBy { it.legId }
+            } else emptyMap()
             val others = otherShipments.mapNotNull { other ->
-                val firstLeg = legs.legsForShipment(other.id).firstOrNull() ?: return@mapNotNull null
-                val oEvents = events.eventsForLeg(firstLeg.id)
+                val firstLeg = legsByShipment[other.id]?.firstOrNull() ?: return@mapNotNull null
+                val oEvents = eventsByLeg[firstLeg.id].orEmpty()
                 if (oEvents.isEmpty()) return@mapNotNull null
                 Snapshot(
                     trackingNumber = firstLeg.trackingNumber,
                     dimensionsCm = null,
-                    events = oEvents.asSequence().map { e -> TrackingEvent(e.trackingNumber, e.timeMs, e.description, e.location, e.statusCode) }.toList(),
+                    events = oEvents.map { e -> TrackingEvent(e.trackingNumber, e.timeMs, e.description, e.location, e.statusCode) },
                 )
             }.associateBy { it.trackingNumber }
             val combined = ChangeLogService.detectCombination(others, snapshot)

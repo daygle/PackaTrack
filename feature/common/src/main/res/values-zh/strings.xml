@@ -92,7 +92,7 @@
     <string name="denied_hint">已拒绝 - 不会显示提醒</string>
     <string name="fix">修复</string>
     <string name="background_sync">后台同步</string>
-    <string name="sync_status_hint">活跃 · %1$小时间隔 %2$s</string>
+    <string name="sync_status_hint">活跃 · %1$d小时间隔 %2$s</string>
     <string name="wifi_only_parentheses">（仅Wi-Fi）</string>
     <string name="battery_usage">电池使用</string>
     <string name="unrestricted">不受限</string>
@@ -146,4 +146,6 @@
     <string name="about">关于</string>
     <string name="version_label">版本 %1$s</string>
     <string name="github_repo">GitHub仓库</string>
+    <string name="tracking_number_copied">追踪号码已复制</string>
+    <string name="aliases_label">别名: %1$s</string>
 </resources>

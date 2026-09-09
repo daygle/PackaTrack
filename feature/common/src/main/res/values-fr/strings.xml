@@ -3,7 +3,7 @@
     <string name="search_placeholder">Rechercher des colis…</string>
     <string name="close_search">Fermer la recherche</string>
     <plurals name="shipment_summary">
-        <item quantity="one">%1$d en transit · %1$d total</item>
+        <item quantity="one">%1$d en transit · %2$d total</item>
         <item quantity="other">%1$d en transit · %2$d total</item>
     </plurals>
     <string name="offline">Hors ligne</string>
@@ -20,7 +20,7 @@
     <string name="no_parcels_hint">Ajoutez un numéro de suivi pour commencer à suivre vos colis au même endroit.</string>
     <string name="no_tracking_number">Aucun numéro de suivi</string>
     <plurals name="day_count">
-        <item quantity="one">1 jour</item>
+        <item quantity="one">%1$d jour</item>
         <item quantity="other">%1$d jours</item>
     </plurals>
     <string name="actions">Actions</string>
@@ -71,7 +71,7 @@
     <string name="last_updated_label">Dernière mise à jour : %1$s</string>
     <string name="never">Jamais</string>
     <plurals name="couriers_count_label">
-        <item quantity="one">1 transporteur</item>
+        <item quantity="one">%1$d transporteur</item>
         <item quantity="other">%1$d transporteurs</item>
     </plurals>
     <string name="add_courier_title">Ajouter un transporteur</string>
@@ -149,4 +149,6 @@
     <string name="about">À propos</string>
     <string name="version_label">Version %1$s</string>
     <string name="github_repo">Dépôt GitHub</string>
+    <string name="tracking_number_copied">Numéro de suivi copié</string>
+    <string name="aliases_label">Alias : %1$s</string>
 </resources>

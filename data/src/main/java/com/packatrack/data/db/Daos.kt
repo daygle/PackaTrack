@@ -50,6 +50,9 @@ interface LegDao {
     @Query("SELECT * FROM tracking_legs ORDER BY createdAt ASC")
     suspend fun all(): List<TrackingLegEntity>
 
+    @Query("SELECT tl.* FROM tracking_legs tl JOIN shipments s ON tl.shipmentId = s.id WHERE s.archived = 0 ORDER BY tl.createdAt ASC")
+    suspend fun allActiveLegs(): List<TrackingLegEntity>
+
     @Query("SELECT * FROM tracking_legs WHERE id = :id LIMIT 1")
     suspend fun byId(id: Long): TrackingLegEntity?
 
@@ -118,6 +121,9 @@ interface EventDao {
 
     @Query("SELECT * FROM events WHERE legId = :legId")
     suspend fun eventsForLeg(legId: Long): List<EventEntity>
+
+    @Query("SELECT * FROM events WHERE legId IN (:legIds)")
+    suspend fun eventsForLegs(legIds: List<Long>): List<EventEntity>
 
     @Query("SELECT * FROM events")
     suspend fun all(): List<EventEntity>

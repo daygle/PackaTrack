@@ -31,8 +31,7 @@ class SyncWorker(
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         if (hour >= 23 || hour < 7) return Result.success()
 
-        val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        val batteryStatus = applicationContext.registerReceiver(null, ifilter)
+        val batteryStatus = applicationContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         if (level != -1 && scale != -1) {

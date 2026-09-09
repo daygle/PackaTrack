@@ -92,7 +92,7 @@
     <string name="denied_hint">拒否 — アラートは表示されません</string>
     <string name="fix">修正</string>
     <string name="background_sync">バックグラウンド同期</string>
-    <string name="sync_status_hint">アクティブ · %1$時間間隔 %2$s</string>
+    <string name="sync_status_hint">アクティブ · %1$d時間間隔 %2$s</string>
     <string name="wifi_only_parentheses">（Wi-Fiのみ）</string>
     <string name="battery_usage">バッテリー使用量</string>
     <string name="unrestricted">無制限</string>
@@ -146,4 +146,6 @@
     <string name="about">アプリについて</string>
     <string name="version_label">バージョン %1$s</string>
     <string name="github_repo">GitHubリポジトリ</string>
+    <string name="tracking_number_copied">追跡番号をコピーしました</string>
+    <string name="aliases_label">エイリアス: %1$s</string>
 </resources>

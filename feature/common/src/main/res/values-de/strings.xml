@@ -20,7 +20,7 @@
     <string name="no_parcels_hint">Fügen Sie eine Sendungsverfolgungsnummer hinzu, um Ihre Sendungen an einem Ort zu überwachen.</string>
     <string name="no_tracking_number">Keine Sendungsverfolgungsnummer</string>
     <plurals name="day_count">
-        <item quantity="one">1 Tag</item>
+        <item quantity="one">%1$d Tag</item>
         <item quantity="other">%1$d Tage</item>
     </plurals>
     <string name="actions">Aktionen</string>
@@ -71,7 +71,7 @@
     <string name="last_updated_label">Zuletzt aktualisiert: %1$s</string>
     <string name="never">Nie</string>
     <plurals name="couriers_count_label">
-        <item quantity="one">1 Spedition</item>
+        <item quantity="one">%1$d Spedition</item>
         <item quantity="other">%1$d Speditionen</item>
     </plurals>
     <string name="add_courier_title">Spedition hinzufügen</string>
@@ -95,7 +95,7 @@
     <string name="denied_hint">Verweigert — Benachrichtigungen werden nicht angezeigt</string>
     <string name="fix">Beheben</string>
     <string name="background_sync">Hintergrundsynchronisierung</string>
-    <string name="sync_status_hint">Aktiv · %1$sh Intervall %2$s</string>
+    <string name="sync_status_hint">Aktiv · %1$dh Intervall %2$s</string>
     <string name="wifi_only_parentheses">(Nur WLAN)</string>
     <string name="battery_usage">Akkunutzung</string>
     <string name="unrestricted">Unbeschränkt</string>
@@ -149,4 +149,6 @@
     <string name="about">Über</string>
     <string name="version_label">Version %1$s</string>
     <string name="github_repo">GitHub-Repository</string>
+    <string name="tracking_number_copied">Sendungsnummer kopiert</string>
+    <string name="aliases_label">Aliase: %1$s</string>
 </resources>

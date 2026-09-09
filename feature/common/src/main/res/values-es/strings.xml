@@ -20,7 +20,7 @@
     <string name="no_parcels_hint">Añade un número de seguimiento para empezar a monitorizar tus envíos en un solo lugar.</string>
     <string name="no_tracking_number">Sin número de seguimiento</string>
     <plurals name="day_count">
-        <item quantity="one">1 día</item>
+        <item quantity="one">%1$d día</item>
         <item quantity="other">%1$d días</item>
     </plurals>
     <string name="actions">Acciones</string>
@@ -71,7 +71,7 @@
     <string name="last_updated_label">Última actualización: %1$s</string>
     <string name="never">Nunca</string>
     <plurals name="couriers_count_label">
-        <item quantity="one">1 Transportista</item>
+        <item quantity="one">%1$d Transportista</item>
         <item quantity="other">%1$d Transportistas</item>
     </plurals>
     <string name="add_courier_title">Añadir un transportista</string>
@@ -149,4 +149,6 @@
     <string name="about">Acerca de</string>
     <string name="version_label">Versión %1$s</string>
     <string name="github_repo">Repositorio de GitHub</string>
+    <string name="tracking_number_copied">Número de seguimiento copiado</string>
+    <string name="aliases_label">Alias: %1$s</string>
 </resources>

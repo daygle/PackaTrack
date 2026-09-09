@@ -13,7 +13,7 @@ import java.util.TimeZone
  */
 object TimeUtil {
 
-    private val patterns = listOf(
+    private val parsePatterns = listOf(
         "yyyy-MM-dd'T'HH:mm:ssXXX",
         "yyyy-MM-dd'T'HH:mm:ssZ",
         "yyyy-MM-dd'T'HH:mm:ss",
@@ -23,15 +23,20 @@ object TimeUtil {
         "yyyy-MM-dd",
     )
 
+    // SimpleDateFormat is not thread-safe; create per-call (cheap on Android) or
+    // use ThreadLocal for callers that parse in tight loops.
+    private fun newFmt(pattern: String) =
+        SimpleDateFormat(pattern, Locale.US).apply {
+            isLenient = false
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+
     /** Returns epoch ms or null when unparseable. */
     fun parse(raw: String?): Long? {
         if (raw.isNullOrBlank()) return null
-        for (p in patterns) {
-            val fmt = SimpleDateFormat(p, Locale.US)
-            fmt.isLenient = false
-            fmt.timeZone = TimeZone.getTimeZone("UTC")
+        for (p in parsePatterns) {
             try {
-                return fmt.parse(raw)?.time ?: continue
+                return newFmt(p).parse(raw)?.time ?: continue
             } catch (_: ParseException) {
                 // try next pattern
             } catch (_: IllegalArgumentException) {
@@ -48,14 +53,9 @@ object TimeUtil {
     fun format(ms: Long?, formatPattern: String = "dd MMM yyyy, HH:mm"): String? {
         if (ms == null) return null
         return try {
-            val fmt = SimpleDateFormat(formatPattern, Locale.US)
-            fmt.timeZone = TimeZone.getTimeZone("UTC")
-            fmt.format(Date(ms))
+            newFmt(formatPattern).format(Date(ms))
         } catch (_: Exception) {
-            // Fallback for safety
-            val fmt = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.US)
-            fmt.timeZone = TimeZone.getTimeZone("UTC")
-            fmt.format(Date(ms))
+            newFmt("dd MMM yyyy, HH:mm").format(Date(ms))
         }
     }
 }

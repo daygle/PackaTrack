@@ -540,6 +540,12 @@ private fun CourierRow(
             }
             Spacer(Modifier.height(8.dp))
             val context = LocalContext.current
+            val copiedLabel = stringResource(R.string.tracking_number_copied)
+            fun copyTrackingNumber() {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("tracking number", leg.trackingNumber))
+                Toast.makeText(context, copiedLabel, Toast.LENGTH_SHORT).show()
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -547,31 +553,19 @@ private fun CourierRow(
                 Text(
                     leg.trackingNumber,
                     style = MonoNumber,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("tracking number", leg.trackingNumber))
-                            Toast.makeText(context, "Tracking number copied", Toast.LENGTH_SHORT).show()
-                        }
+                    modifier = Modifier.weight(1f).clickable { copyTrackingNumber() }
                 )
                 Spacer(Modifier.width(8.dp))
                 Icon(
                     Icons.Default.ContentCopy,
                     contentDescription = stringResource(R.string.copy_tracking_number),
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clickable {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("tracking number", leg.trackingNumber))
-                            Toast.makeText(context, "Tracking number copied", Toast.LENGTH_SHORT).show()
-                        },
+                    modifier = Modifier.size(18.dp).clickable { copyTrackingNumber() },
                     tint = MaterialTheme.colorScheme.outline,
                 )
             }
             if (leg.aliasNumbers.isNotBlank()) {
                 Text(
-                    "Aliases: ${leg.aliasNumbers}",
+                    stringResource(R.string.aliases_label, leg.aliasNumbers),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
