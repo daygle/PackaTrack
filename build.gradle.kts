@@ -20,6 +20,7 @@ buildscript {
                 "org.bouncycastle:bcpkix-jdk18on:1.85", // GHSA-wg6q-6289-32hp (broken crypto algorithm)
                 "org.bouncycastle:bcprov-jdk18on:1.85.2", // GHSA-574f-3g2m-x479, GHSA-c3fc-8qff-9hwx
                 "org.bouncycastle:bcutil-jdk18on:1.85", // GHSA-574f-3g2m-x479
+                "org.apache.httpcomponents:httpclient:4.5.14", // GHSA-7r82-7xv7-xcpj / CVE-2020-13956 (XSS, fixed in 4.5.13) — tooling declares 4.5.6
                 "org.jdom:jdom2:2.0.6.1", // GHSA-2363-cqg2-863c (XXE)
             )
         }
