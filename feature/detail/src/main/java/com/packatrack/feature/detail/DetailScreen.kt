@@ -122,6 +122,9 @@ fun DetailScreen(
     val entry by repo.observeShipment(id).collectAsStateWithLifecycle(initialValue = null)
     val timelineRaw by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
     val allParcels by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
+    // Newest timestamped scan per courier leg: drives the overall-status recency vote so a
+    // stale DELIVERED leg cannot outrank a leg that is still moving.
+    val newestEventMsByLeg by repo.observeLatestEventMsByLeg().collectAsStateWithLifecycle(initialValue = emptyMap())
     val prefs = viewModel.prefs
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
@@ -215,7 +218,7 @@ fun DetailScreen(
                     .background(MaterialTheme.colorScheme.background),
             ) {
                 item(key = "hero") {
-                    HeroSection(entry, firstEventMs, prefs)
+                    HeroSection(entry, firstEventMs, newestEventMsByLeg, prefs)
                 }
 
                 item(key = "couriers_title") {
@@ -365,10 +368,15 @@ fun DetailScreen(
 }
 
 @Composable
-private fun HeroSection(entry: ShipmentWithLegs?, firstEventMs: Long?, prefs: PrefsStore) {
+private fun HeroSection(
+    entry: ShipmentWithLegs?,
+    firstEventMs: Long?,
+    newestEventMsByLeg: Map<Long, Long>,
+    prefs: PrefsStore,
+) {
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
-    val status = overallStatusCode(legs)
+    val status = overallStatusCode(legs, newestEventMsByLeg)
 
     Card(
         Modifier

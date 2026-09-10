@@ -137,13 +137,16 @@ fun HomeScreen(
     val recentChanges by repo.observeRecentChanges().collectAsStateWithLifecycle(initialValue = emptyList())
     val firstEventTimes by repo.observeFirstEventTimes().collectAsStateWithLifecycle(initialValue = emptyMap())
     val latestEvents by repo.observeLatestEvents().collectAsStateWithLifecycle(initialValue = emptyMap())
+    // Newest timestamped scan per courier leg: drives the overall-status recency vote so a
+    // stale DELIVERED leg cannot outrank a leg that is still moving.
+    val newestEventMsByLeg by repo.observeLatestEventMsByLeg().collectAsStateWithLifecycle(initialValue = emptyMap())
 
     val currentShipments = if (selectedTab == 0) activeShipments else archivedShipments
-    val filteredShipments = remember(currentShipments, searchQuery, sortOrder, latestEvents, firstEventTimes) {
+    val filteredShipments = remember(currentShipments, searchQuery, sortOrder, latestEvents, firstEventTimes, newestEventMsByLeg) {
         val filtered = currentShipments.filter { entry ->
             val title = parcelName(entry.shipment, entry.orders, entry.legs)
             val numbers = entry.legs.map { it.trackingNumber }
-            val status = overallStatusCode(entry.legs) ?: ""
+            val status = overallStatusCode(entry.legs, newestEventMsByLeg) ?: ""
 
             title.contains(searchQuery, ignoreCase = true) ||
                     numbers.any { it.contains(searchQuery, ignoreCase = true) } ||
@@ -161,7 +164,7 @@ fun HomeScreen(
             ParcelSortOrder.STATUS -> {
                 val rank = listOf("EXCEPTION", "OUT_FOR_DELIVERY", "PICKUP_AVAILABLE", "IN_TRANSIT", "LABEL_CREATED", "DELIVERED", null)
                 filtered.sortedBy { entry ->
-                    val code = overallStatusCode(entry.legs)
+                    val code = overallStatusCode(entry.legs, newestEventMsByLeg)
                     rank.indexOf(code).takeIf { it >= 0 } ?: rank.size
                 }
             }
@@ -248,7 +251,7 @@ fun HomeScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
                                     if (activeShipments.isNotEmpty()) {
-                                        val inTransit = activeShipments.count { overallStatusCode(it.legs) == "IN_TRANSIT" }
+                                        val inTransit = activeShipments.count { overallStatusCode(it.legs, newestEventMsByLeg) == "IN_TRANSIT" }
                                         Text(
                                             pluralStringResource(R.plurals.shipment_summary, activeShipments.size, inTransit, activeShipments.size),
                                             style = MaterialTheme.typography.labelMedium,
@@ -382,6 +385,7 @@ fun HomeScreen(
                         firstEventMs = firstEventTimes[entry.shipment.id],
                         latestEvent = latestEvents[entry.shipment.id],
                         hasNewActivity = hasNewActivity(entry.shipment.id),
+                        newestEventMsByLeg = newestEventMsByLeg,
                         prefs = viewModel.prefs,
                         onOpen = {
                             markActivitySeen(entry.shipment.id)
@@ -465,6 +469,7 @@ private fun ParcelCard(
     firstEventMs: Long?,
     latestEvent: EventEntity?,
     hasNewActivity: Boolean,
+    newestEventMsByLeg: Map<Long, Long>,
     prefs: PrefsStore,
     onOpen: () -> Unit,
     onDelete: () -> Unit,
@@ -477,7 +482,7 @@ private fun ParcelCard(
     val legs = entry.legs
     val primary = legs.firstOrNull()
     val title = parcelName(shipment, entry.orders, legs)
-    val status = overallStatusCode(legs)
+    val status = overallStatusCode(legs, newestEventMsByLeg)
 
     // Parcels with tracking changes the user hasn't opened yet get an accent border, a tinted
     // surface, and a bell beside the title. Opening the parcel clears the highlight.

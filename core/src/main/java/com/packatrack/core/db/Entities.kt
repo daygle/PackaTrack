@@ -109,6 +109,12 @@ data class ShipmentFirstEvent(
     val firstMs: Long?,
 )
 
+/** Newest scan time for one courier leg (projection for the status recency vote). */
+data class LegLatestEvent(
+    val legId: Long,
+    val firstMs: Long?,
+)
+
 /** Human-readable change entries: renumbered / combined / reweighed / progress. */
 @Entity(tableName = "changes", indices = [Index("shipmentId")])
 data class ChangeEntity(

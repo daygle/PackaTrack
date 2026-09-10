@@ -90,8 +90,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: room-schemas
-          path: app/schemas/
-          if-no-files-found: warn
+          # AppDatabase lives in :data, which exports schemas to data/schemas (see the
+          # room { schemaDirectory(...) } block in data/build.gradle.kts).
+          path: data/schemas/
+          if-no-files-found: error
 
   # Runs the androidTest suite on an emulator: exercises the SQLCipher/Keystore
   # database and the backup export/import round-trip, which JVM unit tests cannot.

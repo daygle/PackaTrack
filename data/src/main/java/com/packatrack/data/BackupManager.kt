@@ -48,7 +48,7 @@ class BackupManager(context: Context) {
         val orders = root.requiredArray("orders").map { it.toOrder() }
         val events = root.requiredArray("events").map { it.toEvent() }
         val changes = root.requiredArray("changes").map { it.toChange() }
-        validate(shipments, legs, orders, events, changes)
+        BackupMerger.validate(shipments, legs, orders, events, changes)
 
         db.withTransaction {
             if (replaceExisting) db.clearAllTables()
@@ -105,22 +105,6 @@ class BackupManager(context: Context) {
                     },
             )
         }
-    }
-
-    private fun validate(
-        shipments: List<ShipmentEntity>,
-        legs: List<TrackingLegEntity>,
-        orders: List<OrderItemEntity>,
-        events: List<EventEntity>,
-        changes: List<ChangeEntity>,
-    ) {
-        val shipmentIds = shipments.map { it.id }.toSet()
-        val legIds = legs.map { it.id }.toSet()
-        require(shipments.size == shipmentIds.size && legs.size == legIds.size) { "Duplicate backup identifiers" }
-        require(legs.all { it.shipmentId in shipmentIds }) { "Invalid leg reference" }
-        require(orders.all { it.shipmentId in shipmentIds }) { "Invalid order reference" }
-        require(events.all { it.shipmentId in shipmentIds && it.legId in legIds }) { "Invalid event reference" }
-        require(changes.all { it.shipmentId in shipmentIds }) { "Invalid change reference" }
     }
 
     private fun JSONObject.requiredArray(key: String): List<JSONObject> {

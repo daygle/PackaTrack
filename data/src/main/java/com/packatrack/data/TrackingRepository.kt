@@ -62,6 +62,12 @@ class TrackingRepository @Inject constructor(
                 .associateBy { it.shipmentId }
         }
 
+    /** Newest timestamped scan per leg (legId -> max event ms), used for status recency votes. */
+    fun observeLatestEventMsByLeg(): Flow<Map<Long, Long>> =
+        events.observeLatestEventMsByLeg().map { rows ->
+            rows.mapNotNull { row -> row.firstMs?.let { row.legId to it } }.toMap()
+        }
+
     /* ---------- parcel mutations ---------- */
 
     /**
@@ -323,22 +329,40 @@ class TrackingRepository @Inject constructor(
         }
 
         if (prefs.autoArchiveDelivered) {
-            val affectedShipmentIds = toPoll.map { it.shipmentId }.distinct()
-            for (shipmentId in affectedShipmentIds) {
-                val shipmentLegs = legs.legsForShipment(shipmentId)
-                val isDelivered = shipmentLegs.isNotEmpty() && shipmentLegs.any {
-                    it.lastStatusCode?.uppercase() == "DELIVERED"
-                }
-                if (isDelivered) {
-                    val shipment = shipments.byId(shipmentId)
-                    if (shipment != null && !shipment.archived) {
-                        shipments.update(shipment.copy(archived = true))
-                    }
-                }
-            }
+            autoArchiveDeliveredParcels(toPoll.map { it.shipmentId }.distinct())
         }
 
         return RefreshOutcome(updated, notable)
+    }
+
+    /**
+     * Auto-archives parcels the moment their OVERALL status (not any single leg) is DELIVERED.
+     *
+     * Uses the same recency-aware heuristic as the UI's status pill (see
+     * com.packatrack.core.model.overallStatusCode): a single leg reporting DELIVERED does not
+     * settle the parcel while another leg's newest scan is fresher - e.g. the origin carrier's
+     * premature "delivered to destination stream" beat must not archive a parcel that is still
+     * moving on the destination leg. Skips parcels already archived, and only touches shipments
+     * that actually have legs.
+     */
+    private suspend fun autoArchiveDeliveredParcels(shipmentIds: List<Long>) {
+        if (shipmentIds.isEmpty()) return
+        val newestEventMsByLeg = events.latestEventMsByLeg()
+            .mapNotNull { it.firstMs?.let { ms -> it.legId to ms } }
+            .toMap()
+        for (shipmentId in shipmentIds) {
+            val shipmentLegs = legs.legsForShipment(shipmentId)
+            if (shipmentLegs.isEmpty()) continue
+            val overall = com.packatrack.core.model.overallStatusCode(
+                shipmentLegs,
+                newestEventMsByLeg,
+            )
+            if (overall != "DELIVERED") continue
+            val shipment = shipments.byId(shipmentId) ?: continue
+            if (!shipment.archived) {
+                shipments.update(shipment.copy(archived = true))
+            }
+        }
     }
 
     /**

@@ -33,4 +33,40 @@ object BackupMerger {
             shipment.id to target
         }
     }
+
+    /**
+     * Validates reference integrity of a parsed backup. Throws [IllegalArgumentException]
+     * for malformed backups so callers can reject them before any database write.
+     *
+     * Checks:
+     *  - every shipment id is unique (Room would fail the insert later anyway),
+     *  - every leg/order/event/change references a shipment that exists in the backup,
+     *  - events reference a leg that exists in the backup,
+     *  - no two legs share the same (trackingNumber, carrierId) pair - the `tracking_legs`
+     *    table has a unique index on exactly that pair, so a violating backup would only
+     *    fail later with a raw SQLiteConstraintException mid-restore. Same number under
+     *    different carriers is legitimate (multi-carrier legs), so number-only checks
+     *    would false-positive.
+     */
+    fun validate(
+        shipments: List<ShipmentEntity>,
+        legs: List<TrackingLegEntity>,
+        orders: List<com.packatrack.core.db.OrderItemEntity>,
+        events: List<com.packatrack.core.db.EventEntity>,
+        changes: List<com.packatrack.core.db.ChangeEntity>,
+    ) {
+        val shipmentIds = shipments.map { it.id }.toSet()
+        val legIds = legs.map { it.id }.toSet()
+        require(shipments.size == shipmentIds.size) { "Duplicate backup shipment identifiers" }
+        require(legs.size == legIds.size) { "Duplicate backup leg identifiers" }
+        require(legs.all { it.shipmentId in shipmentIds }) { "Invalid leg reference" }
+        require(orders.all { it.shipmentId in shipmentIds }) { "Invalid order reference" }
+        require(events.all { it.shipmentId in shipmentIds && it.legId in legIds }) { "Invalid event reference" }
+        require(changes.all { it.shipmentId in shipmentIds }) { "Invalid change reference" }
+
+        val uniqueKey = legs.map { it.trackingNumber to it.carrierId }
+        require(uniqueKey.size == uniqueKey.distinct().size) {
+            "Duplicate tracking number/carrier pair in backup"
+        }
+    }
 }

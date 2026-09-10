@@ -9,7 +9,9 @@ import com.packatrack.data.db.EventDao
 import com.packatrack.data.db.LegDao
 import com.packatrack.data.db.OrderDao
 import com.packatrack.data.db.ShipmentDao
+import com.packatrack.core.db.LegLatestEvent
 import com.packatrack.core.db.ShipmentEntity
+import com.packatrack.core.db.TrackingLegEntity
 import com.packatrack.core.model.Carrier
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -74,5 +76,52 @@ class TrackingRepositoryTest {
         repository.archive(shipmentId)
 
         coVerify { shipments.update(match { it.id == shipmentId && it.archived }) }
+    }
+
+    /** Leg whose lastSyncAt is "now" so the poll cooldown skips it - no network in tests. */
+    private fun skippedLeg(id: Long, shipmentId: Long, statusCode: String?, syncedAt: Long = System.currentTimeMillis()) =
+        TrackingLegEntity(
+            id = id,
+            shipmentId = shipmentId,
+            trackingNumber = "NUM$id",
+            carrierId = "cainiao",
+            lastStatusCode = statusCode,
+            lastSyncAt = syncedAt,
+        )
+
+    @Test
+    fun `auto-archive fires when overall status is delivered`() = runTest {
+        every { prefs.autoArchiveDelivered } returns true
+        val leg = skippedLeg(10L, shipmentId = 1L, statusCode = "DELIVERED", syncedAt = System.currentTimeMillis())
+        coEvery { legs.allActiveLegs() } returns listOf(leg)
+        coEvery { legs.legsForShipment(1L) } returns listOf(leg)
+        coEvery { events.latestEventMsByLeg() } returns listOf(LegLatestEvent(legId = 10L, firstMs = System.currentTimeMillis()))
+        coEvery { shipments.byId(1L) } returns ShipmentEntity(id = 1L, createdAt = 1L, archived = false)
+
+        repository.refreshAll()
+
+        coVerify { shipments.update(match { it.id == 1L && it.archived }) }
+    }
+
+    @Test
+    fun `auto-archive does not fire while a fresher leg is still in transit`() = runTest {
+        // Regression: the origin carrier's stale DELIVERED beat (3 days old) must not archive
+        // a parcel whose destination leg scanned IN_TRANSIT just now - the overall status,
+        // not any single leg, decides.
+        every { prefs.autoArchiveDelivered } returns true
+        val now = System.currentTimeMillis()
+        val deliveredLeg = skippedLeg(10L, shipmentId = 1L, statusCode = "DELIVERED", syncedAt = now)
+        val transitLeg = skippedLeg(11L, shipmentId = 1L, statusCode = "IN_TRANSIT", syncedAt = now)
+        coEvery { legs.allActiveLegs() } returns listOf(deliveredLeg)
+        coEvery { legs.legsForShipment(1L) } returns listOf(deliveredLeg, transitLeg)
+        coEvery { events.latestEventMsByLeg() } returns listOf(
+            LegLatestEvent(legId = 10L, firstMs = now - 3L * 24 * 60 * 60 * 1000),
+            LegLatestEvent(legId = 11L, firstMs = now),
+        )
+        coEvery { shipments.byId(1L) } returns ShipmentEntity(id = 1L, createdAt = 1L, archived = false)
+
+        repository.refreshAll()
+
+        coVerify(exactly = 0) { shipments.update(any()) }
     }
 }

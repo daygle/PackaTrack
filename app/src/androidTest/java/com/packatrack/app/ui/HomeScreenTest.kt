@@ -72,6 +72,7 @@ class HomeScreenTest {
         every { repository.observeRecentChanges() } returns flowOf(emptyList())
         every { repository.observeFirstEventTimes() } returns flowOf(emptyMap())
         every { repository.observeLatestEvents() } returns flowOf(emptyMap())
+        every { repository.observeLatestEventMsByLeg() } returns flowOf(emptyMap())
     }
 
     @Test

@@ -28,25 +28,14 @@ fun statusLabel(code: String?): String = when (code?.trim()?.uppercase()) {
     else -> code.trim().lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
-private val STATUS_ORDER = listOf(
-    "DELIVERED",
-    "OUT_FOR_DELIVERY",
-    "PICKUP_AVAILABLE",
-    "IN_TRANSIT",
-    "LABEL_CREATED",
-)
-
-fun overallStatusCode(legs: List<TrackingLegEntity>): String? {
-    val codes = legs.asSequence()
-        .mapNotNull { it.lastStatusCode?.trim()?.uppercase()?.takeIf(String::isNotEmpty) }
-        .toList()
-    if (codes.isEmpty()) return null
-    if (codes.any { it == "EXCEPTION" || it.startsWith("EXCEPTION_") }) return "EXCEPTION"
-    return STATUS_ORDER.firstOrNull { it in codes } ?: codes.first()
-}
-
 fun daysInTransit(startMs: Long?): Int {
     if (startMs == null || startMs <= 0L) return 0
     val day = 24L * 60 * 60 * 1000
     return ((System.currentTimeMillis() / day) - (startMs / day)).toInt().coerceAtLeast(0)
 }
+
+/** Re-export of the shared heuristic in core, kept for existing feature-module callers. */
+fun overallStatusCode(
+    legs: List<TrackingLegEntity>,
+    newestEventMsByLeg: Map<Long, Long?>? = null,
+): String? = com.packatrack.core.model.overallStatusCode(legs, newestEventMsByLeg)

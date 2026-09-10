@@ -141,6 +141,14 @@ interface EventDao {
     @Query("SELECT * FROM events WHERE timeMs IS NOT NULL ORDER BY timeMs DESC, id DESC")
     fun observeLatestByShipment(): Flow<List<EventEntity>>
 
+    /** Newest timestamped event time per leg (legId -> max timeMs), for status recency votes. */
+    @Query("SELECT legId AS legId, MAX(timeMs) AS firstMs FROM events WHERE timeMs IS NOT NULL GROUP BY legId")
+    fun observeLatestEventMsByLeg(): Flow<List<LegLatestEvent>>
+
+    /** One-shot variant of [observeLatestEventMsByLeg] for post-refresh archive decisions. */
+    @Query("SELECT legId AS legId, MAX(timeMs) AS firstMs FROM events WHERE timeMs IS NOT NULL GROUP BY legId")
+    suspend fun latestEventMsByLeg(): List<LegLatestEvent>
+
     @Query("UPDATE events SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")
     suspend fun reassignShipment(oldShipmentId: Long, newShipmentId: Long)
 }
