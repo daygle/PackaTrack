@@ -39,9 +39,14 @@ jobs:
           java-version: '21'
 
       # Sets up the Android SDK environment.
-      # We omit explicit 'packages' to allow AGP to auto-provision the correct SDK versions (e.g., API 37).
+      # AGP auto-provisions the platform/build-tools it needs (e.g., API 37), but we must
+      # override the action's default 'packages' input ('tools platform-tools'): the obsolete
+      # 'tools' package was removed from Google's SDK repository, so the default install now
+      # fails with "Failed to find package 'tools'".
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       # Official Gradle Action for robust caching and build insights.
       - name: Setup Gradle
@@ -111,8 +116,12 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # Override the action's default 'packages' ('tools platform-tools'); the obsolete
+      # 'tools' package was removed from Google's SDK repository (see build-and-test job).
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
