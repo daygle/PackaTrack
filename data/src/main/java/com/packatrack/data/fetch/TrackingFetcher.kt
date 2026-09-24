@@ -17,7 +17,7 @@ fun interface TrackingFetcher {
  *
  * - Cainiao: public global detail JSON (no key).
  * - Australia Post: official v2 track API - needs a free AUTH-KEY in Settings.
- * - iMile: customer-facing endpoint (best effort; may require updating if iMile changes it).
+ * - iMile: the signed query endpoint behind imile.com's own web tracker (no key).
  */
 class HttpTrackingFetcher(
     private val ausPostKey: () -> String?,
@@ -143,18 +143,51 @@ class HttpTrackingFetcher(
     }
 
     private fun fetchImile(number: String): Snapshot? {
-        val candidates = listOf(
-            "https://customer.track.imile.com/api/open/tracking/query?trackingNumbers=$number",
-            "https://www.imile.com/api/track?trackingNumbers=$number&lang=en",
+        // Endpoint used by imile.com's own web tracker. The previously used hosts are gone:
+        // customer.track.imile.com no longer resolves and www.imile.com/api/track now 404s.
+        // The site signs every query, so mirror that signing instead of guessing endpoints:
+        //   code = MD5(waybillNo + salt) in the query string
+        //   sign = base64(RSA-PKCS1 v1.5 of waybillNo) with the public key published in
+        //          the track page bundle (headers may omit it; the query still resolves).
+        val headers = mutableMapOf(
+            "lang" to "en",
+            "Accept" to "application/json",
         )
-        for (url in candidates) {
-            val body = get(url, emptyMap()) ?: continue
-            val snap = com.packatrack.core.parse.ImileParser.parse(body, number)
-            if (snap != null) {
-                return snap
-            }
-        }
-        return null
+        imileSign(number)?.let { headers["sign"] = it }
+        val body = get(
+            "https://www.imile.com/saastms/mobileWeb/track/query" +
+                "?waybillNo=$number&code=${imileQueryCode(number)}",
+            headers,
+        ) ?: return null
+        android.util.Log.d("TrackingFetcher", "iMile response: ${body.take(500)}")
+        return com.packatrack.core.parse.ImileParser.parse(body, number)
+    }
+
+    /** Query signature iMile's web tracker appends to every track query. */
+    private fun imileQueryCode(number: String): String =
+        java.security.MessageDigest.getInstance("MD5")
+            .digest((number + IMILE_CODE_SALT).toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+
+    /** RSA (PKCS#1 v1.5) encryption of the waybill with iMile's published public key. */
+    private fun imileSign(number: String): String? = try {
+        val publicKey = java.security.KeyFactory.getInstance("RSA")
+            .generatePublic(
+                java.security.spec.X509EncodedKeySpec(
+                    android.util.Base64.decode(IMILE_PUBLIC_KEY, android.util.Base64.DEFAULT),
+                ),
+            )
+        val cipher = javax.crypto.Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, publicKey)
+        android.util.Base64.encodeToString(
+            cipher.doFinal(number.toByteArray(Charsets.UTF_8)),
+            android.util.Base64.NO_WRAP,
+        )
+    } catch (e: Exception) {
+        // If iMile ever rotates the key we degrade to an unsigned query rather than
+        // dropping the fetch entirely.
+        android.util.Log.w("TrackingFetcher", "iMile sign unavailable, querying unsigned", e)
+        null
     }
 
     /** Best-effort: Aramex's public shipment-tracking endpoints; graceful null when unreachable. */
@@ -173,5 +206,17 @@ class HttpTrackingFetcher(
 
     private companion object {
         const val MAX_REDIRECTS = 5
+        const val IMILE_CODE_SALT = "imileTrackQuery2024"
+
+        /**
+         * iMile's track-page RSA public key (X.509/SPKI, base64). The web tracker encrypts
+         * the waybill number with it and sends the result as the `sign` header.
+         */
+        const val IMILE_PUBLIC_KEY =
+            "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3dFPiKNZwt+HoBbPAG/t7kZC2k3pBX2eCl5L" +
+                "eyeW8woNuEV5bA5kB9Y9KKTOQng62ERGPLwi84CdIB8s265ljQUib//iO3jVrZesJueO5Xu+s80s3Z/8" +
+                "9jgJleT1XawN1GubgkGXOoT1a7tvX8+aItkGgR//48ELqJVVUL+yGsBtXxFjNmOEWxBJNQuwAf9yWcCI" +
+                "l1enD60GjZjPWrsfw8QUqam7K5e45ealcPEYGenNePwuPpCq6twdD0YYYzKdRN0dZP1uTviFpNfph90c" +
+                "9YgQ8kgDkRMcpjVv6KZ+bg5JZ4sK6LkV4vwOjPijisthHBvUXhu3fyhMgvoDO/j5gwIDAQAB"
     }
 }

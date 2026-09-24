@@ -9,13 +9,18 @@ import org.json.JSONObject
 
 /**
  * Parser for iMile's customer-facing track API used by their web tracker:
- *   https://customer.track.imile.com/...  (JSON with {"code":200,"data":{"records":[...]}})
+ *   https://www.imile.com/track?trackingNumbers=..
+ *   GET /saastms/mobileWeb/track/query?waybillNo=..&code=MD5(waybillNo + salt)
  *
  * Known shapes:
- *  A) {"code":"200","data":{"waybillNo":"..","weight":"12.5","status":"...", "records":[
- *        {"time":"2026-07-01 10:22","status":"In transit","content":"Arrived at Sydney hub",
- *          "location":"Sydney AU"}]}}
- *  B) code != "200" / {"success":false,"message":"waybill not found"} -> null (caller treats as not-found)
+ *  A) live envelope: {"status":"success","resultObject":{"waybillNo":"..","country":"..",
+ *       "trackInfos":[{"time":"2026-07-01 10:22:00","content":"Arrived at Sydney hub",
+ *         "trackStageTx":"In Transit","trackStage":2030,"operateStationName":"Sydney"}]}}
+ *  B) legacy envelope: {"code":"200","data":{"waybillNo":"..","weight":"12.5","status":"...",
+ *       "records":[{"time":"2026-07-01 10:22","status":"In transit",
+ *         "content":"Arrived at Sydney hub","location":"Sydney AU"}]}}
+ *  C) {"status":"error",..} / code != "200" / {"success":false} / no payload -> null
+ *     (caller treats as not-found)
  */
 object ImileParser {
 
@@ -25,16 +30,25 @@ object ImileParser {
         val code = JsonUtil.stringOr(root, "code") ?: root.optString("code")
         if (code.isNotBlank() && (code != "200") && (!root.optBoolean("success", true))) return null
 
-        val data = root.optJSONObject("data") ?: return null
+        // The live envelope reports failures through root "status"; anything but
+        // "success" means iMile has nothing to show for this number.
+        val status = JsonUtil.stringOr(root, "status")
+        if (status != null && !status.equals("success", ignoreCase = true)) return null
 
-        val records = firstArray(data, "records", "list", "traceEvents", "events") ?: JSONArray()
-        val number = firstNonBlank(data, "waybillNo", "trackingNumber").takeIf { it != null }
-            ?.ifBlank { requestedNumber } ?: requestedNumber
+        // Live envelope keeps the payload under "resultObject", the legacy one under "data".
+        val result = root.optJSONObject("resultObject")
+        val data = result ?: root.optJSONObject("data") ?: return null
+
+        val records = firstArray(data, "trackInfos", "records", "list", "traceEvents", "events")
+            ?: JSONArray()
+        val number = firstNonBlank(data, "waybillNo", "trackingNumber") ?: requestedNumber
 
         val events = mutableListOf<TrackingEvent>()
         for (i in 0 until records.length()) {
             val r = records.optJSONObject(i) ?: continue
-            val desc = firstNonBlank(r, "content", "description", "activity", "statusDetail").orEmpty()
+            val desc = firstNonBlank(
+                r, "content", "description", "activity", "statusDetail", "trackStageTx",
+            ).orEmpty()
             if (desc.isBlank()) continue
             events += TrackingEvent(
                 trackingNumber = number,
@@ -42,12 +56,16 @@ object ImileParser {
                     firstNonBlank(r, "time", "occurTime", "createTime", "scanTime"),
                 ),
                 description = desc,
-                location = firstNonBlank(r, "location", "city", "siteName"),
-                statusCode = mapToStatus(firstNonBlank(r, "status", "activity").orEmpty()),
+                location = firstNonBlank(r, "location", "city", "siteName", "operateStationName"),
+                statusCode = mapToStatus(firstNonBlank(r, "trackStageTx", "status", "activity").orEmpty())
+                    ?: stageToStatus(firstNonBlank(r, "trackStage")),
             )
         }
 
-        if (events.isEmpty() && firstNonBlank(data, "status") == null) return null
+        // No scans and no shipment status: the carrier has no history for this number.
+        // A waybill iMile did resolve (live envelope) still returns an empty timeline so
+        // the UI can tell "no scans yet" apart from "fetch failed".
+        if (events.isEmpty() && firstNonBlank(data, "status") == null && result == null) return null
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
 
         return Snapshot(
@@ -78,5 +96,18 @@ object ImileParser {
             t.isBlank().not() && (t.contains("created") || t.contains("booked")) -> "LABEL_CREATED"
             else -> null
         }
+    }
+
+    /**
+     * iMile's numeric trackStage codes, used when the human-readable trackStageTx (or
+     * status) text does not map to a known status. Codes as served by the live endpoint:
+     * 1001 = order created, 2030 = in transit, 2050 = out for delivery, 2060 = delivered.
+     */
+    private fun stageToStatus(stage: String?): String? = when (stage) {
+        "1001" -> "LABEL_CREATED"
+        "2030" -> "IN_TRANSIT"
+        "2050" -> "OUT_FOR_DELIVERY"
+        "2060" -> "DELIVERED"
+        else -> null
     }
 }
