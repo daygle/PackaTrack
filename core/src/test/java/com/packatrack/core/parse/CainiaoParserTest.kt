@@ -106,6 +106,18 @@ class CainiaoParserTest {
         assertEquals(null, CainiaoParser.parse("{oops"))
     }
 
+    @Test fun deliverySubstringsDoNotMapToDelivered() {
+        // "DELIVER" is a substring of these, but none of them means the parcel arrived.
+        assertEquals("OUT_FOR_DELIVERY", CainiaoParser.mapCode("OUT_FOR_DELIVERY"))
+        assertEquals("OUT_FOR_DELIVERY", CainiaoParser.mapCode("Out for delivery"))
+        assertEquals("OUT_FOR_DELIVERY", CainiaoParser.mapCode("GTMS_DELIVERING"))
+        assertEquals("EXCEPTION", CainiaoParser.mapCode("DELIVERY_FAILED"))
+        assertEquals("GTMS_ASSIGNED", CainiaoParser.mapCode("GTMS_ASSIGNED"))
+        assertEquals("DELIVERED", CainiaoParser.mapCode("GTMS_SIGNED"))
+        assertEquals("DELIVERED", CainiaoParser.mapCode("SIGNED_SUCCESS"))
+        assertEquals("IN_TRANSIT", CainiaoParser.mapCode("GWMS_ACCEPT"))
+    }
+
     @Test fun statusCodeMapsToNormalizedStatus() {
         assertEquals(ShipmentStatus.DELIVERED, ShipmentStatus.fromCode("DELIVERED"))
         assertEquals(ShipmentStatus.IN_TRANSIT, ShipmentStatus.fromCode("ARRIVED"))

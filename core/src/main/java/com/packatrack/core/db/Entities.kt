@@ -115,12 +115,12 @@ data class LegLatestEvent(
     val firstMs: Long?,
 )
 
-/** Human-readable change entries: renumbered / combined / reweighed / progress. */
+/** Human-readable change entries: renumbered / combined / progress / courier added. */
 @Entity(tableName = "changes", indices = [Index("shipmentId")])
 data class ChangeEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val shipmentId: Long,
-    /** One of: RENUMBERED | COMBINED | WEIGHT | PROGRESS | COURIER */
+    /** One of: RENUMBERED | COMBINED | PROGRESS | COURIER */
     val type: String,
     val message: String,
     val createdAt: Long = 0L,

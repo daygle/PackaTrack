@@ -118,12 +118,10 @@
     <string name="smart_import">智能导入</string>
     <string name="smart_import_hint">自动扫描邮件中的新追踪号码。</string>
     <string name="smart_import_account">账户: %1$s</string>
-    <string name="smart_import_select_account">选择Google账户</string>
 
     <string name="lock_title">PackaTrack 锁定</string>
     <string name="lock_subtitle">请验证身份以打开应用</string>
     <string name="auth_error">身份验证错误: %1$s</string>
-    <string name="item_default_name">商品</string>
 
     <string name="appearance">外观</string>
     <string name="theme_mode">主题模式</string>

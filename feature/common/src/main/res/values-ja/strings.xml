@@ -118,12 +118,10 @@
     <string name="smart_import">スマートインポート</string>
     <string name="smart_import_hint">メールを自動スキャンして新しい追跡番号を検出します。</string>
     <string name="smart_import_account">アカウント: %1$s</string>
-    <string name="smart_import_select_account">Googleアカウントを選択</string>
 
     <string name="lock_title">PackaTrack ロック</string>
     <string name="lock_subtitle">アプリを開くには認証が必要です</string>
     <string name="auth_error">認証エラー: %1$s</string>
-    <string name="item_default_name">商品</string>
 
     <string name="appearance">外観</string>
     <string name="theme_mode">テーマモード</string>

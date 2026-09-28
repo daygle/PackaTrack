@@ -2,7 +2,7 @@ package com.packatrack.core.model
 
 /**
  * A detected change between two polls/snapshots of a parcel:
- * renumbering, package combination/merge, weight change or progress.
+ * renumbering, package combination/merge or progress.
  */
 sealed interface ParcelChange {
     data class Renumbered(val oldNumber: String, val newNumber: String) : ParcelChange
@@ -12,5 +12,4 @@ sealed interface ParcelChange {
         /** Epoch millis of the tracking event, or null when the carrier reports no time. */
         val timeMs: Long? = null,
     ) : ParcelChange
-    data class WeightChanged(val fromGrams: Double?, val toGrams: Double) : ParcelChange
 }

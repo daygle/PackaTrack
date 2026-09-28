@@ -28,6 +28,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun changeDao(): ChangeDao
 
     companion object {
+        private const val DB_NAME = "packatrack.db"
+
         @Volatile private var instance: AppDatabase? = null
 
         // Schema baseline is version 1: the app has no released installs, so the historical
@@ -39,12 +41,24 @@ abstract class AppDatabase : RoomDatabase() {
                     // The database file is encrypted at rest with SQLCipher. The key is random,
                     // generated once and wrapped by the Android Keystore (see DatabaseKey).
                     System.loadLibrary("sqlcipher")
-                    val factory = SupportOpenHelperFactory(DatabaseKey.getOrCreate(appContext))
-                    Room.databaseBuilder(appContext, AppDatabase::class.java, "packatrack.db")
+                    val key = DatabaseKey.getOrCreate(appContext) {
+                        // Encrypted under a key that no longer exists: unreadable, so start over.
+                        appContext.deleteDatabase(DB_NAME)
+                    }
+                    val factory = SupportOpenHelperFactory(key)
+                    Room.databaseBuilder(appContext, AppDatabase::class.java, DB_NAME)
                         .openHelperFactory(factory)
                         .build()
                         .also { instance = it }
                 }
             }
     }
+}
+
+/**
+ * Initialises the encrypted database (SQLCipher load + Keystore key unwrap) ahead of first use.
+ * Blocking - call it off the main thread.
+ */
+fun warmUpDatabase(context: Context) {
+    AppDatabase.get(context)
 }

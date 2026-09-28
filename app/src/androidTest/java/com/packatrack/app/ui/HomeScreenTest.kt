@@ -22,6 +22,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Before
 import org.junit.Rule
@@ -59,20 +60,25 @@ class HomeScreenTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<MainActivity>()
 
+    /** Active parcels shown on Home; tests publish their fixtures here. */
+    private val activeShipments = MutableStateFlow<List<ShipmentWithLegs>>(emptyList())
+
+    // The activity (and so HomeViewModel, which reads these flows once) is launched before
+    // @Before runs, so the stubs must be in place when the mock is created.
     @BindValue
     @JvmField
-    val repository: TrackingRepository = mockk(relaxed = true)
+    val repository: TrackingRepository = mockk(relaxed = true) {
+        every { observeActive() } returns activeShipments
+        every { observeArchived() } returns flowOf(emptyList())
+        every { observeRecentChanges() } returns flowOf(emptyList())
+        every { observeFirstEventTimes() } returns flowOf(emptyMap())
+        every { observeLatestEvents() } returns flowOf(emptyMap())
+        every { observeLatestEventMsByLeg() } returns flowOf(emptyMap())
+    }
 
     @Before
     fun init() {
         hiltRule.inject()
-        // Provide empty flows by default to avoid crashes
-        every { repository.observeActive() } returns flowOf(emptyList())
-        every { repository.observeArchived() } returns flowOf(emptyList())
-        every { repository.observeRecentChanges() } returns flowOf(emptyList())
-        every { repository.observeFirstEventTimes() } returns flowOf(emptyMap())
-        every { repository.observeLatestEvents() } returns flowOf(emptyMap())
-        every { repository.observeLatestEventMsByLeg() } returns flowOf(emptyMap())
     }
 
     @Test
@@ -88,11 +94,9 @@ class HomeScreenTest {
 
     @Test
     fun searchFiltersParcelsByTitleAndTrackingNumber() {
-        every { repository.observeActive() } returns flowOf(
-            listOf(
-                entry(1, "Keyboard", "CNKEYB123456"),
-                entry(2, "Monitor", "CNMON098765"),
-            )
+        activeShipments.value = listOf(
+            entry(1, "Keyboard", "CNKEYB123456"),
+            entry(2, "Monitor", "CNMON098765"),
         )
         composeTestRule.onNodeWithContentDescription("Search").performClick()
 
@@ -118,11 +122,9 @@ class HomeScreenTest {
 
     @Test
     fun sortMenu_reordersParcelsByName() {
-        every { repository.observeActive() } returns flowOf(
-            listOf(
-                entry(1, "Zebra Plush", "CNZEB111111"),
-                entry(2, "Apple Pencil", "CNAPP222222"),
-            )
+        activeShipments.value = listOf(
+            entry(1, "Zebra Plush", "CNZEB111111"),
+            entry(2, "Apple Pencil", "CNAPP222222"),
         )
         composeTestRule.onNodeWithContentDescription("Sort").performClick()
         composeTestRule.onNodeWithText("Name").performClick()
@@ -144,11 +146,9 @@ class HomeScreenTest {
 
     @Test
     fun sortMenu_reordersParcelsByDateAdded() {
-        every { repository.observeActive() } returns flowOf(
-            listOf(
-                entry(1, "Old Parcel", "CNOLD111111", createdAt = 1_000L),
-                entry(2, "New Parcel", "CNNEW222222", createdAt = 2_000L),
-            )
+        activeShipments.value = listOf(
+            entry(1, "Old Parcel", "CNOLD111111", createdAt = 1_000L),
+            entry(2, "New Parcel", "CNNEW222222", createdAt = 2_000L),
         )
         composeTestRule.onNodeWithContentDescription("Sort").performClick()
         composeTestRule.onNodeWithText("Date Added").performClick()

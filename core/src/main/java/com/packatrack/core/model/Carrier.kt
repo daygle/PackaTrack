@@ -1,5 +1,7 @@
 package com.packatrack.core.model
 
+import java.net.URLEncoder
+
 /**
  * Canonical carriers supported by PackaTrack.
  *
@@ -48,5 +50,6 @@ enum class Carrier(
         fun fromId(id: String?): Carrier? = entries.firstOrNull { it.id == id }
     }
 
-    fun publicUrl(trackingNumber: String): String = webUrlTemplate.format(trackingNumber)
+    fun publicUrl(trackingNumber: String): String =
+        webUrlTemplate.format(URLEncoder.encode(trackingNumber.trim(), "UTF-8"))
 }

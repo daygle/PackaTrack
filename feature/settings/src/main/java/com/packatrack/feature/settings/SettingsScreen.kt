@@ -124,7 +124,9 @@ fun SettingsScreen(
     var restorePassphrase by remember { mutableStateOf("") }
     var backupError by remember { mutableStateOf<String?>(null) }
 
-    var key by remember { mutableStateOf(prefs.ausPostApiKey.orEmpty()) }
+    // The stored key is Keystore-encrypted; read it once rather than on every recomposition.
+    var savedKey by remember { mutableStateOf(prefs.ausPostApiKey.orEmpty()) }
+    var key by remember { mutableStateOf(savedKey) }
     var interval by remember { mutableIntStateOf(prefs.syncIntervalHours) }
     var notifications by remember { mutableStateOf(prefs.notificationsEnabled) }
     var delivered by remember { mutableStateOf(prefs.notifyOnDelivered) }
@@ -429,10 +431,13 @@ fun SettingsScreen(
                                 shape = RoundedCornerShape(12.dp)
                             )
                             Button(
-                                onClick = { prefs.ausPostApiKey = key },
+                                onClick = {
+                                    prefs.ausPostApiKey = key
+                                    savedKey = key.trim()
+                                },
                                 modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                enabled = key != prefs.ausPostApiKey
+                                enabled = key.trim() != savedKey
                             ) {
                                 Text(stringResource(R.string.save_credentials))
                             }
