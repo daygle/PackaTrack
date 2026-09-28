@@ -128,17 +128,22 @@ interface EventDao {
     @Query("SELECT * FROM events")
     suspend fun all(): List<EventEntity>
 
-    @Query("SELECT * FROM events WHERE legId = :legId AND ((timeMs = :timeMs) OR (timeMs IS NULL AND :timeMs IS NULL)) AND description = :description LIMIT 1")
-    suspend fun findDuplicate(legId: Long, timeMs: Long?, description: String): EventEntity?
-
-
     @Query("SELECT * FROM events WHERE shipmentId = :shipmentId ORDER BY timeMs IS NULL, timeMs DESC, id DESC")
     fun observeForShipment(shipmentId: Long): Flow<List<EventEntity>>
 
     @Query("SELECT shipmentId AS shipmentId, MIN(timeMs) AS firstMs FROM events WHERE timeMs IS NOT NULL GROUP BY shipmentId")
     fun observeFirstEventTimes(): Flow<List<ShipmentFirstEvent>>
 
-    @Query("SELECT * FROM events WHERE timeMs IS NOT NULL ORDER BY timeMs DESC, id DESC")
+    /**
+     * Each shipment's newest timestamped event(s), newest first. Ties on the newest time all
+     * come back (highest id first), so callers keep the first row per shipment.
+     */
+    @Query(
+        "SELECT e.* FROM events e JOIN (SELECT shipmentId, MAX(timeMs) AS maxMs FROM events " +
+            "WHERE timeMs IS NOT NULL GROUP BY shipmentId) latest " +
+            "ON e.shipmentId = latest.shipmentId AND e.timeMs = latest.maxMs " +
+            "ORDER BY e.timeMs DESC, e.id DESC",
+    )
     fun observeLatestByShipment(): Flow<List<EventEntity>>
 
     /** Newest timestamped event time per leg (legId -> max timeMs), for status recency votes. */

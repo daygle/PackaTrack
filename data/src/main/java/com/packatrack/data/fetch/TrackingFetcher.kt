@@ -1,7 +1,19 @@
 package com.packatrack.data.fetch
 
+import android.util.Log
 import com.packatrack.core.model.Carrier
 import com.packatrack.core.model.Snapshot
+import com.packatrack.core.parse.AramexParser
+import com.packatrack.core.parse.AusPostParser
+import com.packatrack.core.parse.CainiaoParser
+import com.packatrack.core.parse.ImileParser
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 /**
  * Fetches a tracking snapshot for one number from its carrier.
@@ -23,8 +35,8 @@ class HttpTrackingFetcher(
     private val ausPostKey: () -> String?,
 ) : TrackingFetcher {
 
-    private val client = okhttp3.OkHttpClient.Builder()
-        .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+    private val client = OkHttpClient.Builder()
+        .callTimeout(15, TimeUnit.SECONDS)
         // Never let OkHttp auto-follow redirects: it would forward request headers
         // (including the AusPost AUTH-KEY, which OkHttp does not strip) to whatever
         // host the redirect points at. get() follows same-host HTTPS hops itself.
@@ -36,7 +48,7 @@ class HttpTrackingFetcher(
         carrier: Carrier,
         trackingNumber: String,
         pollCount: Int,
-    ): Snapshot? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    ): Snapshot? = withContext(Dispatchers.IO) {
         runCatching {
             when (carrier) {
                 Carrier.UBI_SMART_PARCEL,
@@ -51,8 +63,8 @@ class HttpTrackingFetcher(
         }.getOrNull()
     }
 
-    private fun get(url: String, headers: Map<String, String>, redirectsLeft: Int = MAX_REDIRECTS): String? {
-        val builder = okhttp3.Request.Builder().url(url)
+    private fun get(url: HttpUrl, headers: Map<String, String>, redirectsLeft: Int = MAX_REDIRECTS): String? {
+        val builder = Request.Builder().url(url)
             // Let OkHttp add Accept-Encoding: gzip itself so it also decompresses the
             // response transparently. Setting the header manually would make us receive
             // raw gzip bytes and read them as garbage, breaking every parser.
@@ -71,75 +83,66 @@ class HttpTrackingFetcher(
                     return@use if (target != null && redirectsLeft > 0 &&
                         target.isHttps && target.host == resp.request.url.host
                     ) {
-                        get(target.toString(), headers, redirectsLeft - 1)
+                        get(target, headers, redirectsLeft - 1)
                     } else {
-                        android.util.Log.w("TrackingFetcher", "Not following redirect ${resp.code} $url -> ${target ?: "?"}")
+                        Log.w(TAG, "Not following redirect ${resp.code} from ${url.host} to ${target?.host ?: "?"}")
                         null
                     }
                 }
-                val body = resp.body.string()
-                android.util.Log.d("TrackingFetcher", "GET $url -> ${resp.code} (${body.length} bytes)")
                 if (!resp.isSuccessful) {
-                    android.util.Log.w("TrackingFetcher", "HTTP ${resp.code} for $url")
+                    Log.w(TAG, "HTTP ${resp.code} from ${url.host}")
                     return@use null
                 }
-                body
+                resp.body.string().also { debug { "GET ${url.host}${url.encodedPath} -> ${resp.code} (${it.length} bytes)" } }
             }
         } catch (e: Exception) {
-            android.util.Log.e("TrackingFetcher", "Failed to fetch $url", e)
+            Log.w(TAG, "Request to ${url.host} failed", e)
             null
         }
     }
 
     private fun fetchCainiao(number: String): Snapshot? {
-        // Try the standard JSON endpoint first
-        val body = get(
-            "https://global.cainiao.com/global/detail.json?mailNos=$number&lang=en",
-            mapOf(
-                "Referer" to "https://global.cainiao.com/newDetail.htm?mailNos=$number",
-                "Accept" to "application/json",
-            ),
+        // The standard JSON endpoint first, then the newer one that takes otherMailNoList.
+        val attempts = listOf(
+            listOf("mailNos" to number),
+            listOf("mailNoList" to number, "otherMailNoList" to ""),
         )
-        if (body != null) {
-            android.util.Log.d("TrackingFetcher", "Cainiao response: ${body.take(500)}")
-            // Check for CAPTCHA or rate limiting
-            if (body.contains("captcha", ignoreCase = true) || body.contains("verify", ignoreCase = true)) {
-                android.util.Log.w("TrackingFetcher", "Cainiao returned CAPTCHA/verify page for $number")
-                return null
-            }
-            val snap = com.packatrack.core.parse.CainiaoParser.parse(body)
-            if (snap != null) {
-                android.util.Log.d("TrackingFetcher", "Parsed ${snap.events.size} events from Cainiao")
+        for (params in attempts) {
+            val url = CAINIAO_DETAIL.toHttpUrl().newBuilder()
+                .apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }
+                .addQueryParameter("lang", "en")
+                .build()
+            val referer = CAINIAO_PAGE.toHttpUrl().newBuilder()
+                .apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }
+                .build()
+            val body = get(url, mapOf("Referer" to referer.toString(), "Accept" to "application/json")) ?: continue
+            debug { "Cainiao response: ${body.take(500)}" }
+            CainiaoParser.parse(body)?.let { snap ->
+                debug { "Parsed ${snap.events.size} events from Cainiao" }
                 return snap
             }
+            // Only an unparseable body counts as a bot check: real scans can legitimately say
+            // things like "address verify" and must not be discarded.
+            if (body.contains("captcha", ignoreCase = true) || body.contains("verify", ignoreCase = true)) {
+                Log.w(TAG, "Cainiao returned a CAPTCHA/verify page")
+                return null
+            }
         }
-        // Fallback: try the newer API endpoint that supports otherMailNoList
-        val body2 = get(
-            "https://global.cainiao.com/global/detail.json?mailNoList=$number&otherMailNoList=&lang=en",
-            mapOf(
-                "Referer" to "https://global.cainiao.com/newDetail.htm?mailNoList=$number&otherMailNoList=",
-                "Accept" to "application/json",
-            ),
-        )
-        if (body2 != null) {
-            android.util.Log.d("TrackingFetcher", "Cainiao fallback response: ${body2.take(500)}")
-            return com.packatrack.core.parse.CainiaoParser.parse(body2)
-        }
-        android.util.Log.w("TrackingFetcher", "All Cainiao endpoints failed for $number")
+        Log.w(TAG, "All Cainiao endpoints failed")
         return null
     }
 
     private fun fetchAusPost(number: String): Snapshot? {
         val key = ausPostKey()?.takeIf { it.isNotBlank() }
         if (key == null) {
-            android.util.Log.w("TrackingFetcher", "AusPost API key not configured, skipping")
+            Log.w(TAG, "AusPost API key not configured, skipping")
             return null
         }
-        val body = get(
-            "https://digitalapi.auspost.com.au/v2/postage/track/events?q=$number",
-            mapOf("AUTH-KEY" to key, "Accept" to "application/json"),
-        ) ?: return null
-        return com.packatrack.core.parse.AusPostParser.parse(body, number)
+        val url = "https://digitalapi.auspost.com.au/v2/postage/track/events".toHttpUrl().newBuilder()
+            .addQueryParameter("q", number)
+            .build()
+        val body = get(url, mapOf("AUTH-KEY" to key, "Accept" to "application/json")) ?: return null
+        return AusPostParser.parse(body, number)
     }
 
     private fun fetchImile(number: String): Snapshot? {
@@ -154,13 +157,13 @@ class HttpTrackingFetcher(
             "Accept" to "application/json",
         )
         imileSign(number)?.let { headers["sign"] = it }
-        val body = get(
-            "https://www.imile.com/saastms/mobileWeb/track/query" +
-                "?waybillNo=$number&code=${imileQueryCode(number)}",
-            headers,
-        ) ?: return null
-        android.util.Log.d("TrackingFetcher", "iMile response: ${body.take(500)}")
-        return com.packatrack.core.parse.ImileParser.parse(body, number)
+        val url = "https://www.imile.com/saastms/mobileWeb/track/query".toHttpUrl().newBuilder()
+            .addQueryParameter("waybillNo", number)
+            .addQueryParameter("code", imileQueryCode(number))
+            .build()
+        val body = get(url, headers) ?: return null
+        debug { "iMile response: ${body.take(500)}" }
+        return ImileParser.parse(body, number)
     }
 
     /** Query signature iMile's web tracker appends to every track query. */
@@ -186,26 +189,39 @@ class HttpTrackingFetcher(
     } catch (e: Exception) {
         // If iMile ever rotates the key we degrade to an unsigned query rather than
         // dropping the fetch entirely.
-        android.util.Log.w("TrackingFetcher", "iMile sign unavailable, querying unsigned", e)
+        Log.w(TAG, "iMile sign unavailable, querying unsigned", e)
         null
     }
 
     /** Best-effort: Aramex's public shipment-tracking endpoints; graceful null when unreachable. */
     private fun fetchAramex(number: String): Snapshot? {
         val candidates = listOf(
-            "https://www.aramex.com/api/tracking/gettrackingresults?shipmentNumber=$number",
-            "https://tracking.aramex.com/api/shipments/track?ShipmentNumber=$number",
+            "https://www.aramex.com/api/tracking/gettrackingresults".toHttpUrl().newBuilder()
+                .addQueryParameter("shipmentNumber", number).build(),
+            "https://tracking.aramex.com/api/shipments/track".toHttpUrl().newBuilder()
+                .addQueryParameter("ShipmentNumber", number).build(),
         )
         for (url in candidates) {
             val body = get(url, mapOf("Accept" to "application/json")) ?: continue
-            val snap = com.packatrack.core.parse.AramexParser.parse(body, number)
+            val snap = AramexParser.parse(body, number)
             if (snap != null) return snap
         }
         return null
     }
 
     private companion object {
+        const val TAG = "TrackingFetcher"
         const val MAX_REDIRECTS = 5
+        const val CAINIAO_DETAIL = "https://global.cainiao.com/global/detail.json"
+        const val CAINIAO_PAGE = "https://global.cainiao.com/newDetail.htm"
+
+        /**
+         * Response bodies can carry delivery details, so they are only logged when debug
+         * logging is switched on for this tag (`adb shell setprop log.tag.TrackingFetcher DEBUG`).
+         */
+        inline fun debug(message: () -> String) {
+            if (Log.isLoggable(TAG, Log.DEBUG)) Log.d(TAG, message())
+        }
         const val IMILE_CODE_SALT = "imileTrackQuery2024"
 
         /**

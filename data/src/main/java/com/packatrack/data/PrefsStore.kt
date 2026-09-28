@@ -4,6 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -58,6 +62,16 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
         get() = prefs.getString(KEY_THEME, "system") ?: "system"
         set(value) = prefs.edit { putString(KEY_THEME, value) }
 
+    /** Emits the current [themeMode] and then every change, so the theme applies immediately. */
+    fun observeThemeMode(): Flow<String> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_THEME) trySend(themeMode)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        trySend(themeMode)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
     var sortOrder: String
         get() = prefs.getString(KEY_SORT_ORDER, ParcelSortOrder.LAST_ACTIVITY.key) ?: ParcelSortOrder.LAST_ACTIVITY.key
         set(value) = prefs.edit { putString(KEY_SORT_ORDER, value) }
@@ -81,6 +95,11 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
     var smartImportAccount: String?
         get() = prefs.getString(KEY_SMART_ACCOUNT, null)
         set(value) = prefs.edit { putString(KEY_SMART_ACCOUNT, value) }
+
+    /** When Gmail Smart Import last completed, so each run only scans newer mail. */
+    var smartImportLastRunAt: Long
+        get() = prefs.getLong(KEY_SMART_LAST_RUN, 0L)
+        set(value) = prefs.edit { putLong(KEY_SMART_LAST_RUN, value) }
 
     var biometricLock: Boolean
         get() = prefs.getBoolean(KEY_BIOMETRIC_LOCK, false)
@@ -138,6 +157,7 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
         const val KEY_AUTO_ARCHIVE = "auto_archive_delivered"
         const val KEY_SMART_IMPORT = "smart_import_enabled"
         const val KEY_SMART_ACCOUNT = "smart_import_account"
+        const val KEY_SMART_LAST_RUN = "smart_import_last_run_at"
         const val KEY_BIOMETRIC_LOCK = "biometric_lock"
         const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
         const val KEY_ACTIVITY_SEEN_PREFIX = "activity_seen_"

@@ -121,12 +121,10 @@
     <string name="smart_import">Intelligenter Import</string>
     <string name="smart_import_hint">E-Mails automatisch auf neue Sendungsnummern scannen.</string>
     <string name="smart_import_account">Konto: %1$s</string>
-    <string name="smart_import_select_account">Google-Konto auswählen</string>
 
     <string name="lock_title">PackaTrack Sperre</string>
     <string name="lock_subtitle">Authentifizieren Sie sich, um die App zu öffnen</string>
     <string name="auth_error">Authentifizierungsfehler: %1$s</string>
-    <string name="item_default_name">Artikel</string>
 
     <string name="appearance">Darstellung</string>
     <string name="theme_mode">Designmodus</string>

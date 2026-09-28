@@ -2,7 +2,7 @@
 
 [![Android CI](https://github.com/daygle/PackaTrack/actions/workflows/android-ci.yml/badge.svg)](https://github.com/daygle/PackaTrack/actions/workflows/android-ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Kotlin](https://img.shields.io/badge/kotlin-2.4.10-blue.svg?logo=kotlin)](http://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.4.20-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![Platform](https://img.shields.io/badge/platform-Android-green.svg?logo=android)](https://www.android.com)
 
 **PackaTrack** is a modern, native Android application designed to handle the complexities of international package tracking. It specializes in tracking shipments from **AliExpress**, **Cainiao**, **Australia Post**, and **iMile**, with a focus on solving the "renumbering" and "consolidation" problems that often leave users confused.
@@ -26,13 +26,13 @@
 
 ## 🛠 Tech Stack
 
-- **Language**: Kotlin 2.4.10
+- **Language**: Kotlin 2.4.20
 - **UI**: Jetpack Compose (Material 3)
-- **Architecture**: MVI / Clean Architecture (Modularized)
+- **Architecture**: MVVM (ViewModels per screen), modularized by layer and feature
 - **Database**: Room (with SQLCipher encryption)
 - **Networking**: OkHttp 5.5.0
 - **Background Work**: WorkManager
-- **DI**: Hilt / Manual DI (Modularized via `AppContainer`)
+- **DI**: Hilt
 
 ---
 
@@ -68,20 +68,26 @@
 
 ## 🏗 Project Architecture
 
-PackaTrack is split into two main modules to ensure high-quality, testable logic:
+PackaTrack is split into layered modules so the tracking logic stays testable on the plain JVM:
 
-### 🧩 `core` Module (Pure Kotlin)
-The heart of the application. It contains the tracking engine, parsers, and change detection logic.
-- **Parsers**: Normalizes raw carrier data (Cainiao, AU Post, iMile, Aramex).
-- **Detectors**: Logic for renumbering detection using weight fingerprints and consolidation detection.
-- **Change Log**: Business logic for generating shipment events.
+### 🧩 `core` (tracking engine)
+- **Parsers**: Normalize raw carrier data (Cainiao, AU Post, iMile, Aramex).
+- **Detectors**: Carrier detection from number formats, renumbering detection (number
+  fingerprints / dimensions) and consolidation detection.
+- **Change Log**: Business logic for generating shipment events, plus the Room entities.
 
-### 📱 `app` Module (Android)
-The UI and infrastructure layer.
-- **Compose UI**: Modern, reactive screens for home, details, and settings.
-- **Repository**: Orchestrates data flow between network fetchers and the local Room database.
-- **Backup**: Encrypted export/import system for your tracking history.
-- **Security**: Keystore integration and database encryption management.
+### 💾 `data` (infrastructure)
+- **Repository**: Orchestrates data flow between the carrier fetchers and the local Room database.
+- **Security**: SQLCipher database encryption with a Keystore-wrapped key; Keystore-encrypted secrets.
+- **Backup**: Passphrase-encrypted export/import of your tracking history.
+- **Background work**: Periodic sync, Gmail Smart Import and notifications.
+
+### 🖼 `feature:*` (UI)
+- `feature:home`, `feature:detail`, `feature:settings`: Compose screens with their ViewModels.
+- `feature:common`: Shared theme, components, strings and display helpers.
+
+### 📱 `app`
+The application shell: Hilt setup, navigation, biometric lock and worker scheduling.
 
 ---
 

@@ -14,9 +14,12 @@ import kotlin.math.min
  */
 object FingerprintUtil {
 
+    /** Shortest normalized tracking number PackaTrack accepts. */
+    const val MIN_NUMBER_LENGTH = 6
+
     private val NON_ALNUM = Regex("[^A-Za-z0-9]")
 
-    /** Lowercased alphanumeric-only tracking number used for comparisons. */
+    /** Uppercased alphanumeric-only tracking number used for storage and comparisons. */
     fun normalize(raw: String): String = NON_ALNUM.replace(raw.trim(), "").uppercase()
 
     /** Longest common suffix length of two normalized tracking numbers. */

@@ -7,9 +7,11 @@ data class Snapshot(
     val events: List<TrackingEvent>,
     /** Alternate/current numbers reported by the carrier for the same parcel. */
     val relatedTrackingNumbers: List<String> = emptyList(),
-) {
-    companion object {
-        fun empty(trackingNumber: String) =
-            Snapshot(trackingNumber, null, emptyList())
-    }
-}
+)
+
+/** Parcel dimensions in centimetres. */
+data class Dimensions(
+    val lengthCm: Double,
+    val widthCm: Double,
+    val heightCm: Double,
+)

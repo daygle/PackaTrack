@@ -58,7 +58,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,23 +72,18 @@ import com.packatrack.feature.common.R
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.packatrack.data.ParcelSortOrder
-import com.packatrack.data.TrackingRepository.RefreshOutcome
 import com.packatrack.core.db.ShipmentWithLegs
-import com.packatrack.notify.Notifier
-import com.packatrack.sync.SyncWorker
 import com.packatrack.feature.common.components.CarrierChip
 import com.packatrack.feature.common.components.StatusPill
 import com.packatrack.feature.common.daysInTransit
+import com.packatrack.feature.common.formatLocalDateTime
 import com.packatrack.feature.common.overallStatusCode
 import com.packatrack.feature.common.parcelName
 import com.packatrack.feature.common.theme.MonoNumber
 import com.packatrack.feature.common.theme.daysInTransitColor as daysInTransitColorDynamic
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import com.packatrack.core.detect.CarrierDetector
+import com.packatrack.core.util.FingerprintUtil
 import com.packatrack.core.model.Carrier
-import kotlinx.coroutines.launch
 
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Search
@@ -120,11 +114,9 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val repo = viewModel.repository
-    val scope = rememberCoroutineScope()
 
-    val connectivityObserver = remember { NetworkConnectivityObserver(context) }
-    val networkStatus by connectivityObserver.observe().collectAsStateWithLifecycle(initialValue = ConnectivityObserver.Status.Available)
+    val networkStatusFlow = remember { NetworkConnectivityObserver(context).observe() }
+    val networkStatus by networkStatusFlow.collectAsStateWithLifecycle(initialValue = ConnectivityObserver.Status.Available)
 
     var searchQuery by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
@@ -132,14 +124,13 @@ fun HomeScreen(
     var sortOrder by remember { mutableStateOf(ParcelSortOrder.fromKey(viewModel.prefs.sortOrder)) }
     var showSortMenu by remember { mutableStateOf(false) }
 
-    val activeShipments by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val archivedShipments by repo.observeArchived().collectAsStateWithLifecycle(initialValue = emptyList())
-    val recentChanges by repo.observeRecentChanges().collectAsStateWithLifecycle(initialValue = emptyList())
-    val firstEventTimes by repo.observeFirstEventTimes().collectAsStateWithLifecycle(initialValue = emptyMap())
-    val latestEvents by repo.observeLatestEvents().collectAsStateWithLifecycle(initialValue = emptyMap())
-    // Newest timestamped scan per courier leg: drives the overall-status recency vote so a
-    // stale DELIVERED leg cannot outrank a leg that is still moving.
-    val newestEventMsByLeg by repo.observeLatestEventMsByLeg().collectAsStateWithLifecycle(initialValue = emptyMap())
+    val activeShipments by viewModel.activeShipments.collectAsStateWithLifecycle(initialValue = emptyList())
+    val archivedShipments by viewModel.archivedShipments.collectAsStateWithLifecycle(initialValue = emptyList())
+    val recentChanges by viewModel.recentChanges.collectAsStateWithLifecycle(initialValue = emptyList())
+    val firstEventTimes by viewModel.firstEventTimes.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val latestEvents by viewModel.latestEvents.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val newestEventMsByLeg by viewModel.newestEventMsByLeg.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val syncing by viewModel.syncing.collectAsStateWithLifecycle()
 
     val currentShipments = if (selectedTab == 0) activeShipments else archivedShipments
     val filteredShipments = remember(currentShipments, searchQuery, sortOrder, latestEvents, firstEventTimes, newestEventMsByLeg) {
@@ -157,10 +148,8 @@ fun HomeScreen(
             ParcelSortOrder.NAME -> filtered.sortedBy { parcelName(it.shipment, it.orders, it.legs).lowercase() }
             ParcelSortOrder.DATE_ADDED -> filtered.sortedByDescending { it.shipment.createdAt }
             ParcelSortOrder.LAST_ACTIVITY -> filtered.sortedByDescending { latestEvents[it.shipment.id]?.timeMs ?: 0L }
-            ParcelSortOrder.DAYS_IN_TRANSIT -> filtered.sortedByDescending {
-                val firstMs = firstEventTimes[it.shipment.id] ?: return@sortedByDescending 0L
-                System.currentTimeMillis() - firstMs
-            }
+            // Oldest start first; same start time as the card's day count (first scan, else added).
+            ParcelSortOrder.DAYS_IN_TRANSIT -> filtered.sortedBy { firstEventTimes[it.shipment.id] ?: it.shipment.createdAt }
             ParcelSortOrder.STATUS -> {
                 val rank = listOf("EXCEPTION", "OUT_FOR_DELIVERY", "PICKUP_AVAILABLE", "IN_TRANSIT", "LABEL_CREATED", "DELIVERED", null)
                 filtered.sortedBy { entry ->
@@ -171,7 +160,6 @@ fun HomeScreen(
         }
     }
 
-    var syncing by remember { mutableStateOf(value = false) }
     var showAddDialog by remember { mutableStateOf(initialNumber != null) }
 
     // First launch after install: treat the existing tracking history as already seen so
@@ -199,21 +187,6 @@ fun HomeScreen(
         val now = System.currentTimeMillis()
         viewModel.prefs.markActivitySeen(shipmentId, now)
         activitySeen[shipmentId] = now
-    }
-
-    // Manual refresh: a no-op while one is already running.
-    fun runSync(block: suspend () -> RefreshOutcome) {
-        if (syncing) return
-        syncing = true
-        scope.launch {
-            try {
-                val outcome = block()
-                Notifier.postChanges(context, outcome.notable)
-            } finally {
-                // Always clear the flag or a single failure would disable every refresh control.
-                syncing = false
-            }
-        }
     }
 
     Scaffold(
@@ -323,7 +296,7 @@ fun HomeScreen(
                                     }
                                 }
                             }
-                            IconButton(onClick = { runSync { repo.refreshAll(force = true) } }) {
+                            IconButton(onClick = { viewModel.refreshAll(force = true) }) {
                                 if (syncing) {
                                     CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                                 } else {
@@ -367,7 +340,7 @@ fun HomeScreen(
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = syncing,
-            onRefresh = { runSync { repo.refreshAll() } },
+            onRefresh = { viewModel.refreshAll(force = false) },
             modifier = Modifier.padding(padding)
         ) {
             LazyColumn(
@@ -391,12 +364,9 @@ fun HomeScreen(
                             markActivitySeen(entry.shipment.id)
                             onOpenDetail(entry.shipment.id)
                         },
-                        onDelete = { scope.launch { repo.delete(entry.shipment.id) } },
-                        onArchive = { scope.launch {
-                            if (entry.shipment.archived) repo.unarchive(entry.shipment.id)
-                            else repo.archive(entry.shipment.id)
-                        } },
-                        onRefresh = { runSync { repo.refreshShipment(entry.shipment.id, force = true) } },
+                        onDelete = { viewModel.delete(entry.shipment.id) },
+                        onArchive = { viewModel.setArchived(entry.shipment.id, !entry.shipment.archived) },
+                        onRefresh = { viewModel.refreshShipment(entry.shipment.id) },
                     )
                 }
             }
@@ -410,26 +380,9 @@ fun HomeScreen(
             onDismiss = { showAddDialog = false },
             onSave = { number, title, orderUrl, carrier ->
                 showAddDialog = false
-                // Always perform the add (never gated by an in-flight refresh), then poll
-                // just the new parcel.
-                syncing = true
-                scope.launch {
-                    try {
-                        val newId = runCatching {
-                            repo.addShipment(number, title, orderUrl, carrier)
-                        }.getOrNull()
-                        val outcome = newId?.let { repo.refreshShipment(it, force = true) } ?: RefreshOutcome(0, emptyList())
-                        Notifier.postChanges(context, outcome.notable)
-                    } finally {
-                        syncing = false
-                    }
-                }
+                viewModel.addShipment(number, title, orderUrl, carrier)
             },
         )
-    }
-
-    LaunchedEffect(viewModel.prefs.syncIntervalHours, viewModel.prefs.wifiOnlySync) {
-        SyncWorker.schedule(context, viewModel.prefs.syncIntervalHours, viewModel.prefs.wifiOnlySync)
     }
 }
 
@@ -601,7 +554,7 @@ private fun ParcelCard(
                         event.timeMs?.let { timeMs ->
                             Spacer(Modifier.weight(1f))
                             Text(
-                                formatEventDateTime(timeMs, prefs.dateTimeFormat),
+                                formatLocalDateTime(timeMs, prefs.dateTimeFormat),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             )
@@ -672,13 +625,14 @@ private fun AddShipmentDialog(
     val chosen = override
 
     val needsAusPostKey = (chosen == Carrier.AUSTRALIA_POST || (chosen == null && detectedCarriers.contains(Carrier.AUSTRALIA_POST)))
-    val hasAusPostKey = !viewModel.prefs.ausPostApiKey.isNullOrBlank()
+    // Decrypting the stored key hits the Keystore, so do it once per dialog, not per keystroke.
+    val hasAusPostKey = remember { !viewModel.prefs.ausPostApiKey.isNullOrBlank() }
 
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                enabled = number.trim().length >= 6,
+                enabled = FingerprintUtil.normalize(number).length >= FingerprintUtil.MIN_NUMBER_LENGTH,
                 onClick = {
                     onSave(
                         number.trim(),
@@ -785,13 +739,4 @@ private fun AddShipmentDialog(
             }
         },
     )
-}
-
-private fun formatEventDateTime(timeMs: Long, pattern: String): String {
-    val sdf = try {
-        SimpleDateFormat(pattern, Locale.getDefault())
-    } catch (_: IllegalArgumentException) {
-        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
-    }
-    return sdf.format(Date(timeMs))
 }

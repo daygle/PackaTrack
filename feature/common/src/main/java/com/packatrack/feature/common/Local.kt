@@ -3,6 +3,9 @@ package com.packatrack.feature.common
 import com.packatrack.core.db.OrderItemEntity
 import com.packatrack.core.db.ShipmentEntity
 import com.packatrack.core.db.TrackingLegEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** Display name for a parcel, falling back from custom title to order name to tracking number. */
 fun parcelName(
@@ -39,3 +42,16 @@ fun overallStatusCode(
     legs: List<TrackingLegEntity>,
     newestEventMsByLeg: Map<Long, Long?>? = null,
 ): String? = com.packatrack.core.model.overallStatusCode(legs, newestEventMsByLeg)
+
+/**
+ * Formats a device-clock timestamp (e.g. a scan time or last sync) with the user's chosen
+ * pattern in the device's time zone, falling back to the default pattern if it is invalid.
+ */
+fun formatLocalDateTime(timeMs: Long, pattern: String): String {
+    val sdf = try {
+        SimpleDateFormat(pattern, Locale.getDefault())
+    } catch (_: IllegalArgumentException) {
+        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+    }
+    return sdf.format(Date(timeMs))
+}

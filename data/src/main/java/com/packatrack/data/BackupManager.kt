@@ -9,8 +9,10 @@ import com.packatrack.core.db.EventEntity
 import com.packatrack.core.db.OrderItemEntity
 import com.packatrack.core.db.ShipmentEntity
 import com.packatrack.core.db.TrackingLegEntity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -20,22 +22,36 @@ class BackupManager(context: Context) {
     private val db = AppDatabase.get(appContext)
     private val backupMutex = Mutex()
 
+    // Key derivation (PBKDF2), JSON building and file I/O are all blocking, so both entry points
+    // move off the caller's (usually Main) dispatcher.
     suspend fun export(uri: Uri, passphrase: CharArray) = backupMutex.withLock {
-        val payload = JSONObject()
-            .put("format", FORMAT)
-            .put("version", BackupCodec.VERSION)
-            .put("createdAt", System.currentTimeMillis())
-            .put("shipments", JSONArray(db.shipmentDao().all().map(ShipmentEntity::toJson)))
-            .put("legs", JSONArray(db.legDao().all().map(TrackingLegEntity::toJson)))
-            .put("orders", JSONArray(db.orderDao().all().map(OrderItemEntity::toJson)))
-            .put("events", JSONArray(db.eventDao().all().map(EventEntity::toJson)))
-            .put("changes", JSONArray(db.changeDao().all().map(ChangeEntity::toJson)))
+        withContext(Dispatchers.IO) { exportLocked(uri, passphrase) }
+    }
+
+    suspend fun import(uri: Uri, passphrase: CharArray, replaceExisting: Boolean = false) = backupMutex.withLock {
+        withContext(Dispatchers.IO) { importLocked(uri, passphrase, replaceExisting) }
+    }
+
+    private suspend fun exportLocked(uri: Uri, passphrase: CharArray) {
+        // Read every table in one transaction so a concurrent refresh can't leave the backup
+        // referencing a leg or parcel that is missing from it (which import would reject).
+        val payload = db.withTransaction {
+            JSONObject()
+                .put("format", FORMAT)
+                .put("version", BackupCodec.VERSION)
+                .put("createdAt", System.currentTimeMillis())
+                .put("shipments", JSONArray(db.shipmentDao().all().map(ShipmentEntity::toJson)))
+                .put("legs", JSONArray(db.legDao().all().map(TrackingLegEntity::toJson)))
+                .put("orders", JSONArray(db.orderDao().all().map(OrderItemEntity::toJson)))
+                .put("events", JSONArray(db.eventDao().all().map(EventEntity::toJson)))
+                .put("changes", JSONArray(db.changeDao().all().map(ChangeEntity::toJson)))
+        }
         val fileBytes = BackupCodec.seal(payload.toString().toByteArray(Charsets.UTF_8), passphrase)
         appContext.contentResolver.openOutputStream(uri)?.use { output -> output.write(fileBytes) }
             ?: throw IOException("Unable to open backup destination")
     }
 
-    suspend fun import(uri: Uri, passphrase: CharArray, replaceExisting: Boolean = false) = backupMutex.withLock {
+    private suspend fun importLocked(uri: Uri, passphrase: CharArray, replaceExisting: Boolean) {
         val fileBytes = appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
             ?: throw IOException("Unable to open backup file")
         val root = JSONObject(String(BackupCodec.open(fileBytes, passphrase), Charsets.UTF_8))
@@ -54,9 +70,7 @@ class BackupManager(context: Context) {
             if (replaceExisting) db.clearAllTables()
 
             // tracking number -> existing shipment already carrying a leg with that number.
-            val existingShipmentIdByTrackingNumber = db.shipmentDao().all().flatMap { shipment ->
-                db.legDao().legsForShipment(shipment.id).map { it.trackingNumber to shipment.id }
-            }.toMap()
+            val existingShipmentIdByTrackingNumber = db.legDao().all().associate { it.trackingNumber to it.shipmentId }
 
             val targets: Map<Long, Long?> = if (replaceExisting) {
                 emptyMap()
@@ -90,12 +104,12 @@ class BackupManager(context: Context) {
                         db.orderDao().findDuplicate(candidate.shipmentId, candidate.name, candidate.orderUrl) != null
                     },
             )
+            // Events only go to newly inserted legs, so none can already exist in the database;
+            // the unique index (IGNORE) drops any duplicates within the backup itself.
             db.eventDao().insertAll(
                 events.mapNotNull { source ->
                     val mappedLeg = legMap[source.legId] ?: return@mapNotNull null
                     source.copy(id = 0, shipmentId = shipmentMap.getValue(source.shipmentId), legId = mappedLeg)
-                }.filterNot { candidate ->
-                    db.eventDao().findDuplicate(candidate.legId, candidate.timeMs, candidate.description) != null
                 },
             )
             db.changeDao().insertAll(

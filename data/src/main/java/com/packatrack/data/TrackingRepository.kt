@@ -1,6 +1,7 @@
 package com.packatrack.data
 
 import android.content.Context
+import android.util.Log
 import com.packatrack.data.db.AppDatabase
 import com.packatrack.core.db.ChangeEntity
 import com.packatrack.core.db.EventEntity
@@ -10,7 +11,9 @@ import com.packatrack.core.db.ShipmentWithLegs
 import com.packatrack.core.db.TrackingLegEntity
 import com.packatrack.data.fetch.HttpTrackingFetcher
 import com.packatrack.core.changelog.ChangeLogService
+import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.model.overallStatusCode
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
@@ -88,16 +91,15 @@ class TrackingRepository @Inject constructor(
         carrierOverride: Carrier?,
     ): Long {
         val number = FingerprintUtil.normalize(rawNumber)
-        require(number.length >= 6) { "Tracking number looks too short" }
+        require(number.length >= FingerprintUtil.MIN_NUMBER_LENGTH) { "Tracking number looks too short" }
 
         legs.findByTrackingNumber(number)?.let { existing ->
-            // An older install may already contain this number under only one carrier.
-            // Complete the auto setup when the same number is added again.
+            // An older install may already contain this number under only some of its
+            // carriers. Complete the auto setup when the same number is added again
+            // (addCourierUnlocked is a no-op for carriers that already have a leg).
             if (carrierOverride == null) {
-                detectCarriers(number).drop(1).forEach { detected ->
-                    if (legs.findByTrackingNumberAndCarrier(number, detected.id) == null) {
-                        addCourierUnlocked(existing.shipmentId, number, detected)
-                    }
+                detectCarriers(number).forEach { detected ->
+                    addCourierUnlocked(existing.shipmentId, number, detected)
                 }
             }
             return existing.shipmentId
@@ -170,7 +172,7 @@ class TrackingRepository @Inject constructor(
         carrierOverride: Carrier?,
     ): Long {
         val number = FingerprintUtil.normalize(rawNumber)
-        require(number.length >= 6) { "Tracking number looks too short" }
+        require(number.length >= FingerprintUtil.MIN_NUMBER_LENGTH) { "Tracking number looks too short" }
 
         val carrier = carrierOverride ?: detectCarriers(number).firstOrNull() ?: Carrier.CAINIAO
         legs.findByTrackingNumberAndCarrier(number, carrier.id)?.let { return it.id }
@@ -195,9 +197,11 @@ class TrackingRepository @Inject constructor(
     }
 
     /** Removes one courier leg (and its scans) from a parcel. */
-    suspend fun removeCourier(legId: Long) {
-        events.deleteForLeg(legId)
-        legs.deleteById(legId)
+    suspend fun removeCourier(legId: Long) = refreshMutex.withLock {
+        db.withTransaction {
+            events.deleteForLeg(legId)
+            legs.deleteById(legId)
+        }
     }
 
     /** Updates a parcel's custom name. */
@@ -353,10 +357,7 @@ class TrackingRepository @Inject constructor(
         for (shipmentId in shipmentIds) {
             val shipmentLegs = legs.legsForShipment(shipmentId)
             if (shipmentLegs.isEmpty()) continue
-            val overall = com.packatrack.core.model.overallStatusCode(
-                shipmentLegs,
-                newestEventMsByLeg,
-            )
+            val overall = overallStatusCode(shipmentLegs, newestEventMsByLeg)
             if (overall != "DELIVERED") continue
             val shipment = shipments.byId(shipmentId) ?: continue
             if (!shipment.archived) {
@@ -431,7 +432,7 @@ class TrackingRepository @Inject constructor(
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
         val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount)
         if (snapshot == null) {
-            android.util.Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName} #${leg.trackingNumber})")
+            Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName})")
             return LegPoll(dataChanged = false, changes = emptyList())
         }
 
@@ -441,13 +442,8 @@ class TrackingRepository @Inject constructor(
             for (relatedNumber in snapshot.relatedTrackingNumbers) {
                 val normalized = FingerprintUtil.normalize(relatedNumber)
                 if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
-                val relatedCarriers = com.packatrack.core.detect.CarrierDetector.detectAll(normalized)
-                val carriers = relatedCarriers.ifEmpty { listOf(Carrier.CAINIAO) }
-                for (relatedCarrier in carriers) {
-                    val existing = legs.findByTrackingNumberAndCarrier(normalized, relatedCarrier.id)
-                    if (existing == null) {
-                        addCourierUnlocked(leg.shipmentId, normalized, relatedCarrier)
-                    }
+                for (relatedCarrier in detectCarriers(normalized).ifEmpty { listOf(Carrier.CAINIAO) }) {
+                    addCourierUnlocked(leg.shipmentId, normalized, relatedCarrier)
                 }
             }
         }
@@ -457,9 +453,7 @@ class TrackingRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val firstPoll = leg.pollCount == 0
 
-        val prevEvents = events.eventsForLeg(leg.id).asSequence().map {
-            TrackingEvent(it.trackingNumber, it.timeMs, it.description, it.location, it.statusCode)
-        }.toList()
+        val prevEvents = events.eventsForLeg(leg.id).map { it.toTrackingEvent() }
         val prevSnapshot = Snapshot(
             trackingNumber = FingerprintUtil.normalize(leg.trackingNumber),
             dimensionsCm = null,
@@ -501,66 +495,32 @@ class TrackingRepository @Inject constructor(
         }
 
         // Combination: does this leg's fresh snapshot look like several other parcels merged?
-        // Batch-load all legs and their first event to avoid N+1 queries.
-        val allLegs = legs.allActiveLegs()
-        val otherShipments = shipments.all().filterNot { it.id == mutable.shipmentId || it.archived }
-        if (otherShipments.size >= 2) {
-            val legsByShipment = allLegs.groupBy { it.shipmentId }
-            val candidateLegIds = otherShipments
-                .mapNotNull { legsByShipment[it.id]?.firstOrNull()?.id }
-            val eventsByLeg = if (candidateLegIds.isNotEmpty()) {
-                events.eventsForLegs(candidateLegIds).groupBy { it.legId }
-            } else emptyMap()
-            val others = otherShipments.mapNotNull { other ->
-                val firstLeg = legsByShipment[other.id]?.firstOrNull() ?: return@mapNotNull null
-                val oEvents = eventsByLeg[firstLeg.id].orEmpty()
-                if (oEvents.isEmpty()) return@mapNotNull null
-                Snapshot(
-                    trackingNumber = firstLeg.trackingNumber,
-                    dimensionsCm = null,
-                    events = oEvents.map { e -> TrackingEvent(e.trackingNumber, e.timeMs, e.description, e.location, e.statusCode) },
-                )
-            }.associateBy { it.trackingNumber }
-            val combined = ChangeLogService.detectCombination(others, snapshot)
-            if (combined != null) {
-                val msg = "${parcelLabel(mutable.shipmentId)}: ${ChangeLogService.humanReadable(combined)}"
-                if (changes.countByMessage(mutable.shipmentId, "COMBINED", msg) == 0) {
-                    newChanges += ChangeEntity(shipmentId = mutable.shipmentId, type = "COMBINED", message = msg, createdAt = now)
-                }
-                for (absorbedNo in others.keys) {
-                    if (FingerprintUtil.normalize(absorbedNo) == renumberedTo) continue
-                    val absorbed = legs.findByTrackingNumber(absorbedNo) ?: continue
-                    val foldMsg = "${parcelLabel(absorbed.shipmentId)}: Folded into combined parcel ${snapshot.trackingNumber}"
-                    if (changes.countByMessage(absorbed.shipmentId, "COMBINED", foldMsg) == 0) {
-                        changes.insert(ChangeEntity(shipmentId = absorbed.shipmentId, type = "COMBINED", message = foldMsg, createdAt = now))
-                    }
-                }
-            }
+        // Only worth the (all-parcel) lookup when the carrier actually reports a consolidation.
+        if (ChangeLogService.mentionsConsolidation(snapshot)) {
+            detectCombination(mutable.shipmentId, snapshot, renumberedTo, now)?.let { newChanges += it }
         }
 
         // Progress from the same-number comparison path. Skipped on the very first
         // poll - there is no prior state for a scan to have "changed" from, so a fresh parcel
         // does not spam a notification for its opening scan.
-        if (!firstPoll) {
-            for (change in detected) {
-                if (adopted && change is ParcelChange.Progress) continue
-                val type = when (change) {
-                    is ParcelChange.Progress -> "PROGRESS"
-                    else -> null
-                } ?: continue
+        if (!firstPoll && !adopted) {
+            for (change in detected.filterIsInstance<ParcelChange.Progress>()) {
                 newChanges += ChangeEntity(
                     shipmentId = mutable.shipmentId,
-                    type = type,
+                    type = "PROGRESS",
                     message = "${parcelLabel(mutable.shipmentId)}: ${ChangeLogService.humanReadable(change)}",
                     createdAt = now,
                 )
             }
         }
 
-        // Persist new events (IGNORE on unique index keeps duplicates out).
-        if (snapshot.events.isNotEmpty()) {
+        // Persist new events. The unique index (IGNORE) keeps timestamped duplicates out, but
+        // SQLite treats NULLs as distinct there, so undated scans are filtered here instead.
+        val knownUndated = prevEvents.filter { it.timeMs == null }.mapTo(HashSet()) { it.description }
+        val fresh = snapshot.events.filter { it.timeMs != null || it.description !in knownUndated }
+        if (fresh.isNotEmpty()) {
             events.insertAll(
-                snapshot.events.map {
+                fresh.map {
                     EventEntity(
                         shipmentId = mutable.shipmentId,
                         legId = mutable.id,
@@ -593,9 +553,54 @@ class TrackingRepository @Inject constructor(
         return LegPoll(dataChanged, persisted, consolidation)
     }
 
+    /**
+     * Checks whether [snapshot] reports the same consolidation event as two or more other active
+     * parcels. If so, returns the COMBINED change for [shipmentId] (null when already recorded)
+     * and records a "folded into" note on each involved parcel.
+     */
+    private suspend fun detectCombination(
+        shipmentId: Long,
+        snapshot: Snapshot,
+        combinedNumber: String,
+        now: Long,
+    ): ChangeEntity? {
+        val otherShipments = shipments.all().filterNot { it.id == shipmentId || it.archived }
+        if (otherShipments.size < 2) return null
+
+        // Batch-load each other parcel's first leg and its events to avoid N+1 queries.
+        val legsByShipment = legs.allActiveLegs().groupBy { it.shipmentId }
+        val firstLegs = otherShipments.mapNotNull { legsByShipment[it.id]?.firstOrNull() }
+        if (firstLegs.isEmpty()) return null
+        val eventsByLeg = events.eventsForLegs(firstLegs.map { it.id }).groupBy { it.legId }
+        val others = firstLegs.mapNotNull { firstLeg ->
+            val legEvents = eventsByLeg[firstLeg.id].orEmpty()
+            if (legEvents.isEmpty()) return@mapNotNull null
+            Snapshot(
+                trackingNumber = firstLeg.trackingNumber,
+                dimensionsCm = null,
+                events = legEvents.map { it.toTrackingEvent() },
+            )
+        }.associateBy { it.trackingNumber }
+
+        val combined = ChangeLogService.detectCombination(others, snapshot) ?: return null
+        for (absorbedNo in combined.mergedFrom) {
+            if (FingerprintUtil.normalize(absorbedNo) == combinedNumber) continue
+            val absorbed = legs.findByTrackingNumber(absorbedNo) ?: continue
+            val foldMsg = "${parcelLabel(absorbed.shipmentId)}: Folded into combined parcel ${snapshot.trackingNumber}"
+            if (changes.countByMessage(absorbed.shipmentId, "COMBINED", foldMsg) == 0) {
+                changes.insert(ChangeEntity(shipmentId = absorbed.shipmentId, type = "COMBINED", message = foldMsg, createdAt = now))
+            }
+        }
+        val msg = "${parcelLabel(shipmentId)}: ${ChangeLogService.humanReadable(combined)}"
+        if (changes.countByMessage(shipmentId, "COMBINED", msg) > 0) return null
+        return ChangeEntity(shipmentId = shipmentId, type = "COMBINED", message = msg, createdAt = now)
+    }
+
     private suspend fun fetchSnapshot(carrier: Carrier, number: String, stageHint: Int): Snapshot? =
         httpFetcher.fetch(carrier, number, stageHint)
 
-    private fun detectCarriers(number: String): List<Carrier> =
-        com.packatrack.core.detect.CarrierDetector.detectAll(number)
+    private fun detectCarriers(number: String): List<Carrier> = CarrierDetector.detectAll(number)
+
+    private fun EventEntity.toTrackingEvent() =
+        TrackingEvent(trackingNumber, timeMs, description, location, statusCode)
 }

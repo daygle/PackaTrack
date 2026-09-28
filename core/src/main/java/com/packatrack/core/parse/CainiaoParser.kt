@@ -1,5 +1,6 @@
 package com.packatrack.core.parse
 
+import com.packatrack.core.json.JsonUtil
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.TimeUtil
@@ -62,14 +63,13 @@ object CainiaoParser {
         val latestTrackingNumber = listOf(
             "latestTrackingNumber", "latestTrackingNo", "lastMileTrackingNumber", "lastMileTrackingNo",
         ).firstNotNullOfOrNull { key -> pkg.optString(key).takeIf { it.isNotBlank() && it != number } }
-            ?: Regex("latest\\s+tracking\\s+number\\s*[:：]?\\s*([A-Za-z0-9]+)", RegexOption.IGNORE_CASE)
-                .find(pkg.toString())?.groupValues?.getOrNull(1)
+            ?: LATEST_NUMBER_LABEL.find(pkg.toString())?.groupValues?.getOrNull(1)
         latestTrackingNumber?.let(relatedNumbers::add)
         // The live global response carries the downstream/last-mile number in `copyRealMailNo`
         // (already clean) and `realMailNo` (labelled, e.g. "Latest Tracking Number:\t36YPH…").
         pkg.optString("copyRealMailNo").takeIf { it.isNotBlank() && it != number }?.let(relatedNumbers::add)
         pkg.optString("realMailNo").takeIf { it.isNotBlank() }?.let { labelled ->
-            Regex("([A-Za-z0-9]{6,})\\s*$").find(labelled.trim())?.groupValues?.getOrNull(1)
+            TRAILING_NUMBER.find(labelled.trim())?.groupValues?.getOrNull(1)
                 ?.takeIf { it != number }?.let(relatedNumbers::add)
         }
         listOf("trackingNumber", "trackingNo", "mailNo", "waybillNo", "waybillNumber", "lastMileTrackingNo", "lastMileTrackingNumber")
@@ -79,7 +79,7 @@ object CainiaoParser {
         pkg.optJSONArray("alternateArticles")?.let { articles ->
             for (i in 0 until articles.length()) {
                 when (val value = articles.opt(i)) {
-                    is org.json.JSONObject -> listOf("trackingNumber", "trackingNo", "mailNo", "waybillNo", "waybillNumber")
+                    is JSONObject -> listOf("trackingNumber", "trackingNo", "mailNo", "waybillNo", "waybillNumber")
                         .firstNotNullOfOrNull { key -> value.optString(key).takeIf { it.isNotBlank() } }
                         ?.takeIf { it != number }?.let(relatedNumbers::add)
                     is String -> value.takeIf { it.isNotBlank() && it != number }?.let(relatedNumbers::add)
@@ -149,19 +149,27 @@ object CainiaoParser {
         )
     }
 
-    /** Maps Cainiao's scanType/actionCodes onto PackaTrack status codes. */
+    /**
+     * Maps Cainiao's scanType/actionCodes (or, as a fallback, their English description) onto
+     * PackaTrack status codes.
+     *
+     * Order matters: "DELIVER" is a substring of out-for-delivery and failed-delivery codes
+     * ("OUT_FOR_DELIVERY", "GTMS_DELIVERING", "DELIVERY_FAILED"), so failures and
+     * out-for-delivery are recognised before the delivered bucket.
+     */
     fun mapCode(raw: String?): String? {
-        val c = raw?.uppercase() ?: return null
+        // Descriptions ("Out for delivery") are matched like codes ("OUT_FOR_DELIVERY").
+        val c = raw?.uppercase()?.replace(' ', '_') ?: return null
         return when {
-            // Delivered
-            c.contains("SIGNED") || c.contains("DELIVER") ||
-                c.contains("PROOF_DELIVERY") || c.contains("END_DELIVERY") -> "DELIVERED"
-            // Out for delivery
-            c.contains("OUT_FOR_DELIVERY") || c == "DISPATCH" ||
-                c.contains("OUT_DELIVERY") || c.contains("LAST_MILE") -> "OUT_FOR_DELIVERY"
             // Exception / failure
             c.contains("FAIL") || c.contains("ABNORMAL") || c.contains("RETURN") ||
                 c.contains("LOST") || c.contains("CANCEL") -> "EXCEPTION"
+            // Out for delivery
+            c.contains("OUT_FOR_DELIVERY") || c == "DISPATCH" ||
+                c.contains("OUT_DELIVERY") || c.contains("DELIVERING") -> "OUT_FOR_DELIVERY"
+            // Delivered ("SIGNED" as its own word, so e.g. "ASSIGNED" does not match)
+            SIGNED.containsMatchIn(c) || c.contains("DELIVER") -> "DELIVERED"
+            c.contains("LAST_MILE") -> "OUT_FOR_DELIVERY"
             // In transit - prefix-based patterns for Cainiao/UBI action codes
             c.startsWith("LH_") || c.startsWith("CC_") || c.startsWith("SC_") ||
                 c.startsWith("GWMS_") || c.startsWith("WM_") ||
@@ -171,5 +179,10 @@ object CainiaoParser {
     }
 
     private fun firstNonBlank(obj: JSONObject, vararg keys: String): String? =
-        keys.firstNotNullOfOrNull { obj.optString(it).takeIf { s -> s.isNotBlank() } }
+        keys.firstNotNullOfOrNull { JsonUtil.stringOr(obj, it) }
+
+    private val SIGNED = Regex("(^|[^A-Z])SIGNED")
+    private val LATEST_NUMBER_LABEL =
+        Regex("latest\\s+tracking\\s+number\\s*[:：]?\\s*([A-Za-z0-9]+)", RegexOption.IGNORE_CASE)
+    private val TRAILING_NUMBER = Regex("([A-Za-z0-9]{6,})\\s*$")
 }

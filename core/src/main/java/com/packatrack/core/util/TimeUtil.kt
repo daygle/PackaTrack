@@ -13,6 +13,8 @@ import java.util.TimeZone
  */
 object TimeUtil {
 
+    private const val DEFAULT_FORMAT = "dd MMM yyyy, HH:mm"
+
     private val parsePatterns = listOf(
         "yyyy-MM-dd'T'HH:mm:ssXXX",
         "yyyy-MM-dd'T'HH:mm:ssZ",
@@ -23,12 +25,18 @@ object TimeUtil {
         "yyyy-MM-dd",
     )
 
-    // SimpleDateFormat is not thread-safe; create per-call (cheap on Android) or
-    // use ThreadLocal for callers that parse in tight loops.
-    private fun newFmt(pattern: String) =
-        SimpleDateFormat(pattern, Locale.US).apply {
-            isLenient = false
-            timeZone = TimeZone.getTimeZone("UTC")
+    // SimpleDateFormat is not thread-safe and costly to build, and parse() may try every
+    // pattern for each scan of each poll, so keep one instance per pattern per thread.
+    private val formatters = object : ThreadLocal<HashMap<String, SimpleDateFormat>>() {
+        override fun initialValue() = HashMap<String, SimpleDateFormat>()
+    }
+
+    private fun fmt(pattern: String): SimpleDateFormat =
+        formatters.get()!!.getOrPut(pattern) {
+            SimpleDateFormat(pattern, Locale.US).apply {
+                isLenient = false
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
         }
 
     /** Returns epoch ms or null when unparseable. */
@@ -36,7 +44,7 @@ object TimeUtil {
         if (raw.isNullOrBlank()) return null
         for (p in parsePatterns) {
             try {
-                return newFmt(p).parse(raw)?.time ?: continue
+                return fmt(p).parse(raw)?.time ?: continue
             } catch (_: ParseException) {
                 // try next pattern
             } catch (_: IllegalArgumentException) {
@@ -50,12 +58,12 @@ object TimeUtil {
     }
 
     /** Formats epoch ms using [formatPattern] UTC for display. */
-    fun format(ms: Long?, formatPattern: String = "dd MMM yyyy, HH:mm"): String? {
+    fun format(ms: Long?, formatPattern: String = DEFAULT_FORMAT): String? {
         if (ms == null) return null
         return try {
-            newFmt(formatPattern).format(Date(ms))
-        } catch (_: Exception) {
-            newFmt("dd MMM yyyy, HH:mm").format(Date(ms))
+            fmt(formatPattern).format(Date(ms))
+        } catch (_: IllegalArgumentException) {
+            fmt(DEFAULT_FORMAT).format(Date(ms))
         }
     }
 }

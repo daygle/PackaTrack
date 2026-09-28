@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,26 +15,28 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.withResumed
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -41,7 +44,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.packatrack.data.PrefsStore
-import com.packatrack.data.TrackingRepository
 import com.packatrack.feature.common.R
 import com.packatrack.feature.detail.DetailScreen
 import com.packatrack.notify.Notifier
@@ -57,9 +59,6 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var prefs: PrefsStore
 
-    @Inject
-    lateinit var repository: TrackingRepository
-
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* best effort */ }
 
@@ -70,7 +69,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install splash screen before super.onCreate()
-        val splashScreen = installSplashScreen()
+        installSplashScreen()
 
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -80,20 +79,31 @@ class MainActivity : FragmentActivity() {
 
         pendingShipmentId = readOpenShipmentId(intent)
 
-        // Mark database as ready after first frame renders
         setContent {
-            val isLockEnabled = prefs.biometricLock
-            val themeMode = prefs.themeMode
+            val themeMode by remember { prefs.observeThemeMode() }
+                .collectAsStateWithLifecycle(initialValue = prefs.themeMode)
+            // Re-read on every recomposition; isAuthenticated flips (e.g. in onStop) trigger one.
+            val locked = prefs.biometricLock && !isAuthenticated
 
             PackaTrackTheme(themeMode = themeMode) {
-                if (isLockEnabled && !isAuthenticated) {
-                    LockScreen(onAuthenticate = { authenticate() })
-                } else {
-                    PackaTrackNavHost(
-                        intent = intent,
-                        openShipmentId = pendingShipmentId,
-                        onOpenShipmentHandled = { pendingShipmentId = null },
-                    )
+                Box(Modifier.fillMaxSize()) {
+                    // The app stays composed underneath the lock screen: re-locking in onStop
+                    // happens whenever another activity is shown (the backup file picker, the
+                    // Google account picker), and tearing the screens down then would lose the
+                    // back stack and drop those pickers' results.
+                    Box(Modifier.fillMaxSize().then(if (locked) Modifier.clearAndSetSemantics {} else Modifier)) {
+                        PackaTrackNavHost(
+                            intent = intent,
+                            openShipmentId = pendingShipmentId,
+                            onOpenShipmentHandled = { pendingShipmentId = null },
+                        )
+                    }
+                    if (locked) {
+                        LockScreen(
+                            onAuthenticate = { authenticate() },
+                            onBack = { moveTaskToBack(true) },
+                        )
+                    }
                 }
             }
         }
@@ -132,10 +142,6 @@ class MainActivity : FragmentActivity() {
                     super.onAuthenticationSucceeded(result)
                     isAuthenticated = true
                 }
-
-                override fun onAuthenticationFailed() {
-                    super.onAuthenticationFailed()
-                }
             })
 
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
@@ -149,14 +155,24 @@ class MainActivity : FragmentActivity() {
 }
 
 @Composable
-private fun LockScreen(onAuthenticate: () -> Unit) {
+private fun LockScreen(onAuthenticate: () -> Unit, onBack: () -> Unit) {
+    // Composed after the app content, so this takes Back before the navigation stack does.
+    BackHandler(onBack = onBack)
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            // Swallow every touch so nothing reaches the app content underneath.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent().changes.forEach { it.consume() }
+                }
+            }
     ) {
         LaunchedEffect(Unit) {
-            onAuthenticate()
+            // The lock engages in onStop; prompt once the user is actually back.
+            lifecycle.withResumed { onAuthenticate() }
         }
         Column(
             modifier = Modifier

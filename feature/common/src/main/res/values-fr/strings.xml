@@ -121,12 +121,10 @@
     <string name="smart_import">Importation intelligente</string>
     <string name="smart_import_hint">Scanner automatiquement vos e-mails pour les nouveaux numéros de suivi.</string>
     <string name="smart_import_account">Compte : %1$s</string>
-    <string name="smart_import_select_account">Sélectionner le compte Google</string>
 
     <string name="lock_title">Verrouillage PackaTrack</string>
     <string name="lock_subtitle">Authentifiez-vous pour ouvrir l\'application</string>
     <string name="auth_error">Erreur d\'authentification : %1$s</string>
-    <string name="item_default_name">Article</string>
 
     <string name="appearance">Apparence</string>
     <string name="theme_mode">Mode thème</string>

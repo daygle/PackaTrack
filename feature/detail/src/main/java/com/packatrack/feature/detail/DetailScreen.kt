@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import kotlin.math.abs
@@ -61,12 +62,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import com.packatrack.notify.Notifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,6 +82,7 @@ import com.packatrack.core.db.TrackingLegEntity
 import com.packatrack.feature.common.components.CarrierChip
 import com.packatrack.feature.common.components.StatusPill
 import com.packatrack.feature.common.daysInTransit
+import com.packatrack.feature.common.formatLocalDateTime
 import com.packatrack.feature.common.overallStatusCode
 import com.packatrack.feature.common.parcelName
 import com.packatrack.feature.common.theme.MonoNumber
@@ -90,8 +90,8 @@ import com.packatrack.feature.common.theme.daysInTransitColor as daysInTransitCo
 import com.packatrack.feature.common.theme.statusColor
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.util.FingerprintUtil
 import com.packatrack.core.util.TimeUtil
-import kotlinx.coroutines.launch
 
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.packatrack.feature.common.R
@@ -101,12 +101,13 @@ import com.packatrack.data.PrefsStore
 
 /** A timeline entry that may combine duplicate scans from multiple carriers. */
 private data class TimelineDisplayEvent(
+    /** Id of the first underlying event row: unique, so safe as a list key. */
+    val id: Long,
     val timeMs: Long?,
     val description: String,
     val location: String?,
     val statusCode: String?,
     val carriers: List<Pair<String?, String?>>, // (carrierId, displayName)
-    val isLast: Boolean = false,
 )
 
 @Composable
@@ -116,15 +117,15 @@ fun DetailScreen(
     viewModel: DetailViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val repo = viewModel.repository
-    val scope = rememberCoroutineScope()
 
-    val entry by repo.observeShipment(id).collectAsStateWithLifecycle(initialValue = null)
-    val timelineRaw by repo.observeEvents(id).collectAsStateWithLifecycle(initialValue = emptyList())
-    val allParcels by repo.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    // Newest timestamped scan per courier leg: drives the overall-status recency vote so a
-    // stale DELIVERED leg cannot outrank a leg that is still moving.
-    val newestEventMsByLeg by repo.observeLatestEventMsByLeg().collectAsStateWithLifecycle(initialValue = emptyMap())
+    // Remembered per id: a fresh Flow on each recomposition would restart the query.
+    val entryFlow = remember(id) { viewModel.observeShipment(id) }
+    val eventsFlow = remember(id) { viewModel.observeEvents(id) }
+    val entry by entryFlow.collectAsStateWithLifecycle(initialValue = null)
+    val timelineRaw by eventsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val allParcels by viewModel.activeShipments.collectAsStateWithLifecycle(initialValue = emptyList())
+    val newestEventMsByLeg by viewModel.newestEventMsByLeg.collectAsStateWithLifecycle(initialValue = emptyMap())
+    val syncing by viewModel.syncing.collectAsStateWithLifecycle()
     val prefs = viewModel.prefs
     val shipment = entry?.shipment
     val legs = entry?.legs.orEmpty()
@@ -147,7 +148,6 @@ fun DetailScreen(
     var showAddOrder by remember { mutableStateOf(value = false) }
     var showCombine by remember { mutableStateOf(value = false) }
     var showEdit by remember { mutableStateOf(value = false) }
-    var syncing by remember { mutableStateOf(value = false) }
 
     Scaffold(
         topBar = {
@@ -183,7 +183,7 @@ fun DetailScreen(
                                 text = { Text(stringResource(R.string.delete_parcel), color = MaterialTheme.colorScheme.error) },
                                 onClick = {
                                     menuOpen = false
-                                    scope.launch { repo.delete(id) }
+                                    viewModel.delete(id)
                                     onBack()
                                 },
                             )
@@ -201,15 +201,7 @@ fun DetailScreen(
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = syncing,
-            onRefresh = {
-                if (syncing) return@PullToRefreshBox
-                syncing = true
-                scope.launch {
-                    val outcome = repo.refreshShipment(id, force = true)
-                    Notifier.postChanges(context, outcome.notable)
-                    syncing = false
-                }
-            },
+            onRefresh = { viewModel.refresh(id) },
             modifier = Modifier.padding(padding)
         ) {
             LazyColumn(
@@ -240,7 +232,7 @@ fun DetailScreen(
                                 }
                             }
                         },
-                        onRemove = { scope.launch { repo.removeCourier(leg.id) } },
+                        onRemove = { viewModel.removeCourier(leg.id) },
                     )
                 }
 
@@ -259,11 +251,11 @@ fun DetailScreen(
                     OrderRow(
                         order = order,
                         onOpenLink = {
-                            order.orderUrl?.takeIf { it.isNotBlank() }?.let { url ->
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+                            order.orderUrl?.let(::webUriOrNull)?.let { uri ->
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
                             }
                         },
-                        onRemove = { scope.launch { repo.removeOrder(order.id) } },
+                        onRemove = { viewModel.removeOrder(order.id) },
                     )
                 }
 
@@ -305,7 +297,7 @@ fun DetailScreen(
                     EmptySectionText(stringResource(R.string.scanning_updates))
                 }
             }
-            itemsIndexed(timeline, key = { _, ev -> "ev_${ev.timeMs}_${ev.description}" }) { index, ev ->
+            itemsIndexed(timeline, key = { _, ev -> "ev_${ev.id}" }) { index, ev ->
                 TimelineRow(
                     time = TimeUtil.format(ev.timeMs, prefs.dateTimeFormat) ?: stringResource(R.string.time_unknown),
                     description = ev.description,
@@ -326,10 +318,7 @@ fun DetailScreen(
             onDismiss = { showAddCourier = false },
             onAdd = { number, carrier ->
                 showAddCourier = false
-                scope.launch {
-                    repo.addCourier(id, number, carrier)
-                    repo.refreshShipment(id, force = true)
-                }
+                viewModel.addCourier(id, number, carrier)
             },
         )
     }
@@ -340,7 +329,7 @@ fun DetailScreen(
             onDismiss = { showCombine = false },
             onCombine = { sourceId ->
                 showCombine = false
-                scope.launch { repo.combineInto(targetId = id, sourceId = sourceId) }
+                viewModel.combineInto(targetId = id, sourceId = sourceId)
             },
         )
     }
@@ -350,7 +339,7 @@ fun DetailScreen(
             onDismiss = { showAddOrder = false },
             onAdd = { name, link ->
                 showAddOrder = false
-                scope.launch { repo.addOrder(id, name, link) }
+                viewModel.addOrder(id, name, link)
             },
         )
     }
@@ -361,7 +350,7 @@ fun DetailScreen(
             onDismiss = { showEdit = false },
             onSave = { title ->
                 showEdit = false
-                scope.launch { repo.updateShipment(id, title) }
+                viewModel.rename(id, title)
             },
         )
     }
@@ -411,7 +400,7 @@ private fun HeroSection(
                 Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.outline)
                 Spacer(Modifier.width(4.dp))
                 Text(
-                    stringResource(R.string.last_updated_label, legs.asSequence().mapNotNull { it.lastSyncAt }.maxOrNull()?.let { TimeUtil.format(it, prefs.dateTimeFormat) } ?: stringResource(R.string.never)),
+                    stringResource(R.string.last_updated_label, legs.mapNotNull { it.lastSyncAt }.maxOrNull()?.let { formatLocalDateTime(it, prefs.dateTimeFormat) } ?: stringResource(R.string.never)),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.outline
                 )
@@ -652,15 +641,17 @@ private fun AddCourierDialog(
     var showManual by remember { mutableStateOf(value = false) }
 
     val trimmed = number.trim()
+    val normalized = FingerprintUtil.normalize(trimmed)
     val detected = CarrierDetector.detect(trimmed)
     val chosen = override ?: detected
-    val duplicate = existing.any { it.trackingNumber.equals(trimmed, ignoreCase = true) }
+    // Stored numbers are normalized, so compare like with like.
+    val duplicate = existing.any { it.trackingNumber == normalized }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                enabled = trimmed.length >= 6 && !duplicate,
+                enabled = normalized.length >= FingerprintUtil.MIN_NUMBER_LENGTH && !duplicate,
                 onClick = { onAdd(trimmed, chosen) },
             ) { Text(stringResource(R.string.add_courier_title)) }
         },
@@ -843,6 +834,16 @@ private fun AddOrderDialog(
 }
 
 /**
+ * Order links are free text (typed in, or restored from a backup file), so only ever open them
+ * as web links. A link typed without a scheme ("aliexpress.com/item/…") is treated as https.
+ */
+private fun webUriOrNull(raw: String): Uri? {
+    val text = raw.trim().takeIf { it.isNotEmpty() } ?: return null
+    val uri = (if ("://" in text) text else "https://$text").toUri()
+    return uri.takeIf { it.scheme.equals("https", ignoreCase = true) || it.scheme.equals("http", ignoreCase = true) }
+}
+
+/**
  * Collapses duplicate scan events from multiple carriers (e.g. Cainiao + UBI Smart Parcel)
  * that share the same timestamp and description into a single entry with multiple carrier chips.
  */
@@ -872,6 +873,7 @@ private fun deduplicateTimeline(
         val uniqueCarriers = carriers.distinctBy { it.first }
         result.add(
             TimelineDisplayEvent(
+                id = ev.id,
                 timeMs = ev.timeMs,
                 description = ev.description,
                 location = ev.location,
