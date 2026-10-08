@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":core"))
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.hilt.android)
