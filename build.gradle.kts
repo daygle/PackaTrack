@@ -1,3 +1,5 @@
+import javax.inject.Inject
+
 // Top-level build file. Plugins are declared here and applied in modules.
 plugins {
     alias(libs.plugins.android.application) apply false
@@ -24,5 +26,37 @@ buildscript {
                 "org.jdom:jdom2:2.0.6.1", // GHSA-2363-cqg2-863c (XXE)
             )
         }
+    }
+}
+
+// AGP also resolves its lint tooling (lint-gradle -> sdk-common, sdklib, httpmime) per project,
+// outside the buildscript classpath, so the forces above don't reach it and the vulnerable
+// versions it declares still end up in the dependency graph. A component metadata rule applies
+// to every resolution in a project (detached configurations included), raising each pinned
+// module to the patched version wherever it is declared. Modules that aren't already in a graph
+// are untouched, so the app runtime classpath is unaffected.
+@CacheableRule
+abstract class RequirePatchedVersions @Inject constructor(
+    private val pins: Map<String, String>,
+) : ComponentMetadataRule {
+    override fun execute(context: ComponentMetadataContext) {
+        context.details.allVariants {
+            withDependencies {
+                forEach { dependency ->
+                    pins["${dependency.group}:${dependency.name}"]?.let { patched ->
+                        dependency.version { require(patched) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+val patchedVersions = buildscript.configurations["classpath"].resolutionStrategy.forcedModules
+    .associate { "${it.group}:${it.name}" to checkNotNull(it.version) }
+
+allprojects {
+    dependencies.components.all(RequirePatchedVersions::class.java) {
+        params(patchedVersions)
     }
 }
