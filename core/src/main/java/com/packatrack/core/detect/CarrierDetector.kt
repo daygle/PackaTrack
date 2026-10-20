@@ -30,6 +30,13 @@ object CarrierDetector {
     private val ARAMEX = Regex("^[0-9]{10,12}$")
     /** Morning Global uses an MG prefix in the wild (best effort). */
     private val MORNING_GLOBAL = Regex("^MG[A-Za-z0-9]{6,20}$", RegexOption.IGNORE_CASE)
+    /**
+     * SpeedPAK (Orange Connex / eBay) numbers start with EE, EM, EX or ES followed by a
+     * long alphanumeric body (observed totals of 27-28 characters, e.g.
+     * ES10022929840340001010001B0N). Body length is kept high so UPU-format numbers
+     * ending in "AU" stay with Australia Post and short prefixes alone never match.
+     */
+    private val SPEED_PAK = Regex("^(EE|EM|EX|ES)[A-Za-z0-9]{20,26}$", RegexOption.IGNORE_CASE)
 
     // Cainiao's Australia Post handoff can be a long article number without the
     // normal two-letter AU suffix: either a 21-digit numeric id, or a mixed form
@@ -54,6 +61,7 @@ object CarrierDetector {
             if (CAINIAO.matches(n)) add(Carrier.CAINIAO)
             if (AUSPOST_DOMESTIC.matches(n) && !IMILE.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (ARAMEX.matches(n)) add(Carrier.ARAMEX)
+            if (SPEED_PAK.matches(n)) add(Carrier.SPEED_PAK)
         }.distinct()
     }
 

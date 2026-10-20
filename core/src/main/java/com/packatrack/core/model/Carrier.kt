@@ -44,6 +44,12 @@ enum class Carrier(
         displayName = "Morning Global",
         // No public tracking page of their own; a universal tracker keeps the link useful.
         webUrlTemplate = "https://t.17track.net/en#nums=%s",
+    ),
+    SPEED_PAK(
+        id = "speed_pak",
+        displayName = "SpeedPAK",
+        // SpeedPAK's official tracker, operated by Orange Connex (eBay's fulfilment partner).
+        webUrlTemplate = "https://www.orangeconnex.com/tracking?language=en&trackingnumber=%s",
     );
 
     companion object {

@@ -50,6 +50,17 @@ class CarrierDetectorTest {
         assertEquals(Carrier.MORNING_GLOBAL, CarrierDetector.detect("MG0099887766"))
     }
 
+    @Test fun speedPakNumber() {
+        assertEquals(Carrier.SPEED_PAK, CarrierDetector.detect("ES10022929840340001010001B0N"))
+        assertEquals(Carrier.SPEED_PAK, CarrierDetector.detect("ee10026617741410001030003b0n"))
+    }
+
+    @Test fun shortOrOddSpeedPakLikeNumbersDoNotMatch() {
+        // Too short to be SpeedPAK and not an 11-character AusPost domestic number.
+        assertNull(CarrierDetector.detect("ES12345678"))
+        assertNull(CarrierDetector.detect("ZZ10022929840340001010001B0N"))
+    }
+
     @Test fun unknownReturnsNull() {
         assertNull(CarrierDetector.detect(""))
         assertNull(CarrierDetector.detect("HELLOWORLD123"))

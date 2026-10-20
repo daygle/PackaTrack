@@ -59,6 +59,9 @@ class HttpTrackingFetcher(
                 // No usable public scan endpoint; the parcel stays visible and the
                 // "Open on carrier website" link still works.
                 Carrier.MORNING_GLOBAL -> null
+                // Orange Connex serves tracking data only through its SPA; no verified
+                // public JSON endpoint, so SpeedPAK is link-only like Morning Global.
+                Carrier.SPEED_PAK -> null
             }
         }.getOrNull()
     }
