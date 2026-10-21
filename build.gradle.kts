@@ -59,4 +59,11 @@ allprojects {
     dependencies.components.all(RequirePatchedVersions::class.java) {
         params(patchedVersions)
     }
+
+    tasks.withType<Test>().configureEach {
+        jvmArgs(
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/sun.misc=ALL-UNNAMED"
+        )
+    }
 }
