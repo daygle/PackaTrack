@@ -135,13 +135,20 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # GPU mode is an emulator flag, not an action input: there is no `gpu` input, so the earlier
+      # attempts to set it produced only GitHub's "Unexpected input(s) 'gpu'" warning and the
+      # emulator kept launching with the action's default `-gpu swiftshader_indirect`. Current
+      # emulator builds no longer support that renderer (`emulator -help-gpu` lists auto, host,
+      # software, lavapipe, swiftshader, swangle), which is what breaks rendering on the headless
+      # runner. Pass the flag through `emulator-options` instead - it replaces the action's
+      # defaults, so the rest are repeated here - using the supported software renderer.
       - name: Run Instrumented Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           target: google_apis
           arch: x86_64
-          gpu: swiftshader_indirect
+          emulator-options: -no-window -gpu software -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
 
