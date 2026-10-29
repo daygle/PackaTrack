@@ -141,6 +141,7 @@ jobs:
           api-level: 34
           target: google_apis
           arch: x86_64
+          gpu: swiftshader_indirect
           disable-animations: true
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
 
