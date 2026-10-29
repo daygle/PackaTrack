@@ -137,20 +137,28 @@ jobs:
 
       # GPU mode is an emulator flag, not an action input: there is no `gpu` input, so the earlier
       # attempts to set it produced only GitHub's "Unexpected input(s) 'gpu'" warning and the
-      # emulator kept launching with the action's default `-gpu swiftshader_indirect`. Current
-      # emulator builds no longer support that renderer (`emulator -help-gpu` lists auto, host,
-      # software, lavapipe, swiftshader, swangle), which is what breaks rendering on the headless
-      # runner. Pass the flag through `emulator-options` instead - it replaces the action's
-      # defaults, so the rest are repeated here - using the supported software renderer.
+      # emulator kept launching with the action's default `-gpu swiftshader_indirect`, which
+      # current emulator builds no longer offer (`emulator -help-gpu` lists auto, host, software,
+      # lavapipe, swiftshader, swangle). `software` still left the headless runner unable to
+      # obtain colour buffers ("Failed to find ColorBuffer" / "invalid color buffer"), so use the
+      # SwiftShader renderer the emulator ships in lib64/gles_swiftshader and lib64/vulkan.
+      # `emulator-options` replaces the action's defaults, hence repeating the rest here.
       - name: Run Instrumented Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 33
           target: google_apis
           arch: x86_64
-          emulator-options: -no-window -gpu software -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+
+      # The per-test report is otherwise only reachable as a downloadable artifact, so a failure
+      # gives no clue which test broke. Print the XML straight into the job log on failure.
+      - name: Print Instrumented Test Results
+        if: failure()
+        run: |
+          find app/build/outputs/androidTest-results -name '*.xml' -print -exec cat {} \;
 
       - name: Upload Instrumented Test Reports
         if: always()
