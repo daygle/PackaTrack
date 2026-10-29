@@ -151,14 +151,22 @@ jobs:
           arch: x86_64
           emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+          # Dump the JUnit XML inside this step, while the emulator and the results directory are
+          # still alive: the per-test report is otherwise only a downloadable artifact, so a red
+          # job says "there were failing tests" without naming any of them.
+          script: |
+            EXIT=0
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace || EXIT=$?
+            find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} \; || true
+            exit $EXIT
 
-      # The per-test report is otherwise only reachable as a downloadable artifact, so a failure
-      # gives no clue which test broke. Print the XML straight into the job log on failure.
+      # Belt and braces for the dump above: always show what was produced, and never let this step
+      # itself fail the job.
       - name: Print Instrumented Test Results
-        if: failure()
+        if: always()
         run: |
-          find app/build/outputs/androidTest-results -name '*.xml' -print -exec cat {} \;
+          ls -R app/build/outputs/androidTest-results || true
+          find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} + || true
 
       - name: Upload Instrumented Test Reports
         if: always()
