@@ -37,7 +37,7 @@
     <string name="tracking_number_label">Sendungsverfolgungsnummer</string>
     <string name="auto_detected">Automatisch erkannt: %1$s</string>
     <string name="change_courier">Ändern</string>
-    <string name="courier_not_recognized">Spedition nicht erkannt — wählen Sie eine unten aus:</string>
+    <string name="courier_not_recognized">Spedition nicht erkannt - wählen Sie eine unten aus:</string>
     <string name="select_courier">Spedition auswählen:</string>
     <string name="auto_detect_hint">Wir versuchen, die Spedition automatisch anhand der Nummer zu erkennen.</string>
     <string name="item_name_optional">Artikelname (Optional)</string>
@@ -92,7 +92,7 @@
     <string name="system_status">Systemstatus</string>
     <string name="notifications_permission">Benachrichtigungsberechtigung</string>
     <string name="granted">Erteilt</string>
-    <string name="denied_hint">Verweigert — Benachrichtigungen werden nicht angezeigt</string>
+    <string name="denied_hint">Verweigert - Benachrichtigungen werden nicht angezeigt</string>
     <string name="fix">Beheben</string>
     <string name="background_sync">Hintergrundsynchronisierung</string>
     <string name="sync_status_hint">Aktiv · %1$dh Intervall %2$s</string>

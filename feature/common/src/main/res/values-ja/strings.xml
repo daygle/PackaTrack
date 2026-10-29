@@ -35,7 +35,7 @@
     <string name="tracking_number_label">追跡番号</string>
     <string name="auto_detected">自動検出: %1$s</string>
     <string name="change_courier">変更</string>
-    <string name="courier_not_recognized">配送業者が認識されません — 以下から選択してください:</string>
+    <string name="courier_not_recognized">配送業者が認識されません - 以下から選択してください:</string>
     <string name="select_courier">配送業者を選択:</string>
     <string name="auto_detect_hint">番号から配送業者を自動検出します。</string>
     <string name="item_name_optional">商品名（任意）</string>
@@ -89,7 +89,7 @@
     <string name="system_status">システムステータス</string>
     <string name="notifications_permission">通知の権限</string>
     <string name="granted">許可済み</string>
-    <string name="denied_hint">拒否 — アラートは表示されません</string>
+    <string name="denied_hint">拒否 - アラートは表示されません</string>
     <string name="fix">修正</string>
     <string name="background_sync">バックグラウンド同期</string>
     <string name="sync_status_hint">アクティブ · %1$d時間間隔 %2$s</string>

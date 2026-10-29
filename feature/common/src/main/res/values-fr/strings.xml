@@ -37,7 +37,7 @@
     <string name="tracking_number_label">Numéro de suivi</string>
     <string name="auto_detected">Auto-détecté : %1$s</string>
     <string name="change_courier">Changer</string>
-    <string name="courier_not_recognized">Transporteur non reconnu — choisissez-en un ci-dessous :</string>
+    <string name="courier_not_recognized">Transporteur non reconnu - choisissez-en un ci-dessous :</string>
     <string name="select_courier">Sélectionner le transporteur :</string>
     <string name="auto_detect_hint">Nous essaierons de détecter automatiquement le transporteur à partir du numéro.</string>
     <string name="item_name_optional">Nom de l\'article (optionnel)</string>
@@ -92,7 +92,7 @@
     <string name="system_status">État du système</string>
     <string name="notifications_permission">Permission de notifications</string>
     <string name="granted">Accordé</string>
-    <string name="denied_hint">Refusé — les alertes ne seront pas affichées</string>
+    <string name="denied_hint">Refusé - les alertes ne seront pas affichées</string>
     <string name="fix">Corriger</string>
     <string name="background_sync">Synchronisation en arrière-plan</string>
     <string name="sync_status_hint">Actif · intervalle de %1$dh %2$s</string>

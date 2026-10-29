@@ -9,7 +9,7 @@ captures/
 .externalNativeBuild/
 .cxx/
 
-# IDE (JetBrains) — machine-local config
+# IDE (JetBrains) - machine-local config
 .idea/
 
 # OS

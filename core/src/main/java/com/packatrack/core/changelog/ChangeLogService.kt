@@ -113,7 +113,7 @@ object ChangeLogService {
         is ParcelChange.Progress -> {
             val stamp = change.timeMs
                 ?.let { formatUtcTimestamp(it) }
-                ?.let { " — $it" }
+                ?.let { " - $it" }
                 ?: ""
             "${change.description}$stamp"
         }
