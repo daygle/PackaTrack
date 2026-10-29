@@ -167,4 +167,20 @@ class HomeScreenTest {
         composeTestRule.onNodeWithContentDescription("Settings").performClick()
         composeTestRule.onNodeWithText("Settings").assertIsDisplayed()
     }
+
+    @Test
+    fun addParcelDialog_showsValidationForShortAndDuplicateNumbers() {
+        activeShipments.value = listOf(
+            entry(1, "Existing", "CN123456789"),
+        )
+        composeTestRule.onNodeWithText("Add Parcel").performClick()
+        composeTestRule.onNodeWithText("Tracking Number").assertIsDisplayed()
+
+        composeTestRule.onNodeWithText("Tracking Number").performTextInput("123")
+        composeTestRule.onNodeWithText("Tracking number looks too short (min 6 chars)").assertIsDisplayed()
+
+        composeTestRule.onNodeWithText("Tracking Number").performTextClearance()
+        composeTestRule.onNodeWithText("Tracking Number").performTextInput("CN123456789")
+        composeTestRule.onNodeWithText("That number is already on this parcel.").assertIsDisplayed()
+    }
 }

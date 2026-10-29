@@ -1,6 +1,6 @@
 # Versions verified against Google Maven / Maven Central on 2026-09-24
 [versions]
-agp = "9.4.1"
+agp = "9.5.0"
 kotlin = "2.4.21"
 activityCompose = "1.13.0"
 composeBom = "2026.09.00"

@@ -81,6 +81,13 @@ class HomeViewModel @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 Log.w("HomeViewModel", "Refresh failed", e)
+                runCatching {
+                    android.widget.Toast.makeText(
+                        context,
+                        e.localizedMessage ?: "Operation failed",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
             } finally {
                 // Always clear the flag or a single failure would disable every refresh control.
                 _syncing.value = false

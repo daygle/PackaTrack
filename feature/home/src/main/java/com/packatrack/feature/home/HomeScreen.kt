@@ -376,6 +376,8 @@ fun HomeScreen(
     if (showAddDialog) {
         AddShipmentDialog(
             initialNumber = initialNumber,
+            activeShipments = activeShipments,
+            archivedShipments = archivedShipments,
             viewModel = viewModel,
             onDismiss = { showAddDialog = false },
             onSave = { number, title, orderUrl, carrier ->
@@ -600,6 +602,8 @@ private fun ParcelCard(
 @Composable
 private fun AddShipmentDialog(
     initialNumber: String? = null,
+    activeShipments: List<ShipmentWithLegs> = emptyList(),
+    archivedShipments: List<ShipmentWithLegs> = emptyList(),
     viewModel: HomeViewModel,
     onDismiss: () -> Unit,
     onSave: (number: String, title: String?, orderUrl: String?, carrier: Carrier?) -> Unit,
@@ -610,11 +614,17 @@ private fun AddShipmentDialog(
     var override by remember { mutableStateOf<Carrier?>(value = null) }
     var showManual by remember { mutableStateOf(value = false) }
 
+    val trimmed = number.trim()
+    val normalized = com.packatrack.core.util.FingerprintUtil.normalize(trimmed)
+    val allLegs = (activeShipments + archivedShipments).flatMap { it.legs }
+    val duplicate = allLegs.any { it.trackingNumber == normalized }
+    val tooShort = normalized.isNotEmpty() && normalized.length < com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH
+
     val clipboard = LocalClipboard.current
     LaunchedEffect(Unit) {
         if (number.isBlank()) {
             val clipText = clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text?.toString()?.trim()
-            if (!clipText.isNullOrBlank() && CarrierDetector.detectAll(clipText).isNotEmpty()) {
+            if (!clipText.isNullOrBlank()) {
                 number = clipText
             }
         }
@@ -632,10 +642,10 @@ private fun AddShipmentDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                enabled = FingerprintUtil.normalize(number).length >= FingerprintUtil.MIN_NUMBER_LENGTH,
+                enabled = normalized.length >= com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH && !duplicate,
                 onClick = {
                     onSave(
-                        number.trim(),
+                        trimmed,
                         title.trim().ifBlank { null },
                         orderUrl.trim().ifBlank { null },
                         chosen,
@@ -650,8 +660,14 @@ private fun AddShipmentDialog(
                 OutlinedTextField(
                     value = number, onValueChange = { number = it },
                     label = { Text(stringResource(R.string.tracking_number_label)) }, singleLine = true,
+                    isError = duplicate || tooShort,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (duplicate) {
+                    Text(stringResource(R.string.duplicate_number_error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                } else if (tooShort) {
+                    Text("Tracking number looks too short (min ${com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH} chars)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
 
                 if (needsAusPostKey && !hasAusPostKey) {
                     Card(
