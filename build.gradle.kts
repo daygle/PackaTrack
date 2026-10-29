@@ -24,6 +24,7 @@ buildscript {
                 "org.bouncycastle:bcutil-jdk18on:1.86", // GHSA-574f-3g2m-x479
                 "org.apache.httpcomponents:httpclient:4.5.14", // GHSA-7r82-7xv7-xcpj / CVE-2020-13956 (XSS, fixed in 4.5.13) - tooling declares 4.5.6
                 "org.jdom:jdom2:2.0.6.1", // GHSA-2363-cqg2-863c (XXE)
+                "com.google.guava:guava:33.7.2-jre", // GHSA-xxph-c9ww-hj94 / CVE-2026-102554 (deserialization OOM), -jre for build tooling
             )
         }
     }
@@ -53,10 +54,32 @@ abstract class RequirePatchedVersions @Inject constructor(
 }
 
 val patchedVersions = buildscript.configurations["classpath"].resolutionStrategy.forcedModules
+    // Guava ships separate -jre and -android artifacts; promoting the -jre build into every graph
+    // would swap the app's Android flavor, so it gets its own per-configuration rule below.
+    .filterNot { it.group == "com.google.guava" && it.name == "guava" }
     .associate { "${it.group}:${it.name}" to checkNotNull(it.version) }
 
 allprojects {
     dependencies.components.all(RequirePatchedVersions::class.java) {
         params(patchedVersions)
+    }
+}
+
+// Raise Guava to the release that fixes GHSA-xxph-c9ww-hj94 (patched in 33.7.2) without switching a
+// graph from one published flavor to the other: Android variant classpaths stay on -android, while
+// lint, annotation processors and other JVM-only classpaths stay on -jre.
+val guavaVersion = "33.7.2"
+
+allprojects {
+    configurations.configureEach {
+        val configurationName = name
+        resolutionStrategy.eachDependency {
+            if (requested.group == "com.google.guava" && requested.name == "guava") {
+                val usesAndroidFlavor = requested.version?.endsWith("-android") == true ||
+                    configurationName.contains("CompileClasspath") ||
+                    configurationName.contains("RuntimeClasspath")
+                useVersion("$guavaVersion-${if (usesAndroidFlavor) "android" else "jre"}")
+            }
+        }
     }
 }
