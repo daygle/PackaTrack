@@ -51,7 +51,7 @@ class HomeScreenTest {
     ) = ShipmentWithLegs(
         shipment = shipment(id, title, createdAt),
         legs = listOf(leg(id, id, trackingNumber, statusCode)),
-        orders = listOf(OrderItemEntity(id = id, shipmentId = id, name = title ?: trackingNumber)),
+        orders = emptyList(),
     )
 
     @get:Rule(order = 0)
