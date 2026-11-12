@@ -24,7 +24,7 @@ buildscript {
                 "org.bouncycastle:bcutil-jdk18on:1.86", // GHSA-574f-3g2m-x479
                 "org.apache.httpcomponents:httpclient:4.5.14", // GHSA-7r82-7xv7-xcpj / CVE-2020-13956 (XSS, fixed in 4.5.13) - tooling declares 4.5.6
                 "org.jdom:jdom2:2.0.6.1", // GHSA-2363-cqg2-863c (XXE)
-                "com.google.guava:guava:33.7.2-jre", // GHSA-xxph-c9ww-hj94 / CVE-2026-102554 (deserialization OOM), -jre for build tooling
+                "com.google.guava:guava:33.8.0-jre", // GHSA-xxph-c9ww-hj94 / CVE-2026-102554 (deserialization OOM), -jre for build tooling
             )
         }
     }
