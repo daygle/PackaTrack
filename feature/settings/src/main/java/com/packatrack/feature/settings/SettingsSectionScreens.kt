@@ -474,10 +474,10 @@ private fun TransitScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hil
 @Composable
 private fun SettingsChipRow(options: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
     val suffix = stringResource(R.string.days_suffix)
-    Row(
+    FlowRow(
         Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         options.forEach { value ->
             SettingsChip(
