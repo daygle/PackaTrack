@@ -11,6 +11,13 @@ android {
     namespace = "com.packatrack.app"
     compileSdk = 37
 
+    // The NDK is needed even though the app compiles no C/C++ itself: AGP uses its objcopy to
+    // extract native debug metadata (see ndk.debugSymbolLevel below) for the .so files that
+    // dependencies ship. Without an NDK installed, AGP skips that step without failing, and
+    // Play warns that the bundle contains native code with no debug symbols. Keep in sync with
+    // the ndk;<version> package installed by .github/workflows/release.yml.
+    ndkVersion = "30.0.16248370"
+
     // Versions come from the build environment first (the release workflow derives both from
     // the pushed tag), then from -P Gradle properties, then from the defaults below.
     val buildVersionName = System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
@@ -67,10 +74,9 @@ android {
             // the .aab, so Google Play picks up the deobfuscation file automatically.
             isMinifyEnabled = true
             isShrinkResources = true
-            // Google's documented setting for native debug symbols. The libraries this app
-            // ships (libsqlcipher, libandroidx.graphics.path) arrive pre-stripped from their
-            // AARs, so Play's "no debug symbols" notice cannot be cleared yet; this costs
-            // nothing and packages symbols automatically for any dependency that has them.
+            // Packages native debug metadata for the bundled .so files (libsqlcipher,
+            // libandroidx.graphics.path) into the .aab's BUNDLE-METADATA, which Play reads as
+            // the symbol file. Requires the NDK pinned by ndkVersion above.
             ndk {
                 debugSymbolLevel = "FULL"
             }
@@ -97,6 +103,8 @@ android {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
         resources.excludes += "META-INF/INDEX.LIST"
         resources.excludes += "META-INF/DEPENDENCIES"
+        // These arrive already stripped from their AARs, so skip AGP's strip step (which warns
+        // in CI jobs without an NDK). This affects stripping only, not symbol extraction.
         jniLibs {
             keepDebugSymbols.add("**/libandroidx.graphics.path.so")
             keepDebugSymbols.add("**/libsqlcipher.so")

@@ -38,10 +38,12 @@ jobs:
       # Sets up the Android SDK environment. AGP auto-provisions the platform/build-tools
       # it needs, but the action's default 'packages' input ('tools platform-tools') fails
       # because the obsolete 'tools' package is gone from Google's SDK repository.
+      # The NDK must match ndkVersion in app/build.gradle.kts: AGP needs its objcopy to put
+      # native debug symbols in the bundle, and silently omits them when no NDK is installed.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: platform-tools
+          packages: platform-tools ndk;30.0.16248370
 
       # versionCode must increase with every release, so derive it from the semantic
       # version in the tag (v1.2.3 -> 1002003) rather than the workflow run number,
@@ -107,6 +109,12 @@ jobs:
           if ! echo "$OUT" | grep -q "jar verified"; then
             echo "$OUT"
             echo "::error::$AAB is not signed."
+            exit 1
+          fi
+          # Play warns about missing debug symbols unless the bundle carries native debug
+          # metadata; catch a missing NDK here instead of in the Play Console.
+          if ! unzip -l "$AAB" | grep -q "BUNDLE-METADATA/com.android.tools.build.debugsymbols/"; then
+            echo "::error::$AAB has no native debug symbols (is the NDK from ndkVersion installed?)."
             exit 1
           fi
           mv "$AAB" "app/build/outputs/bundle/release/PackaTrack-$VERSION_NAME-release.aab"
