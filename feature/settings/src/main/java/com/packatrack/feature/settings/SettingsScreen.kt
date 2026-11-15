@@ -140,6 +140,12 @@ fun SettingsScreen(
     var dateFormat by remember { mutableStateOf(prefs.dateTimeFormat) }
     var biometricLock by remember { mutableStateOf(prefs.biometricLock) }
     var lockGrace by remember { mutableIntStateOf(prefs.lockGraceSeconds) }
+
+    // Resolved during composition so they follow configuration changes. Reading a resource off
+    // LocalContext inside the coroutine below is what lint's LocalContextGetResourceValueCall
+    // check (an error) rejects.
+    val backupExportedMessage = stringResource(R.string.backup_exported)
+    val backupRestoredMessage = stringResource(R.string.backup_restored)
     var smartImportEnabled by remember { mutableStateOf(prefs.smartImportEnabled) }
     var smartImportAccount by remember { mutableStateOf(prefs.smartImportAccount) }
     var transitGreenDays by remember { mutableIntStateOf(prefs.transitGreenDays) }
@@ -206,7 +212,7 @@ fun SettingsScreen(
                     .onSuccess {
                         backupError = null
                         backupPassphrase = ""
-                        Toast.makeText(context, context.getString(R.string.backup_exported), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, backupExportedMessage, Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Export failed" }
                 passphrase.fill('\u0000')
@@ -221,7 +227,7 @@ fun SettingsScreen(
                     .onSuccess {
                         backupError = null
                         restorePassphrase = ""
-                        Toast.makeText(context, context.getString(R.string.backup_restored), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, backupRestoredMessage, Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Restore failed" }
                 passphrase.fill('\u0000')
