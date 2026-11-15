@@ -106,16 +106,22 @@ jobs:
             exit 1
           fi
           OUT=$(jarsigner -verify "$AAB")
-          if ! echo "$OUT" | grep -q "jar verified"; then
+          # Compare in the shell instead of piping through `grep -q`: grep exits on its first
+          # match, so the producer dies with a "Broken pipe" write error in the log.
+          if [[ "$OUT" != *"jar verified"* ]]; then
             echo "$OUT"
             echo "::error::$AAB is not signed."
             exit 1
           fi
-          # Play warns about missing debug symbols unless the bundle carries native debug
-          # metadata; catch a missing NDK here instead of in the Play Console.
-          if ! unzip -l "$AAB" | grep -q "BUNDLE-METADATA/com.android.tools.build.debugsymbols/"; then
-            echo "::error::$AAB has no native debug symbols (is the NDK from ndkVersion installed?)."
-            exit 1
+          # Play warns about a bundle that carries native code with no debug symbols, but this
+          # app cannot supply any: its only native code is libsqlcipher.so from the SQLCipher
+          # AAR, which ships already stripped (no .symtab and no .debug_info in any ABI), so
+          # AGP has nothing to extract even with the NDK installed. Warning rather than failing
+          # keeps the guard informative; a hard check here would block every release.
+          if [[ "$(unzip -Z1 "$AAB")" == *"BUNDLE-METADATA/com.android.tools.build.debugsymbols/"* ]]; then
+            echo "Bundle carries native debug symbols."
+          else
+            echo "::warning::$AAB has no native debug symbols (pre-stripped third-party .so); Play warns about this but accepts the bundle."
           fi
           mv "$AAB" "app/build/outputs/bundle/release/PackaTrack-$VERSION_NAME-release.aab"
 
