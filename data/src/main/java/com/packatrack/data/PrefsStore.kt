@@ -22,16 +22,33 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
     private val prefs: SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    // The key is read once per poll (every carrier fetch asks for it), and decrypting it is a
+    // Keystore round trip, so the plaintext is memoised until the next write.
+    @Volatile private var decryptedAusPostKey: String? = null
+    @Volatile private var ausPostKeyLoaded = false
+
     var ausPostApiKey: String?
-        get() = prefs.getString(KEY_AUSPOST_KEY, null)
-            ?.let { stored -> runCatching { String(KeystoreCrypto.decryptFromBase64(stored)) }.getOrNull() }
-        set(value) = prefs.edit {
-            val trimmed = value?.trim()
-            if (trimmed.isNullOrEmpty()) {
-                remove(KEY_AUSPOST_KEY)
-            } else {
-                putString(KEY_AUSPOST_KEY, KeystoreCrypto.encryptToBase64(trimmed.toByteArray()))
+        get() {
+            if (!ausPostKeyLoaded) {
+                decryptedAusPostKey = prefs.getString(KEY_AUSPOST_KEY, null)
+                    ?.let { stored ->
+                        runCatching { String(KeystoreCrypto.decryptFromBase64(stored)) }.getOrNull()
+                    }
+                ausPostKeyLoaded = true
             }
+            return decryptedAusPostKey
+        }
+        set(value) {
+            val trimmed = value?.trim()
+            prefs.edit {
+                if (trimmed.isNullOrEmpty()) {
+                    remove(KEY_AUSPOST_KEY)
+                } else {
+                    putString(KEY_AUSPOST_KEY, KeystoreCrypto.encryptToBase64(trimmed.toByteArray()))
+                }
+            }
+            decryptedAusPostKey = trimmed?.takeIf { it.isNotEmpty() }
+            ausPostKeyLoaded = true
         }
 
     var syncIntervalHours: Int
@@ -41,6 +58,14 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
     var notificationsEnabled: Boolean
         get() = prefs.getBoolean(KEY_NOTIFICATIONS, true)
         set(value) = prefs.edit { putBoolean(KEY_NOTIFICATIONS, value) }
+
+    /**
+     * True once the POST_NOTIFICATIONS prompt has been shown. The system dialog is only worth
+     * showing once: asking on every launch harasses a user who has already declined.
+     */
+    var notificationPermissionRequested: Boolean
+        get() = prefs.getBoolean(KEY_NOTIF_REQUESTED, false)
+        set(value) = prefs.edit { putBoolean(KEY_NOTIF_REQUESTED, value) }
 
     var notifyOnDelivered: Boolean
         get() = prefs.getBoolean(KEY_NOTIFY_DELIVERED, true)
@@ -167,6 +192,7 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
         const val KEY_NOTIFY_DELIVERED = "notify_delivered"
         const val KEY_NOTIFY_EXCEPTIONS = "notify_exceptions"
         const val KEY_NOTIFY_TRANSIT = "notify_transit"
+        const val KEY_NOTIF_REQUESTED = "notification_permission_requested"
         const val KEY_WIFI_ONLY = "wifi_only_sync"
         const val KEY_THEME = "theme_mode"
         const val KEY_SORT_ORDER = "sort_order"

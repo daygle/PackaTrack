@@ -42,6 +42,9 @@ fun overallStatusCode(
     if (codes.values.any { it == "EXCEPTION" || it?.startsWith("EXCEPTION_") == true }) return "EXCEPTION"
 
     val legById = legs.associateBy(TrackingLegEntity::id)
+    // Leg order breaks ties (original leg first). Precomputed so the ranking below does not
+    // scan the list for every comparison.
+    val orderById = legs.withIndex().associate { (index, leg) -> leg.id to index }
 
     fun recency(id: Long): Long? {
         // Newest timestamped scan for the leg, from the DAO projection; a leg whose map entry
@@ -57,9 +60,10 @@ fun overallStatusCode(
         // No timestamps anywhere: STATUS_RANK, then leg order (original leg first).
         return STATUS_RANK.firstOrNull { it in withRecency.values } ?: withRecency.values.first()
     }
-    val newest = withTime.keys.maxOf { recency(it)!! }
-    val freshest = withTime.keys.filter { newest - recency(it)!! <= STATUS_RECENCY_WINDOW_MS }
-        .sortedBy { legById.keys.indexOf(it) }
+    val newest = withTime.keys.maxOf { recency(it) ?: Long.MIN_VALUE }
+    val freshest = withTime.keys
+        .filter { id -> newest - (recency(id) ?: newest) <= STATUS_RECENCY_WINDOW_MS }
+        .sortedBy { orderById.getValue(it) }
     return STATUS_RANK.firstOrNull { code -> freshest.any { codes[it] == code } }
         ?: codes[freshest.first()]
 }

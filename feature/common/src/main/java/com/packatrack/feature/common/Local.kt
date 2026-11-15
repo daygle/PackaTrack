@@ -18,7 +18,7 @@ fun parcelName(
 ): String {
     shipment.title?.takeIf { it.isNotBlank() }?.let { return it }
     orders.firstOrNull()?.let { first ->
-        return if (orders.size == 1) first.name else "${first.name}  +${orders.size - 1} more"
+        return if (orders.size == 1) first.name else "${first.name} +${orders.size - 1} more"
     }
     return legs.firstOrNull()?.trackingNumber ?: "Parcel"
 }

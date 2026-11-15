@@ -167,6 +167,10 @@ object CainiaoParser {
             // Out for delivery
             c.contains("OUT_FOR_DELIVERY") || c == "DISPATCH" ||
                 c.contains("OUT_DELIVERY") || c.contains("DELIVERING") -> "OUT_FOR_DELIVERY"
+            // "UNDELIVERABLE" and "DELIVERY_UNSUCCESSFUL" contain DELIVER but mean the opposite,
+            // so they must be claimed before the delivered bucket below.
+            c.contains("UNDELIVER") || c.contains("NOT_DELIVERED") ||
+                c.contains("UNSUCCESSFUL_DELIVER") || c.contains("DELIVERY_FAIL") -> "EXCEPTION"
             // Delivered ("SIGNED" as its own word, so e.g. "ASSIGNED" does not match)
             SIGNED.containsMatchIn(c) || c.contains("DELIVER") -> "DELIVERED"
             c.contains("LAST_MILE") -> "OUT_FOR_DELIVERY"

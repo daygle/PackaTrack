@@ -102,9 +102,6 @@ interface OrderDao {
     @Insert
     suspend fun insertAll(orders: List<OrderItemEntity>): List<Long>
 
-    @Query("SELECT * FROM orders WHERE shipmentId = :shipmentId AND name = :name AND ((orderUrl = :orderUrl) OR (orderUrl IS NULL AND :orderUrl IS NULL)) LIMIT 1")
-    suspend fun findDuplicate(shipmentId: Long, name: String, orderUrl: String?): OrderItemEntity?
-
     @Query("DELETE FROM orders WHERE id = :orderId")
     suspend fun deleteById(orderId: Long)
 
@@ -185,14 +182,8 @@ interface ChangeDao {
     @Query("SELECT * FROM changes ORDER BY createdAt ASC")
     suspend fun all(): List<ChangeEntity>
 
-    @Query("SELECT * FROM changes WHERE shipmentId = :shipmentId ORDER BY createdAt DESC")
-    fun observeFor(shipmentId: Long): Flow<List<ChangeEntity>>
-
     @Query("DELETE FROM changes WHERE shipmentId = :shipmentId")
     suspend fun deleteForShipment(shipmentId: Long)
-
-    @Query("SELECT * FROM changes WHERE shipmentId = :shipmentId AND type = :type AND message = :message LIMIT 1")
-    suspend fun findDuplicate(shipmentId: Long, type: String, message: String): ChangeEntity?
 
     @Query("SELECT COUNT(*) FROM changes WHERE shipmentId = :shipmentId AND type = :type AND message = :message")
     suspend fun countByMessage(shipmentId: Long, type: String, message: String): Int

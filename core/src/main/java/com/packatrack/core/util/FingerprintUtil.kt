@@ -35,13 +35,4 @@ object FingerprintUtil {
     /** True when the last [minChars] characters of both numbers match. */
     fun suffixMatch(a: String, b: String, minChars: Int): Boolean =
         commonSuffixLength(a, b) >= minChars
-
-    /**
-     * Two weights are considered "same parcel" within the default tolerance
-     * (couriers round in steps of 10-50g). Nulls never match.
-     */
-    fun weightClose(w1: Double?, w2: Double?, toleranceGrams: Double = 30.0): Boolean {
-        if (w1 == null || w2 == null) return false
-        return kotlin.math.abs(w1 - w2) <= toleranceGrams
-    }
 }

@@ -50,7 +50,6 @@ class TrackingRepository @Inject constructor(
     fun observeRecentChanges(): Flow<List<ChangeEntity>> = changes.observeRecent()
     fun observeShipment(id: Long): Flow<ShipmentWithLegs?> = shipments.observeWithLegs(id)
     fun observeEvents(shipmentId: Long): Flow<List<EventEntity>> = events.observeForShipment(shipmentId)
-    fun observeChangesFor(shipmentId: Long): Flow<List<ChangeEntity>> = changes.observeFor(shipmentId)
 
     /** Earliest scan time per shipment (shipmentId -> first event ms), for "days in transit". */
     fun observeFirstEventTimes(): Flow<Map<Long, Long>> =
@@ -137,8 +136,8 @@ class TrackingRepository @Inject constructor(
                 ),
             )
         }
-        // Poll every auto-created leg immediately, including all carrier interpretations.
-        // The caller performs the first refresh after this method returns.
+        // Each auto-created leg (one per matching carrier) is polled by the caller's first
+        // refresh, so this method only sets up the rows.
         return shipmentId
     }
 

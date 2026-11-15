@@ -112,6 +112,10 @@ class CainiaoParserTest {
         assertEquals("OUT_FOR_DELIVERY", CainiaoParser.mapCode("Out for delivery"))
         assertEquals("OUT_FOR_DELIVERY", CainiaoParser.mapCode("GTMS_DELIVERING"))
         assertEquals("EXCEPTION", CainiaoParser.mapCode("DELIVERY_FAILED"))
+        // "UNDELIVERABLE" contains DELIVER but must never read as delivered.
+        assertEquals("EXCEPTION", CainiaoParser.mapCode("UNDELIVERABLE"))
+        assertEquals("EXCEPTION", CainiaoParser.mapCode("Package undeliverable - returned"))
+        assertEquals("EXCEPTION", CainiaoParser.mapCode("NOT_DELIVERED"))
         assertEquals("GTMS_ASSIGNED", CainiaoParser.mapCode("GTMS_ASSIGNED"))
         assertEquals("DELIVERED", CainiaoParser.mapCode("GTMS_SIGNED"))
         assertEquals("DELIVERED", CainiaoParser.mapCode("SIGNED_SUCCESS"))

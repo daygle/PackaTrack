@@ -20,10 +20,4 @@ class FingerprintUtilTest {
         assertTrue(FingerprintUtil.suffixMatch("AU1234567890001", "1234567890001", 10))
         assertFalse(FingerprintUtil.suffixMatch("AU1", "1", 10))
     }
-
-    @Test fun weightCloseWithinTolerance() {
-        assertTrue(FingerprintUtil.weightClose(500.0, 512.0))
-        assertFalse(FingerprintUtil.weightClose(null, 512.0))
-        assertFalse(FingerprintUtil.weightClose(500.0, 900.0))
-    }
 }

@@ -2,6 +2,7 @@ package com.packatrack.app
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
@@ -11,6 +12,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -66,10 +68,11 @@ class MainActivity : FragmentActivity() {
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* best effort */ }
 
-    private var isAuthenticated by mutableStateOf(false)
-
-    /** Uptime when the app was last backgrounded, for the optional lock grace period. */
-    private var stoppedAtElapsed = 0L
+    /**
+     * Unlocked state and the lock grace timer. Held in a ViewModel so that a configuration change
+     * does not re-lock the app, while a new process always starts locked.
+     */
+    private val lockState: AppLockState by viewModels()
 
     /**
      * Whether the lock screen can be satisfied right now. Enrolment is not permanent - the user
@@ -95,9 +98,7 @@ class MainActivity : FragmentActivity() {
 
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= 33) {
-            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        requestNotificationPermissionOnce()
 
         pendingShipmentId = readOpenShipmentId(intent)
         lockAuthenticatorsAvailable = canAuthenticate()
@@ -112,8 +113,8 @@ class MainActivity : FragmentActivity() {
             // Keep parcel names and delivery addresses out of the recents thumbnail and
             // out of screenshots while the lock is on.
             LaunchedEffect(appLockEnabled) { applyScreenshotProtection(appLockEnabled) }
-            // Re-read on every recomposition; isAuthenticated flips (e.g. in onStop) trigger one.
-            val locked = appLockEnabled && !isAuthenticated && lockAuthenticatorsAvailable
+            // Re-read on every recomposition; [lockState] flips (e.g. in onStart) trigger one.
+            val locked = appLockEnabled && !lockState.authenticated && lockAuthenticatorsAvailable
 
             PackaTrackTheme(themeMode = themeMode) {
                 Box(Modifier.fillMaxSize()) {
@@ -144,16 +145,22 @@ class MainActivity : FragmentActivity() {
         // Enrolment can change while the app is backgrounded, so re-check before deciding
         // whether to lock - including the case where the screen lock was removed entirely.
         lockAuthenticatorsAvailable = canAuthenticate()
-        if (prefs.biometricLock && isAuthenticated && lockGraceElapsed()) {
-            isAuthenticated = false
+        if (prefs.biometricLock && lockState.authenticated &&
+            lockState.stoppedInBackground && lockGraceElapsed()
+        ) {
+            lockState.authenticated = false
         }
+        lockState.stoppedInBackground = false
     }
 
     override fun onStop() {
         super.onStop()
-        // Remember when we left; the grace period is measured on the way back in.
-        if (prefs.biometricLock) {
-            stoppedAtElapsed = SystemClock.elapsedRealtime()
+        // Remember when we left; the grace period is measured on the way back in. A configuration
+        // change is not the user leaving: the activity is recreated straight away, so starting the
+        // timer there would demand biometrics for a rotation.
+        if (!isChangingConfigurations && prefs.biometricLock) {
+            lockState.stoppedAtElapsed = SystemClock.elapsedRealtime()
+            lockState.stoppedInBackground = true
         }
     }
 
@@ -163,7 +170,22 @@ class MainActivity : FragmentActivity() {
      */
     private fun lockGraceElapsed(): Boolean {
         val graceMs = prefs.lockGraceSeconds * 1000L
-        return SystemClock.elapsedRealtime() - stoppedAtElapsed >= graceMs
+        return SystemClock.elapsedRealtime() - lockState.stoppedAtElapsed >= graceMs
+    }
+
+    /**
+     * Shows the notification-permission dialog once per install, and only while it is still
+     * needed. It used to be requested on every launch, which nags anyone who declined.
+     */
+    private fun requestNotificationPermissionOnce() {
+        if (Build.VERSION.SDK_INT < 33 || prefs.notificationPermissionRequested) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        prefs.notificationPermissionRequested = true
+        notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -203,7 +225,7 @@ class MainActivity : FragmentActivity() {
 
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
-                    isAuthenticated = true
+                    lockState.authenticated = true
                 }
             })
 

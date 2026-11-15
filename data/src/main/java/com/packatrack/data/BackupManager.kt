@@ -110,11 +110,16 @@ class BackupManager(context: Context) {
             )
             val legMap = newLegs.mapIndexed { index, leg -> leg.id to newLegIds[index] }.toMap()
 
+            // Load the existing rows once. Asking the database per row (as this used to) turns a
+            // restore of a few thousand orders/change entries into as many queries inside the
+            // transaction; the set is also what de-duplicates the incoming batch against itself.
+            val seenOrders = db.orderDao().all()
+                .mapTo(HashSet()) { Triple(it.shipmentId, it.name, it.orderUrl) }
+            val seenChanges = db.changeDao().all()
+                .mapTo(HashSet()) { Triple(it.shipmentId, it.type, it.message) }
             db.orderDao().insertAll(
                 orders.map { it.copy(id = 0, shipmentId = shipmentMap.getValue(it.shipmentId)) }
-                    .filterNot { candidate ->
-                        db.orderDao().findDuplicate(candidate.shipmentId, candidate.name, candidate.orderUrl) != null
-                    },
+                    .filter { seenOrders.add(Triple(it.shipmentId, it.name, it.orderUrl)) },
             )
             // Events only go to newly inserted legs, so none can already exist in the database;
             // the unique index (IGNORE) drops any duplicates within the backup itself.
@@ -126,9 +131,7 @@ class BackupManager(context: Context) {
             )
             db.changeDao().insertAll(
                 changes.map { it.copy(id = 0, shipmentId = shipmentMap.getValue(it.shipmentId)) }
-                    .filterNot { candidate ->
-                        db.changeDao().findDuplicate(candidate.shipmentId, candidate.type, candidate.message) != null
-                    },
+                    .filter { seenChanges.add(Triple(it.shipmentId, it.type, it.message)) },
             )
         }
     }

@@ -102,7 +102,17 @@ class HttpTrackingFetcher(
                     Log.w(TAG, "HTTP ${resp.code} from ${url.host}")
                     return@use null
                 }
-                resp.body.string().also { debug { "GET ${url.host}${url.encodedPath} -> ${resp.code} (${it.length} bytes)" } }
+                // Cap what a single response may buffer: these are undocumented endpoints, and a
+                // misbehaving or hostile one should cost a skipped poll, not the whole process.
+                val length = resp.body.contentLength()
+                if (length > MAX_BODY_BYTES) {
+                    Log.w(TAG, "Response from ${url.host} too large ($length bytes), skipping")
+                    return@use null
+                }
+                // peekBody also bounds responses with no declared length (chunked).
+                resp.peekBody(MAX_BODY_BYTES).string().also {
+                    debug { "GET ${url.host}${url.encodedPath} -> ${resp.code} (${it.length} bytes)" }
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Request to ${url.host} failed", e)
@@ -221,6 +231,9 @@ class HttpTrackingFetcher(
     private companion object {
         const val TAG = "TrackingFetcher"
         const val MAX_REDIRECTS = 5
+
+        /** Largest response body accepted from a carrier (2 MiB); real timelines are far smaller. */
+        const val MAX_BODY_BYTES = 2L * 1024 * 1024
         const val CAINIAO_DETAIL = "https://global.cainiao.com/global/detail.json"
         const val CAINIAO_PAGE = "https://global.cainiao.com/newDetail.htm"
 
