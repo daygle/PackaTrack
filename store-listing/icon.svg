@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!--
+    Source artwork for app-icon-512.png (Google Play listing icon).
+    Same geometry as feature/common/src/main/res/drawable/ic_launcher_foreground_v2.xml,
+    drawn in the 108dp launcher viewport and scaled up. Render at 512x512 with no
+    transparency outside the square: Play applies its own corner mask.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E1B4B"/>
+      <stop offset="1" stop-color="#064E3B"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="256" cy="256" r="379" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22D3EE" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+
+  <g transform="scale(4.7407407407)">
+    <!-- Top facet (indigo) -->
+    <path d="M54,34 L74,44 L54,54 L34,44 Z" fill="#6366F1" fill-opacity="0.9"/>
+    <!-- Right facet (sky) -->
+    <path d="M54,54 L74,44 L74,68 L54,78 Z" fill="#0EA5E9" fill-opacity="0.8"/>
+    <!-- Left facet (emerald) -->
+    <path d="M54,54 L34,44 L34,68 L54,78 Z" fill="#10B981" fill-opacity="0.85"/>
+    <!-- Glass highlight -->
+    <path d="M54,34 L74,44 L54,54 L34,44 Z" fill="#FFFFFF" fill-opacity="0.1"/>
+    <path d="M34,44 L54,54 L74,44" fill="none" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="0.5"/>
+    <!-- Tracking pulse, with its glow -->
+    <path d="M20,60 C35,65 54,50 88,45" fill="none" stroke="#22D3EE" stroke-opacity="0.1" stroke-width="5" stroke-linecap="round"/>
+    <path d="M20,60 C35,65 54,50 88,45" fill="none" stroke="#22D3EE" stroke-opacity="0.6" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+</svg>

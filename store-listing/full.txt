@@ -1,0 +1,35 @@
+PackaTrack keeps every parcel in one place, even when the tracking number changes mid-journey. It is built for the messy reality of shopping from AliExpress, Cainiao, Australia Post and iMile: shipments that get renumbered at the border, orders consolidated into a single box, and tracking split across several carriers.
+
+RENUMBERING DETECTED FOR YOU
+• PackaTrack notices when a parcel is given a new tracking number and links the two together, instead of leaving you with a dead number and no history
+• A renumbered parcel keeps one continuous timeline, with every scan from every number
+
+CONSOLIDATED SHIPMENTS
+• Attach several tracking numbers to one parcel when a seller combines your orders into one physical shipment
+• See a merged view of every scan, from every courier, in date order
+
+MULTI-COURIER TIMELINES
+• Cainiao, Australia Post, iMile, Aramex and Morning Global scans merged into a single chronological timeline
+• Carrier detection from the tracking number, so you rarely have to pick one yourself
+
+KNOW WHAT IS LATE
+• Colour-coded parcels (green, yellow, orange, red) based on how long they have been in transit
+• Set the day thresholds for each colour to suit your own patience
+
+NOTIFICATIONS THAT MATTER
+• Alerted when a parcel is delivered, when its tracking number changes, and when shipments are combined
+• Background sync keeps timelines fresh without you opening the app
+• Optional import of order emails from Gmail, read on your device, to add parcels you would otherwise type in by hand
+
+PRIVATE BY DESIGN
+• No PackaTrack servers: tracking data is fetched directly from the carriers
+• Your history stays on your device, in an encrypted database (SQLCipher, AES-256) with its key held in the Android Keystore
+• Optional app lock with biometrics or your device PIN
+• Passphrase-encrypted export and import if you want to move your history to a new phone
+
+MADE FOR ANDROID
+• Native Material 3 design with light and dark themes
+• Android 7.0 or newer
+• Australia Post tracking needs a free API key from Australia Post, added in Settings
+
+PackaTrack has no ads, no analytics and no cloud account. Your parcels are not sold, shared or sent anywhere except the carriers you track with.

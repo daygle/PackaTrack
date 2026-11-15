@@ -20,3 +20,13 @@ Thumbs.db
 .freebuff/
 .artifacts/
 .kotlin/
+
+# Release signing (never commit)
+keystore.properties
+/keystore/
+*.keystore
+*.jks
+
+# Build outputs
+*.apk
+*.aab

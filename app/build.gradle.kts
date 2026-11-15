@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -9,25 +11,69 @@ android {
     namespace = "com.packatrack.app"
     compileSdk = 37
 
+    // Versions come from the build environment first (the release workflow derives both from
+    // the pushed tag), then from -P Gradle properties, then from the defaults below.
+    val buildVersionName = System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
+        ?: (project.findProperty("VERSION_NAME") as? String)?.takeIf { it.isNotBlank() }
+        ?: "1.0.0"
+    val buildVersionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
+        ?: (project.findProperty("VERSION_CODE") as? String)?.toIntOrNull()
+        ?: 1
+
     defaultConfig {
-        applicationId = "com.packatrack.app"
+        // Play package name, and permanent once the first bundle is uploaded. It deliberately
+        // differs from the namespace above: the store identifier is the short form, while the
+        // Kotlin/R classes stay in com.packatrack.app. Manifest entries such as .MainActivity
+        // resolve against the namespace, so they are unaffected.
+        applicationId = "com.packatrack"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = buildVersionCode
+        versionName = buildVersionName
         testInstrumentationRunner = "com.packatrack.app.HiltTestRunner"
+    }
+
+    // Release signing: credentials come from environment variables (CI secrets) or, for local
+    // builds, from an untracked keystore.properties in the project root. See README "Release
+    // signing". When no keystore is configured the release build stays unsigned, which Google
+    // Play will not accept.
+    val releaseSigningProps = Properties().apply {
+        val propsFile = rootProject.file("keystore.properties")
+        if (propsFile.exists()) {
+            propsFile.inputStream().use { load(it) }
+        }
+    }
+    fun releaseSigningValue(name: String): String? =
+        System.getenv(name)?.takeIf { it.isNotBlank() }
+            ?: releaseSigningProps.getProperty(name)?.takeIf { it.isNotBlank() }
+
+    val releaseKeystorePath = releaseSigningValue("RELEASE_KEYSTORE_FILE")
+    val releaseKeystore = releaseKeystorePath?.let { rootProject.file(it) }
+    val releaseSigningConfigured = releaseKeystore != null && releaseKeystore.exists()
+
+    if (releaseKeystore != null && releaseKeystore.exists()) {
+        signingConfigs.create("release") {
+            storeFile = releaseKeystore
+            storePassword = releaseSigningValue("RELEASE_KEYSTORE_PASSWORD")
+            keyAlias = releaseSigningValue("RELEASE_KEY_ALIAS")
+            keyPassword = releaseSigningValue("RELEASE_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
             // R8 strips unused code and obfuscates; the resource shrinker drops unused
-            // resources. Keep rules live in proguard-rules.pro.
+            // resources. Keep rules live in proguard-rules.pro. The R8 mapping is embedded in
+            // the .aab, so Google Play picks up the deobfuscation file automatically.
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
