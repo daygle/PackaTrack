@@ -56,6 +56,20 @@ data class TrackingLegEntity(
     /** Normalized status code of this leg's most recent event. */
     val lastStatusCode: String? = null,
     val createdAt: Long = 0L,
+    /**
+     * Journey stages the carrier reports for this leg, joined by `|` ("Mainland China|Australia|
+     * Delivered"). Kept even when a later poll fails, so the parcel still shows its route. Null
+     * when the carrier reports no route - see core CarrierProgress.
+     *
+     * Nullable rather than defaulted so the 1->2 migration only adds plain columns: Room
+     * compares an added column's SQL default against the entity's, and the simplest way to keep
+     * that comparison exact is to add none.
+     */
+    val progressStages: String? = null,
+    /** Fraction of the journey the carrier reports complete (0..1), or null. */
+    val progressRate: Double? = null,
+    /** Index of the furthest journey stage the carrier has marked reached, or null. */
+    val progressStageIndex: Int? = null,
 )
 
 /**
