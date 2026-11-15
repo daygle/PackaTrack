@@ -55,6 +55,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -75,6 +76,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -313,17 +317,18 @@ fun DetailScreen(
                     item(key = "orders_empty") {
                         EmptySectionText(stringResource(R.string.no_items_hint))
                     }
-                }
-                items(orders, key = { "order_${it.id}" }) { order ->
-                    OrderRow(
-                        order = order,
-                        onOpenLink = {
-                            order.orderUrl?.let(::webUriOrNull)?.let { uri ->
-                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-                            }
-                        },
-                        onRemove = { viewModel.removeOrder(order.id) },
-                    )
+                } else {
+                    item(key = "orders_card") {
+                        OrderCard(
+                            orders = orders,
+                            onOpenLink = { order ->
+                                order.orderUrl?.let(::webUriOrNull)?.let { uri ->
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                                }
+                            },
+                            onRemove = { orderId -> viewModel.removeOrder(orderId) },
+                        )
+                    }
                 }
 
             item(key = "timeline_title") {
@@ -553,11 +558,15 @@ private fun EmptySectionText(text: String) {
     )
 }
 
+/**
+ * Every item in one card, separated by dividers. A card per item spent ~90dp on a single word and
+ * grew by a whole card for each extra item; now the list grows one 48dp row at a time.
+ */
 @Composable
-private fun OrderRow(
-    order: OrderItemEntity,
-    onOpenLink: () -> Unit,
-    onRemove: () -> Unit,
+private fun OrderCard(
+    orders: List<OrderItemEntity>,
+    onOpenLink: (OrderItemEntity) -> Unit,
+    onRemove: (Long) -> Unit,
 ) {
     Card(
         Modifier
@@ -567,21 +576,47 @@ private fun OrderRow(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(order.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        orders.forEachIndexed { index, order ->
+            if (index > 0) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
-            if (!order.orderUrl.isNullOrBlank()) {
-                IconButton(onClick = onOpenLink) {
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                }
+            OrderRow(
+                order = order,
+                onOpenLink = { onOpenLink(order) },
+                onRemove = { onRemove(order.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun OrderRow(
+    order: OrderItemEntity,
+    onOpenLink: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    // No vertical padding of its own: the 48dp icon buttons already set the row height, and inside
+    // a shared card a divider is enough separation for a one-line item.
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            order.name,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (!order.orderUrl.isNullOrBlank()) {
+            IconButton(onClick = onOpenLink) {
+                Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             }
-            IconButton(onClick = onRemove) {
-                Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
-            }
+        }
+        IconButton(onClick = onRemove) {
+            Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
         }
     }
 }
@@ -749,31 +784,38 @@ private fun TimelineRow(
     carriers: List<Pair<String?, String?>>,
     isLast: Boolean
 ) {
+    val dotColor = statusColor(statusCode)
+    val railColor = MaterialTheme.colorScheme.outlineVariant
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp),
+            .padding(horizontal = 20.dp)
+            // Drawn from under the dot to the row's real bottom edge. A fixed-height rail left a
+            // gap under short rows and stopped short on rows whose description wrapped.
+            .drawBehind {
+                if (!isLast) {
+                    val railTop = 12.dp.toPx()
+                    drawRect(
+                        color = railColor,
+                        topLeft = Offset(5.dp.toPx(), railTop),
+                        size = Size(2.dp.toPx(), size.height - railTop),
+                    )
+                }
+            },
         verticalAlignment = Alignment.Top
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            val color = statusColor(statusCode)
-            Box(
-                Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(color)
-            )
-            if (!isLast) {
-                Box(
-                    Modifier
-                        .width(2.dp)
-                        .height(60.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant)
-                )
-            }
-        }
+        Box(
+            Modifier
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(dotColor)
+        )
         Spacer(Modifier.width(16.dp))
-        Column(Modifier.padding(bottom = 24.dp)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(bottom = 16.dp)
+        ) {
             Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(2.dp))
             Text(description, style = MaterialTheme.typography.bodyMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
