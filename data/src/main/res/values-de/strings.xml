@@ -1,0 +1,14 @@
+<resources>
+    <string name="notice_progress">%1$s: %2$s</string>
+    <string name="notice_progress_timed">%1$s: %2$s - %3$s</string>
+    <string name="notice_renumbered">%1$s: Sendungsnummer geändert von %2$s -&gt; %3$s</string>
+    <string name="notice_combined">%1$s: %2$d Pakete zu %3$s zusammengeführt</string>
+    <string name="notice_merged_with">%1$s: Zusammengeführt mit %2$s</string>
+    <string name="notice_consolidated">%1$s: Cainiao hat „%2$s“ in dieses Paket konsolidiert</string>
+    <string name="notice_folded_into">%1$s: In Sammelsendung %2$s eingefügt</string>
+    <string name="notice_courier_added">%1$s-Tracking %2$s hinzugefügt</string>
+    <string name="notice_title">PackaTrack-Update</string>
+    <string name="notice_public_text">Neue Paketaktivität</string>
+    <string name="notice_channel_name">Paketänderungen</string>
+    <string name="notice_channel_description">Zustellungen, Ausnahmen und Paketänderungen</string>
+</resources>

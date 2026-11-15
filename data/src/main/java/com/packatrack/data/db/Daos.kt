@@ -40,6 +40,10 @@ interface ShipmentDao {
 
     @Query("DELETE FROM shipments WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /** Empties the table; used by a restoring import that replaces existing data. */
+    @Query("DELETE FROM shipments")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -79,6 +83,9 @@ interface LegDao {
 
     @Query("UPDATE tracking_legs SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")
     suspend fun reassignShipment(oldShipmentId: Long, newShipmentId: Long)
+
+    @Query("DELETE FROM tracking_legs")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -106,6 +113,9 @@ interface OrderDao {
 
     @Query("UPDATE orders SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")
     suspend fun reassignShipment(oldShipmentId: Long, newShipmentId: Long)
+
+    @Query("DELETE FROM orders")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -156,6 +166,9 @@ interface EventDao {
 
     @Query("UPDATE events SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")
     suspend fun reassignShipment(oldShipmentId: Long, newShipmentId: Long)
+
+    @Query("DELETE FROM events")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -186,4 +199,7 @@ interface ChangeDao {
 
     @Query("UPDATE changes SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")
     suspend fun reassignShipment(oldShipmentId: Long, newShipmentId: Long)
+
+    @Query("DELETE FROM changes")
+    suspend fun deleteAll()
 }

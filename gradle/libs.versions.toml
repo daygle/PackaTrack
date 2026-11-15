@@ -1,4 +1,4 @@
-# Versions verified against Google Maven / Maven Central on 2026-09-24
+# Versions verified against Google Maven / Maven Central on 2026-11-14
 [versions]
 agp = "9.5.1"
 kotlin = "2.4.21"
@@ -6,10 +6,9 @@ activityCompose = "1.13.0"
 composeBom = "2026.09.00"
 coreKtx = "1.19.1"
 coroutines = "1.11.0"
-coil = "3.6.3"
 junit = "4.13.2"
 orgjson = "20260814"
-ksp = "2.3.13"
+ksp = "2.3.14"
 lifecycle = "2.11.0"
 navigation = "2.10.2"
 okhttp = "5.5.1"
@@ -23,7 +22,7 @@ splashscreen = "1.2.0"
 mockk = "1.14.12"
 googleApiClient = "2.9.2"
 googleHttpClient = "2.2.0"
-googleGmail = "v1-rev20261005-2.9.2"
+googleGmail = "v1-rev20261106-2.9.2"
 playServicesAuth = "22.0.0"
 hilt = "2.60.1"
 
@@ -50,8 +49,6 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
-coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }

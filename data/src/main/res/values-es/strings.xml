@@ -1,0 +1,14 @@
+<resources>
+    <string name="notice_progress">%1$s: %2$s</string>
+    <string name="notice_progress_timed">%1$s: %2$s - %3$s</string>
+    <string name="notice_renumbered">%1$s: número de seguimiento cambiado de %2$s -&gt; %3$s</string>
+    <string name="notice_combined">%1$s: %2$d paquetes combinados en %3$s</string>
+    <string name="notice_merged_with">%1$s: combinado con %2$s</string>
+    <string name="notice_consolidated">%1$s: Cainiao consolidó «%2$s» en este paquete</string>
+    <string name="notice_folded_into">%1$s: plegado en el paquete combinado %2$s</string>
+    <string name="notice_courier_added">Seguimiento de %1$s %2$s añadido</string>
+    <string name="notice_title">Actualización de PackaTrack</string>
+    <string name="notice_public_text">Nueva actividad de paquetes</string>
+    <string name="notice_channel_name">Cambios de paquetes</string>
+    <string name="notice_channel_description">Entregas, incidencias y cambios de paquetes</string>
+</resources>

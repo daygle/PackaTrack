@@ -10,6 +10,7 @@ import androidx.work.WorkerParameters
 import com.packatrack.data.di.DataEntryPoint
 import com.packatrack.core.detect.CarrierDetector
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.TimeUnit
 
 class EmailImportWorker(
@@ -21,13 +22,15 @@ class EmailImportWorker(
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, DataEntryPoint::class.java)
         val repo = entryPoint.repository()
         val prefs = entryPoint.prefs()
-        if (!prefs.smartImportEnabled || prefs.smartImportAccount.isNullOrBlank()) {
+        // Read once: the account can be changed from Settings while this worker runs.
+        val account = prefs.smartImportAccount
+        if (!prefs.smartImportEnabled || account.isNullOrBlank()) {
             return Result.success()
         }
 
         val startedAt = System.currentTimeMillis()
         return try {
-            val service = GmailAuth.gmailService(applicationContext, prefs.smartImportAccount!!)
+            val service = GmailAuth.gmailService(applicationContext, account)
 
             // Only scan mail that arrived since the last successful run (capped to the last
             // 7 days), so a parcel the user deleted is not re-imported from the same email.
@@ -49,8 +52,14 @@ class EmailImportWorker(
             }
             for (candidate in candidates) {
                 // Same automatic multi-carrier setup as a manual add; existing numbers are a no-op.
-                runCatching { repo.addShipment(candidate, null, null, null) }
-                    .onFailure { Log.w(TAG, "Could not import a detected tracking number", it) }
+                // One bad number must not abort the rest of the scan, but cancellation must escape.
+                try {
+                    repo.addShipment(candidate, null, null, null)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not import a detected tracking number", e)
+                }
             }
 
             prefs.smartImportLastRunAt = startedAt

@@ -7,6 +7,7 @@ import com.packatrack.core.parse.AramexParser
 import com.packatrack.core.parse.AusPostParser
 import com.packatrack.core.parse.CainiaoParser
 import com.packatrack.core.parse.ImileParser
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
@@ -63,7 +64,12 @@ class HttpTrackingFetcher(
                 // public JSON endpoint, so SpeedPAK is link-only like Morning Global.
                 Carrier.SPEED_PAK -> null
             }
-        }.getOrNull()
+        }.getOrElse { error ->
+            // Cancellation must propagate so a stopped sync actually stops; only genuine
+            // fetch failures degrade to "no data".
+            if (error is CancellationException) throw error
+            null
+        }
     }
 
     private fun get(url: HttpUrl, headers: Map<String, String>, redirectsLeft: Int = MAX_REDIRECTS): String? {

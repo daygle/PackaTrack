@@ -13,6 +13,7 @@ import com.packatrack.data.fetch.HttpTrackingFetcher
 import com.packatrack.core.changelog.ChangeLogService
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.model.ChangeDisplay
 import com.packatrack.core.model.overallStatusCode
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.Snapshot
@@ -191,6 +192,13 @@ class TrackingRepository @Inject constructor(
                 type = "COURIER",
                 message = "Added ${carrier.displayName} tracking $number",
                 createdAt = now,
+            ).withDisplay(
+                ChangeDisplay(
+                    kind = ChangeDisplay.Kind.COURIER_ADDED,
+                    category = ChangeDisplay.Category.TRANSIT,
+                    carrier = carrier.displayName,
+                    newNumber = number,
+                ),
             ),
         )
         return legId
@@ -222,7 +230,11 @@ class TrackingRepository @Inject constructor(
      * [sourceId] moves onto [targetId], and the now-empty source parcel is removed.
      */
     suspend fun combineInto(targetId: Long, sourceId: Long) = refreshMutex.withLock {
-        db.withTransaction { mergeParcels(targetId, sourceId) { label -> "Combined with $label" } }
+        db.withTransaction {
+            mergeParcels(targetId, sourceId, ChangeDisplay.Kind.MERGED_WITH) { label ->
+                "Combined with $label"
+            }
+        }
     }
 
     /**
@@ -232,6 +244,7 @@ class TrackingRepository @Inject constructor(
     private suspend fun mergeParcels(
         targetId: Long,
         sourceId: Long,
+        kind: ChangeDisplay.Kind,
         message: (sourceLabel: String) -> String,
     ): ChangeEntity? {
         if (targetId == sourceId) return null
@@ -255,11 +268,19 @@ class TrackingRepository @Inject constructor(
         )
         if (merged != target) shipments.update(merged)
 
+        val label = parcelLabel(targetId)
         val change = ChangeEntity(
             shipmentId = targetId,
             type = "COMBINED",
-            message = "${parcelLabel(targetId)}: ${message(sourceLabel)}",
+            message = "$label: ${message(sourceLabel)}",
             createdAt = System.currentTimeMillis(),
+        ).withDisplay(
+            ChangeDisplay(
+                kind = kind,
+                category = ChangeDisplay.Category.TRANSIT,
+                parcel = label,
+                into = sourceLabel,
+            ),
         )
         changes.insert(change)
         return change
@@ -392,7 +413,11 @@ class TrackingRepository @Inject constructor(
             events.deleteForLeg(c.sourceLegId)
             legs.deleteById(c.sourceLegId)
 
-            val change = mergeParcels(targetId = c.ownerShipmentId, sourceId = c.sourceShipmentId) { label ->
+            val change = mergeParcels(
+                targetId = c.ownerShipmentId,
+                sourceId = c.sourceShipmentId,
+                kind = ChangeDisplay.Kind.CONSOLIDATED,
+            ) { label ->
                 "Cainiao consolidated “$label” into this parcel"
             }
 
@@ -433,7 +458,7 @@ class TrackingRepository @Inject constructor(
         val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount)
         if (snapshot == null) {
             Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName})")
-            return LegPoll(dataChanged = false, changes = emptyList())
+            return null
         }
 
         // Cainiao/UBI commonly reports the destination-carrier number in the same
@@ -488,9 +513,23 @@ class TrackingRepository @Inject constructor(
                 .distinct()
                 .joinToString(",")
             mutable = mutable.copy(trackingNumber = renumberedTo, aliasNumbers = aliasCsv)
-            val msg = "${parcelLabel(mutable.shipmentId)}: ${ChangeLogService.humanReadable(ParcelChange.Renumbered(oldNo, snapshot.trackingNumber))}"
+            val label = parcelLabel(mutable.shipmentId)
+            val msg = "$label: ${ChangeLogService.humanReadable(ParcelChange.Renumbered(oldNo, snapshot.trackingNumber))}"
             if (changes.countByMessage(mutable.shipmentId, "RENUMBERED", msg) == 0) {
-                newChanges += ChangeEntity(shipmentId = mutable.shipmentId, type = "RENUMBERED", message = msg, createdAt = now)
+                newChanges += ChangeEntity(
+                    shipmentId = mutable.shipmentId,
+                    type = "RENUMBERED",
+                    message = msg,
+                    createdAt = now,
+                ).withDisplay(
+                    ChangeDisplay(
+                        kind = ChangeDisplay.Kind.RENUMBERED,
+                        category = ChangeDisplay.Category.TRANSIT,
+                        parcel = label,
+                        oldNumber = oldNo,
+                        newNumber = snapshot.trackingNumber,
+                    ),
+                )
             }
         }
 
@@ -504,12 +543,26 @@ class TrackingRepository @Inject constructor(
         // poll - there is no prior state for a scan to have "changed" from, so a fresh parcel
         // does not spam a notification for its opening scan.
         if (!firstPoll && !adopted) {
+            val label = parcelLabel(mutable.shipmentId)
+            // Filed under the parcel's newest status, so a delivery scan respects the user's
+            // Delivered / Exception / Transit notification switches.
+            val latestCode = snapshot.events.maxByOrNull { it.timeMs ?: 0L }?.statusCode
             for (change in detected.filterIsInstance<ParcelChange.Progress>()) {
                 newChanges += ChangeEntity(
                     shipmentId = mutable.shipmentId,
                     type = "PROGRESS",
-                    message = "${parcelLabel(mutable.shipmentId)}: ${ChangeLogService.humanReadable(change)}",
+                    message = "$label: ${ChangeLogService.humanReadable(change)}",
                     createdAt = now,
+                ).withDisplay(
+                    ChangeDisplay(
+                        kind = ChangeDisplay.Kind.PROGRESS,
+                        // The scan's own code first, then its wording, so a delivery scan is
+                        // filed under Delivered rather than the default Transit switch.
+                        category = notificationCategory(latestCode, change.description),
+                        parcel = label,
+                        description = change.description,
+                        timeMs = change.timeMs,
+                    ),
                 )
             }
         }
@@ -586,20 +639,66 @@ class TrackingRepository @Inject constructor(
         for (absorbedNo in combined.mergedFrom) {
             if (FingerprintUtil.normalize(absorbedNo) == combinedNumber) continue
             val absorbed = legs.findByTrackingNumber(absorbedNo) ?: continue
-            val foldMsg = "${parcelLabel(absorbed.shipmentId)}: Folded into combined parcel ${snapshot.trackingNumber}"
+            val absorbedLabel = parcelLabel(absorbed.shipmentId)
+            val foldMsg = "$absorbedLabel: Folded into combined parcel ${snapshot.trackingNumber}"
             if (changes.countByMessage(absorbed.shipmentId, "COMBINED", foldMsg) == 0) {
-                changes.insert(ChangeEntity(shipmentId = absorbed.shipmentId, type = "COMBINED", message = foldMsg, createdAt = now))
+                changes.insert(
+                    ChangeEntity(
+                        shipmentId = absorbed.shipmentId,
+                        type = "COMBINED",
+                        message = foldMsg,
+                        createdAt = now,
+                    ).withDisplay(
+                        ChangeDisplay(
+                            kind = ChangeDisplay.Kind.FOLDED_INTO,
+                            category = ChangeDisplay.Category.TRANSIT,
+                            parcel = absorbedLabel,
+                            into = snapshot.trackingNumber,
+                        ),
+                    ),
+                )
             }
         }
-        val msg = "${parcelLabel(shipmentId)}: ${ChangeLogService.humanReadable(combined)}"
+        val label = parcelLabel(shipmentId)
+        val msg = "$label: ${ChangeLogService.humanReadable(combined)}"
         if (changes.countByMessage(shipmentId, "COMBINED", msg) > 0) return null
-        return ChangeEntity(shipmentId = shipmentId, type = "COMBINED", message = msg, createdAt = now)
+        return ChangeEntity(
+            shipmentId = shipmentId,
+            type = "COMBINED",
+            message = msg,
+            createdAt = now,
+        ).withDisplay(
+            ChangeDisplay(
+                kind = ChangeDisplay.Kind.COMBINED,
+                category = ChangeDisplay.Category.TRANSIT,
+                parcel = label,
+                count = combined.mergedFrom.size,
+                into = snapshot.trackingNumber,
+            ),
+        )
     }
 
     private suspend fun fetchSnapshot(carrier: Carrier, number: String, stageHint: Int): Snapshot? =
         httpFetcher.fetch(carrier, number, stageHint)
 
     private fun detectCarriers(number: String): List<Carrier> = CarrierDetector.detectAll(number)
+
+    /** Attaches the in-memory display facts a notification is worded from. */
+    private fun ChangeEntity.withDisplay(display: ChangeDisplay): ChangeEntity =
+        apply { this.display = display }
+
+    /**
+     * Which notification switch a scan belongs to: its normalized code when the carrier sends
+     * one, otherwise the wording heuristic the filters were originally built on.
+     */
+    private fun notificationCategory(
+        statusCode: String?,
+        description: String?,
+    ): ChangeDisplay.Category = when {
+        statusCode.equals("DELIVERED", ignoreCase = true) -> ChangeDisplay.Category.DELIVERED
+        statusCode?.startsWith("EXCEPTION", ignoreCase = true) == true -> ChangeDisplay.Category.EXCEPTION
+        else -> ChangeDisplay.categoryFromWording(description)
+    }
 
     private fun EventEntity.toTrackingEvent() =
         TrackingEvent(trackingNumber, timeMs, description, location, statusCode)

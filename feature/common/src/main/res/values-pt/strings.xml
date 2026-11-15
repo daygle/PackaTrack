@@ -138,7 +138,7 @@
     <string name="import_file">Importar arquivo</string>
     <string name="restore_passphrase_label">Frase secreta de restauração</string>
     <string name="biometric_lock">Bloqueio do app</string>
-    <string name="biometric_lock_hint">Exigir biometria para abrir o app</string>
+    <string name="biometric_lock_hint">Desbloqueie com biometria ou o PIN, padrão ou senha do dispositivo</string>
     <string name="transit_thresholds">Limites de trânsito</string>
     <string name="transit_green_hint">O pacote fica verde quando em trânsito por menos dias que este valor</string>
     <string name="transit_yellow_hint">O pacote fica amarelo quando em trânsito por mais dias que este valor</string>
@@ -149,4 +149,27 @@
     <string name="github_repo">Repositório GitHub</string>
     <string name="tracking_number_copied">Número de rastreamento copiado</string>
     <string name="aliases_label">Aliases: %1$s</string>
+
+    <string name="status_delivered">Entregue</string>
+    <string name="status_out_for_delivery">Em rota de entrega</string>
+    <string name="status_pickup_available">Pronto para retirada</string>
+    <string name="status_in_transit">Em trânsito</string>
+    <string name="status_label_created">Etiqueta criada</string>
+    <string name="status_exception">Ocorrência</string>
+    <string name="status_waiting_for_scans">Aguardando varreduras</string>
+    <string name="app_lock_error_no_hardware">Este dispositivo não tem biometria nem bloqueio de tela</string>
+    <string name="app_lock_error_hardware_unavailable">O hardware de biometria não está disponível no momento</string>
+    <string name="app_lock_error_none_enrolled">Configure a biometria ou o bloqueio de tela primeiro</string>
+    <string name="lock_after_title">Bloquear após</string>
+    <string name="lock_after_immediately">Imediatamente</string>
+    <string name="lock_after_30_seconds">30 segundos</string>
+    <string name="lock_after_1_minute">1 minuto</string>
+    <string name="lock_after_5_minutes">5 minutos</string>
+    <string name="app_lock_threat_note">Oculta o app de acessos casuais. Não criptografa os seus dados.</string>
+    <string name="theme_system">Sistema</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Escuro</string>
+    <string name="backup_exported">Backup portátil exportado</string>
+    <string name="backup_restored">Backup restaurado</string>
+    <string name="tracking_number_too_short">O número de rastreamento parece muito curto (mín. %1$d caracteres)</string>
 </resources>

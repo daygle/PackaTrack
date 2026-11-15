@@ -1,0 +1,14 @@
+<resources>
+    <string name="notice_progress">%1$s：%2$s</string>
+    <string name="notice_progress_timed">%1$s：%2$s - %3$s</string>
+    <string name="notice_renumbered">%1$s：运单号已从 %2$s 变更为 %3$s</string>
+    <string name="notice_combined">%1$s：%2$d 个包裹已合并至 %3$s</string>
+    <string name="notice_merged_with">%1$s：已与 %2$s 合并</string>
+    <string name="notice_consolidated">%1$s：菜鸟已将“%2$s”合并到此包裹</string>
+    <string name="notice_folded_into">%1$s：已折叠进合并包裹 %2$s</string>
+    <string name="notice_courier_added">已添加 %1$s 运单号 %2$s</string>
+    <string name="notice_title">PackaTrack 更新</string>
+    <string name="notice_public_text">有新的包裹动态</string>
+    <string name="notice_channel_name">包裹动态</string>
+    <string name="notice_channel_description">配送更新、异常和包裹动态</string>
+</resources>

@@ -92,6 +92,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.packatrack.feature.common.R
 import com.packatrack.data.BackupManager
 import com.packatrack.data.ParcelSortOrder
+import com.packatrack.data.security.AppLockAuthenticators
 import com.packatrack.sync.EmailImportWorker
 import com.packatrack.sync.GmailAuth
 import com.packatrack.sync.SyncWorker
@@ -99,7 +100,8 @@ import com.packatrack.feature.common.theme.PackaTrackTheme
 import kotlinx.coroutines.launch
 
 private val intervals = listOf(1, 2, 6, 12, 24)
-private val themes = listOf("system" to "System", "light" to "Light", "dark" to "Dark")
+private val themeValues = listOf("system", "light", "dark")
+private val graceOptions = listOf(0, 30, 60, 300)
 private val greenOptions = listOf(7, 10, 15, 21, 30)
 private val yellowOptions = listOf(15, 21, 30, 45, 60)
 private val orangeOptions = listOf(30, 45, 60, 75, 90)
@@ -137,6 +139,7 @@ fun SettingsScreen(
     var sortOrder by remember { mutableStateOf(ParcelSortOrder.fromKey(prefs.sortOrder)) }
     var dateFormat by remember { mutableStateOf(prefs.dateTimeFormat) }
     var biometricLock by remember { mutableStateOf(prefs.biometricLock) }
+    var lockGrace by remember { mutableIntStateOf(prefs.lockGraceSeconds) }
     var smartImportEnabled by remember { mutableStateOf(prefs.smartImportEnabled) }
     var smartImportAccount by remember { mutableStateOf(prefs.smartImportAccount) }
     var transitGreenDays by remember { mutableIntStateOf(prefs.transitGreenDays) }
@@ -145,7 +148,7 @@ fun SettingsScreen(
 
     val biometricManager = remember { BiometricManager.from(context) }
     var biometricStatus by remember {
-        mutableIntStateOf(biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG))
+        mutableIntStateOf(biometricManager.canAuthenticate(AppLockAuthenticators.allowed))
     }
 
     // --- Permission & System Monitoring ---
@@ -188,7 +191,7 @@ fun SettingsScreen(
                     true
                 }
                 isIgnoringBatteryOptimizations = powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: true
-                biometricStatus = biometricManager.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+                biometricStatus = biometricManager.canAuthenticate(AppLockAuthenticators.allowed)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -203,7 +206,7 @@ fun SettingsScreen(
                     .onSuccess {
                         backupError = null
                         backupPassphrase = ""
-                        Toast.makeText(context, "Portable backup exported", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.backup_exported), Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Export failed" }
                 passphrase.fill('\u0000')
@@ -218,7 +221,7 @@ fun SettingsScreen(
                     .onSuccess {
                         backupError = null
                         restorePassphrase = ""
-                        Toast.makeText(context, "Backup restored", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.backup_restored), Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Restore failed" }
                 passphrase.fill('\u0000')
@@ -366,11 +369,14 @@ fun SettingsScreen(
             SettingsCard {
                 SettingsGroupHeader(stringResource(R.string.biometric_lock))
 
-                val isBiometricAvailable = biometricStatus == BiometricManager.BIOMETRIC_SUCCESS
+                val isLockAvailable = biometricStatus == BiometricManager.BIOMETRIC_SUCCESS
                 val biometricError = when (biometricStatus) {
-                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "No biometric hardware found"
-                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "Biometric hardware unavailable"
-                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "No biometrics enrolled"
+                    BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE ->
+                        stringResource(R.string.app_lock_error_no_hardware)
+                    BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE ->
+                        stringResource(R.string.app_lock_error_hardware_unavailable)
+                    BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ->
+                        stringResource(R.string.app_lock_error_none_enrolled)
                     else -> null
                 }
 
@@ -379,11 +385,48 @@ fun SettingsScreen(
                     subtitle = biometricError ?: stringResource(R.string.biometric_lock_hint),
                     icon = Icons.Default.Security,
                     checked = biometricLock,
-                    enabled = isBiometricAvailable || biometricLock, // Allow disabling even if error
+                    enabled = isLockAvailable || biometricLock, // Allow disabling even if error
                     onCheckedChange = {
                         biometricLock = it
                         prefs.biometricLock = it
                     }
+                )
+
+                if (biometricLock) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.lock_after_title)) },
+                        supportingContent = {
+                            FlowRow(
+                                Modifier.fillMaxWidth().padding(top = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                graceOptions.forEach { seconds ->
+                                    FilterChipWrapper(
+                                        selected = lockGrace == seconds,
+                                        onClick = {
+                                            lockGrace = seconds
+                                            prefs.lockGraceSeconds = seconds
+                                        },
+                                        label = stringResource(
+                                            when (seconds) {
+                                                30 -> R.string.lock_after_30_seconds
+                                                60 -> R.string.lock_after_1_minute
+                                                300 -> R.string.lock_after_5_minutes
+                                                else -> R.string.lock_after_immediately
+                                            },
+                                        ),
+                                    )
+                                }
+                            }
+                        },
+                    )
+                }
+
+                Text(
+                    stringResource(R.string.app_lock_threat_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
                 )
             }
 
@@ -609,16 +652,25 @@ fun SettingsScreen(
                     headlineContent = { Text(stringResource(R.string.theme_mode)) },
                     supportingContent = {
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                            themes.forEachIndexed { index, (value, label) ->
+                            themeValues.forEachIndexed { index, value ->
                                 SegmentedButton(
-                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = themes.size),
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = themeValues.size),
                                     onClick = {
                                         themeMode = value
                                         prefs.themeMode = value
                                     },
                                     selected = themeMode == value
                                 ) {
-                                    Text(label, style = MaterialTheme.typography.labelSmall)
+                                    Text(
+                                        stringResource(
+                                            when (value) {
+                                                "light" -> R.string.theme_light
+                                                "dark" -> R.string.theme_dark
+                                                else -> R.string.theme_system
+                                            },
+                                        ),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
                                 }
                             }
                         }

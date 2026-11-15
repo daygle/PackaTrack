@@ -139,7 +139,7 @@
     <string name="import_file">Import File</string>
     <string name="restore_passphrase_label">Restore Passphrase</string>
     <string name="biometric_lock">App Lock</string>
-    <string name="biometric_lock_hint">Require biometric to open app</string>
+    <string name="biometric_lock_hint">Unlock with biometrics, or your device PIN, pattern or password</string>
     <string name="transit_thresholds">Transit Thresholds</string>
     <string name="transit_green_hint">Parcel is green when in transit for fewer days than this value</string>
     <string name="transit_yellow_hint">Parcel turns yellow when in transit for more days than this value</string>
@@ -149,4 +149,28 @@
     <string name="version_label">Version %1$s</string>
     <string name="github_repo">GitHub Repository</string>
     <string name="aliases_label">Aliases: %1$s</string>
+
+    <!-- Normalized parcel status codes shown on cards and in the timeline. -->
+    <string name="status_delivered">Delivered</string>
+    <string name="status_out_for_delivery">Out for delivery</string>
+    <string name="status_pickup_available">Ready for pickup</string>
+    <string name="status_in_transit">In transit</string>
+    <string name="status_label_created">Label created</string>
+    <string name="status_exception">Exception</string>
+    <string name="status_waiting_for_scans">Waiting for scans</string>
+    <string name="app_lock_error_no_hardware">This device has no biometric or screen lock</string>
+    <string name="app_lock_error_hardware_unavailable">Biometric hardware is unavailable right now</string>
+    <string name="app_lock_error_none_enrolled">Set up a biometric or screen lock first</string>
+    <string name="lock_after_title">Lock after</string>
+    <string name="lock_after_immediately">Immediately</string>
+    <string name="lock_after_30_seconds">30 seconds</string>
+    <string name="lock_after_1_minute">1 minute</string>
+    <string name="lock_after_5_minutes">5 minutes</string>
+    <string name="app_lock_threat_note">Hides the app from casual access. It does not encrypt your data.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="backup_exported">Portable backup exported</string>
+    <string name="backup_restored">Backup restored</string>
+    <string name="tracking_number_too_short">Tracking number looks too short (min %1$d chars)</string>
 </resources>

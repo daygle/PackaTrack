@@ -105,6 +105,24 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
         get() = prefs.getBoolean(KEY_BIOMETRIC_LOCK, false)
         set(value) = prefs.edit { putBoolean(KEY_BIOMETRIC_LOCK, value) }
 
+    /**
+     * How long the app may stay backgrounded before it locks again. 0 (the default) locks on every
+     * return, including from the file and account pickers.
+     */
+    var lockGraceSeconds: Int
+        get() = prefs.getInt(KEY_LOCK_GRACE, 0)
+        set(value) = prefs.edit { putInt(KEY_LOCK_GRACE, value.coerceIn(0, 600)) }
+
+    /** Emits the current [biometricLock] and then every change, so the lock applies at once. */
+    fun observeBiometricLock(): Flow<Boolean> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_BIOMETRIC_LOCK) trySend(biometricLock)
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        trySend(biometricLock)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
     var recentActivityDismissedAt: Long
         get() = prefs.getLong(KEY_ACTIVITY_DISMISSED, 0L)
         set(value) = prefs.edit { putLong(KEY_ACTIVITY_DISMISSED, value) }
@@ -159,6 +177,7 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
         const val KEY_SMART_ACCOUNT = "smart_import_account"
         const val KEY_SMART_LAST_RUN = "smart_import_last_run_at"
         const val KEY_BIOMETRIC_LOCK = "biometric_lock"
+        const val KEY_LOCK_GRACE = "lock_grace_seconds"
         const val KEY_ACTIVITY_DISMISSED = "recent_activity_dismissed_at"
         const val KEY_ACTIVITY_SEEN_PREFIX = "activity_seen_"
         const val KEY_TRANSIT_GREEN = "transit_green_days"

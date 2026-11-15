@@ -138,7 +138,7 @@
     <string name="import_file">Datei importieren</string>
     <string name="restore_passphrase_label">Wiederherstellungs-Passphrase</string>
     <string name="biometric_lock">App-Sperre</string>
-    <string name="biometric_lock_hint">Biometrie zum Öffnen der App erforderlich</string>
+    <string name="biometric_lock_hint">Mit Biometrie oder Geräte-PIN, Muster oder Passwort entsperren</string>
     <string name="transit_thresholds">Transit-Schwellenwerte</string>
     <string name="transit_green_hint">Paket ist grün, wenn es weniger Tage unterwegs ist als dieser Wert</string>
     <string name="transit_yellow_hint">Paket wird gelb, wenn es mehr Tage unterwegs ist als dieser Wert</string>
@@ -149,4 +149,27 @@
     <string name="github_repo">GitHub-Repository</string>
     <string name="tracking_number_copied">Sendungsnummer kopiert</string>
     <string name="aliases_label">Aliase: %1$s</string>
+
+    <string name="status_delivered">Zugestellt</string>
+    <string name="status_out_for_delivery">In Zustellung</string>
+    <string name="status_pickup_available">Abholbereit</string>
+    <string name="status_in_transit">Unterwegs</string>
+    <string name="status_label_created">Sendung angekündigt</string>
+    <string name="status_exception">Ausnahme</string>
+    <string name="status_waiting_for_scans">Warten auf Scans</string>
+    <string name="app_lock_error_no_hardware">Dieses Gerät hat keine Biometrie und keine Bildschirmsperre</string>
+    <string name="app_lock_error_hardware_unavailable">Biometrie-Hardware ist derzeit nicht verfügbar</string>
+    <string name="app_lock_error_none_enrolled">Zuerst Biometrie oder Bildschirmsperre einrichten</string>
+    <string name="lock_after_title">Sperren nach</string>
+    <string name="lock_after_immediately">Sofort</string>
+    <string name="lock_after_30_seconds">30 Sekunden</string>
+    <string name="lock_after_1_minute">1 Minute</string>
+    <string name="lock_after_5_minutes">5 Minuten</string>
+    <string name="app_lock_threat_note">Verbirgt die App vor flüchtigem Zugriff. Die Daten werden dadurch nicht verschlüsselt.</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="backup_exported">Tragbare Sicherung exportiert</string>
+    <string name="backup_restored">Sicherung wiederhergestellt</string>
+    <string name="tracking_number_too_short">Sendungsnummer scheint zu kurz (min. %1$d Zeichen)</string>
 </resources>
