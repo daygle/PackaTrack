@@ -38,12 +38,12 @@ jobs:
       # Sets up the Android SDK environment. AGP auto-provisions the platform/build-tools
       # it needs, but the action's default 'packages' input ('tools platform-tools') fails
       # because the obsolete 'tools' package is gone from Google's SDK repository.
-      # The NDK must match ndkVersion in app/build.gradle.kts: AGP needs its objcopy to put
-      # native debug symbols in the bundle, and silently omits them when no NDK is installed.
+      # No NDK: the app compiles no native code, and the only .so it bundles arrive already
+      # stripped, so there are no debug symbols for one to extract.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: platform-tools ndk;30.0.16248370
+          packages: platform-tools
 
       # versionCode must increase with every release, so derive it from the semantic
       # version in the tag (v1.2.3 -> 1002003) rather than the workflow run number,
@@ -116,8 +116,8 @@ jobs:
           # Play warns about a bundle that carries native code with no debug symbols, but this
           # app cannot supply any: its only native code is libsqlcipher.so from the SQLCipher
           # AAR, which ships already stripped (no .symtab and no .debug_info in any ABI), so
-          # AGP has nothing to extract even with the NDK installed. Warning rather than failing
-          # keeps the guard informative; a hard check here would block every release.
+          # there are no symbols to package. Warning rather than failing keeps the guard
+          # informative; a hard check here would block every release.
           if [[ "$(unzip -Z1 "$AAB")" == *"BUNDLE-METADATA/com.android.tools.build.debugsymbols/"* ]]; then
             echo "Bundle carries native debug symbols."
           else
