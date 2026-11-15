@@ -189,4 +189,16 @@
     <string name="raw_response_copied">Resposta copiada</string>
     <string name="close">Fechar</string>
     <string name="timeline_duplicate_removed">Rastreamento de transportadora duplicado mesclado</string>
+
+    <!-- Settings landing menu: subtitle for each category row. -->
+    <string name="settings_menu_system_subtitle">Permissões, sincronização e bateria</string>
+    <string name="settings_menu_tracking_subtitle">Intervalo de atualização e dados</string>
+    <string name="settings_menu_lock_subtitle">Bloqueio biométrico e carência</string>
+    <string name="settings_menu_notifications_subtitle">Quais atualizações avisam você</string>
+    <string name="settings_menu_couriers_subtitle">Chave de API do Australia Post</string>
+    <string name="settings_menu_transit_subtitle">Limites de cor por dias em trânsito</string>
+    <string name="settings_menu_import_subtitle">Importar pacotes do e-mail</string>
+    <string name="settings_menu_appearance_subtitle">Tema, ordenação e datas</string>
+    <string name="settings_menu_backup_subtitle">Exportar ou restaurar seus dados</string>
+    <string name="settings_menu_about_subtitle">Versão e código-fonte</string>
 </resources>

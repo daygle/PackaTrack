@@ -185,4 +185,16 @@
     <string name="raw_response_copied">Antwort kopiert</string>
     <string name="close">Schließen</string>
     <string name="timeline_duplicate_removed">Doppelte Sendungsnummer zusammengeführt</string>
+
+    <!-- Settings landing menu: subtitle for each category row. -->
+    <string name="settings_menu_system_subtitle">Berechtigungen, Sync und Akku</string>
+    <string name="settings_menu_tracking_subtitle">Aktualisierungsintervall und Datenverbrauch</string>
+    <string name="settings_menu_lock_subtitle">Biometrische Sperre und Karenzzeit</string>
+    <string name="settings_menu_notifications_subtitle">Welche Updates gemeldet werden</string>
+    <string name="settings_menu_couriers_subtitle">Australia-Post-API-Schlüssel</string>
+    <string name="settings_menu_transit_subtitle">Farbschwellen für Tage unterwegs</string>
+    <string name="settings_menu_import_subtitle">Pakete aus E-Mails importieren</string>
+    <string name="settings_menu_appearance_subtitle">Design, Sortierung und Datumsformat</string>
+    <string name="settings_menu_backup_subtitle">Daten exportieren oder wiederherstellen</string>
+    <string name="settings_menu_about_subtitle">Version und Quellcode</string>
 </resources>

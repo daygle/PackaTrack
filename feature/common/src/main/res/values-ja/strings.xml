@@ -181,4 +181,16 @@
     <string name="raw_response_copied">応答をコピーしました</string>
     <string name="close">閉じる</string>
     <string name="timeline_duplicate_removed">重複した追跡番号を統合しました</string>
+
+    <!-- Settings landing menu: subtitle for each category row. -->
+    <string name="settings_menu_system_subtitle">権限・同期・バッテリー</string>
+    <string name="settings_menu_tracking_subtitle">更新間隔とデータ使用量</string>
+    <string name="settings_menu_lock_subtitle">生体認証ロックと猶予時間</string>
+    <string name="settings_menu_notifications_subtitle">通知する更新の種類</string>
+    <string name="settings_menu_couriers_subtitle">Australia Post の API キー</string>
+    <string name="settings_menu_transit_subtitle">配送日数ごとの色のしきい値</string>
+    <string name="settings_menu_import_subtitle">メールから荷物をインポート</string>
+    <string name="settings_menu_appearance_subtitle">テーマ・並び順・日付</string>
+    <string name="settings_menu_backup_subtitle">データのエクスポートと復元</string>
+    <string name="settings_menu_about_subtitle">バージョンとソースコード</string>
 </resources>

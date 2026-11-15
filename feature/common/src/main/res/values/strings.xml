@@ -189,4 +189,16 @@
 
     <!-- Parcel timeline entry for an event the app recorded itself. -->
     <string name="timeline_duplicate_removed">Duplicate courier tracking merged</string>
+
+    <!-- Settings landing menu: subtitle for each category row. -->
+    <string name="settings_menu_system_subtitle">Permissions, sync and battery</string>
+    <string name="settings_menu_tracking_subtitle">Refresh interval and data use</string>
+    <string name="settings_menu_lock_subtitle">Biometric lock and grace period</string>
+    <string name="settings_menu_notifications_subtitle">Which updates alert you</string>
+    <string name="settings_menu_couriers_subtitle">Australia Post API key</string>
+    <string name="settings_menu_transit_subtitle">Colour thresholds for days in transit</string>
+    <string name="settings_menu_import_subtitle">Import parcels from email</string>
+    <string name="settings_menu_appearance_subtitle">Theme, sorting and dates</string>
+    <string name="settings_menu_backup_subtitle">Export or restore your data</string>
+    <string name="settings_menu_about_subtitle">Version and source code</string>
 </resources>

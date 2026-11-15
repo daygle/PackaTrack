@@ -55,6 +55,7 @@ import com.packatrack.feature.detail.DetailScreen
 import com.packatrack.notify.Notifier
 import com.packatrack.feature.home.HomeScreen
 import com.packatrack.feature.settings.SettingsScreen
+import com.packatrack.feature.settings.SettingsSectionScreen
 import com.packatrack.feature.common.theme.PackaTrackTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -333,7 +334,20 @@ private fun PackaTrackNavHost(
             DetailScreen(id = id, onBack = { nav.popBackStack() })
         }
         composable("settings") {
-            SettingsScreen(onBack = { nav.popBackStack() })
+            SettingsScreen(
+                onBack = { nav.popBackStack() },
+                onOpenSection = { section -> nav.navigate("settings/${section.key}") },
+            )
+        }
+        // Each settings category is its own page on top of the menu, so Back returns to it.
+        composable(
+            route = "settings/{section}",
+            arguments = listOf(navArgument("section") { type = NavType.StringType }),
+        ) { entry ->
+            SettingsSectionScreen(
+                sectionKey = entry.arguments?.getString("section"),
+                onBack = { nav.popBackStack() },
+            )
         }
     }
 }
