@@ -75,8 +75,13 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
         get() = prefs.getBoolean(KEY_NOTIFY_EXCEPTIONS, true)
         set(value) = prefs.edit { putBoolean(KEY_NOTIFY_EXCEPTIONS, value) }
 
+    /**
+     * Off by default: a journey produces a dozen or so scans, and each one used to buzz a new
+     * install. Delivered and exception alerts are the two moments that matter, so the routine
+     * movement is opt-in from Settings.
+     */
     var notifyOnTransit: Boolean
-        get() = prefs.getBoolean(KEY_NOTIFY_TRANSIT, true)
+        get() = prefs.getBoolean(KEY_NOTIFY_TRANSIT, false)
         set(value) = prefs.edit { putBoolean(KEY_NOTIFY_TRANSIT, value) }
 
     var wifiOnlySync: Boolean
