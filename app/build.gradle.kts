@@ -67,13 +67,6 @@ android {
             // the .aab, so Google Play picks up the deobfuscation file automatically.
             isMinifyEnabled = true
             isShrinkResources = true
-            // Google's documented setting for native debug symbols. The libraries this app
-            // ships (libsqlcipher, libandroidx.graphics.path) arrive pre-stripped from their
-            // AARs, so Play's "no debug symbols" notice cannot be cleared yet; this costs
-            // nothing and packages symbols automatically for any dependency that has them.
-            ndk {
-                debugSymbolLevel = "FULL"
-            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
