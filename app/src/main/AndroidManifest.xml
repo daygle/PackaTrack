@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.packatrack.app">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:name=".PackaTrackApp"
+        android:name="com.packatrack.app.PackaTrackApp"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -16,7 +17,7 @@
         android:theme="@style/Theme.PackaTrack">
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.packatrack.app.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.PackaTrack.Splash">
             <intent-filter>
