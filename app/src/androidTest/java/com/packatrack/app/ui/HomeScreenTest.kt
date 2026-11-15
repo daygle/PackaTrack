@@ -3,6 +3,7 @@ package com.packatrack.app.ui
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -173,14 +174,21 @@ class HomeScreenTest {
         activeShipments.value = listOf(
             entry(1, "Existing", "CN123456789"),
         )
-        composeTestRule.onNodeWithText("Add Parcel").performClick()
-        composeTestRule.onNodeWithText("Tracking Number").assertIsDisplayed()
+        // Interact through test tags rather than the labels: the FAB's "Add Parcel" text and the
+        // field's "Tracking Number" label are child nodes of the clickable/editable node, so a
+        // merged-tree text finder can miss them (it reports them only in the unmerged tree).
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithTag("home_add_parcel_fab").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithTag("home_add_parcel_fab").performClick()
 
-        composeTestRule.onNodeWithText("Tracking Number").performTextInput("123")
+        val numberField = composeTestRule.onNodeWithTag("add_parcel_number")
+        numberField.assertIsDisplayed()
+        numberField.performTextInput("123")
         composeTestRule.onNodeWithText("Tracking number looks too short (min 6 chars)").assertIsDisplayed()
 
-        composeTestRule.onNodeWithText("Tracking Number").performTextClearance()
-        composeTestRule.onNodeWithText("Tracking Number").performTextInput("CN123456789")
+        numberField.performTextClearance()
+        numberField.performTextInput("CN123456789")
         composeTestRule.onNodeWithText("That number is already on this parcel.").assertIsDisplayed()
     }
 }

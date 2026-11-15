@@ -333,6 +333,7 @@ fun HomeScreen(
                 text = { Text(stringResource(R.string.add_parcel)) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.testTag("home_add_parcel_fab"),
             )
         },
     ) { padding ->
@@ -662,7 +663,7 @@ private fun AddShipmentDialog(
                     value = number, onValueChange = { number = it },
                     label = { Text(stringResource(R.string.tracking_number_label)) }, singleLine = true,
                     isError = duplicate || tooShort,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("add_parcel_number"),
                 )
                 if (duplicate) {
                     Text(stringResource(R.string.duplicate_number_error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
