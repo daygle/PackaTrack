@@ -41,9 +41,9 @@ android {
     }
 
     // Release signing: credentials come from environment variables (CI secrets) or, for local
-    // builds, from an untracked keystore.properties in the project root. See README "Release
-    // signing". When no keystore is configured the release build stays unsigned, which Google
-    // Play will not accept.
+    // builds, from an untracked keystore.properties in the project root. See RELEASING.md.
+    // When no keystore is configured the release build stays unsigned, which Google Play will
+    // not accept.
     val releaseSigningProps = Properties().apply {
         val propsFile = rootProject.file("keystore.properties")
         if (propsFile.exists()) {

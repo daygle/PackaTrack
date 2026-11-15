@@ -83,7 +83,7 @@ jobs:
           RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
         run: |
           if [ -z "$RELEASE_KEYSTORE_B64" ]; then
-            echo "::error::Repository secret RELEASE_KEYSTORE_B64 is not set (see README 'Release signing')."
+            echo "::error::Repository secret RELEASE_KEYSTORE_B64 is not set (see RELEASING.md 'Release signing')."
             exit 1
           fi
           printf '%s' "$RELEASE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
