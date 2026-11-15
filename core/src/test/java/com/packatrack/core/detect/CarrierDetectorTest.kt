@@ -25,6 +25,12 @@ class CarrierDetectorTest {
         assertEquals(Carrier.UBI_SMART_PARCEL, CarrierDetector.detect("AP00839790702074"))
     }
 
+    @Test fun cainiaoAlternativeNumberStaysWithCainiao() {
+        // Cainiao reports its own "Latest Tracking Number" (realMailNo) for a parcel; that number
+        // is another Cainiao id, so it must not be mistaken for a hand-off to a second courier.
+        assertEquals(listOf(Carrier.CAINIAO), CarrierDetector.detectAll("CNG00100180303113"))
+    }
+
     @Test fun longAustraliaPostArticleNumber() {
         assertEquals(Carrier.AUSTRALIA_POST, CarrierDetector.detect("36YPH337263201000935107"))
     }

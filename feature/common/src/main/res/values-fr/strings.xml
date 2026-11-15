@@ -179,4 +179,13 @@
         <item quantity="other">Le numéro de suivi semble trop court (min. %1$d caractères)</item>
         <item quantity="many">Le numéro de suivi semble trop court (min. %1$d de caractères)</item>
     </plurals>
+
+    <string name="raw_response_action">Voir la réponse</string>
+    <string name="raw_response_title">Réponse brute de %1$s</string>
+    <string name="raw_response_captured">Capturée %1$s</string>
+    <string name="raw_response_failed">Dernière requête échouée : %1$s</string>
+    <string name="raw_response_empty">Rien n\'a encore été capturé. Actualisez ce colis en ligne, puis rouvrez-le.</string>
+    <string name="copy_raw_response">Copier</string>
+    <string name="raw_response_copied">Réponse copiée</string>
+    <string name="close">Fermer</string>
 </resources>

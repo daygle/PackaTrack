@@ -179,4 +179,13 @@
         <item quantity="other">O número de rastreamento parece muito curto (mín. %1$d caracteres)</item>
         <item quantity="many">O número de rastreamento parece muito curto (mín. %1$d de caracteres)</item>
     </plurals>
+
+    <string name="raw_response_action">Ver resposta</string>
+    <string name="raw_response_title">Resposta bruta de %1$s</string>
+    <string name="raw_response_captured">Capturada em %1$s</string>
+    <string name="raw_response_failed">A última solicitação falhou: %1$s</string>
+    <string name="raw_response_empty">Nada capturado ainda. Atualize este pacote online e abra-o novamente.</string>
+    <string name="copy_raw_response">Copiar</string>
+    <string name="raw_response_copied">Resposta copiada</string>
+    <string name="close">Fechar</string>
 </resources>

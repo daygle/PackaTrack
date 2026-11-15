@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.packatrack.core.db.EventEntity
 import com.packatrack.core.db.ShipmentWithLegs
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.model.RawResponse
 import com.packatrack.data.PrefsStore
 import com.packatrack.data.TrackingRepository
 import com.packatrack.data.TrackingRepository.RefreshOutcome
@@ -37,6 +38,12 @@ class DetailViewModel @Inject constructor(
      * stale DELIVERED leg cannot outrank a leg that is still moving.
      */
     val newestEventMsByLeg: Flow<Map<Long, Long>> = repository.observeLatestEventMsByLeg()
+
+    /**
+     * Last raw payload per courier number, for the troubleshooting view. Filled by the refreshes
+     * this process has run, so it reflects what the app actually received.
+     */
+    val rawResponses: StateFlow<Map<String, RawResponse>> = repository.rawResponses
 
     private val _syncing = MutableStateFlow(false)
     val syncing: StateFlow<Boolean> = _syncing.asStateFlow()

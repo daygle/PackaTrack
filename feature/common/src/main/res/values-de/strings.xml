@@ -175,4 +175,13 @@
         <item quantity="one">Sendungsnummer scheint zu kurz (min. %1$d Zeichen)</item>
         <item quantity="other">Sendungsnummer scheint zu kurz (min. %1$d Zeichen)</item>
     </plurals>
+
+    <string name="raw_response_action">Antwort anzeigen</string>
+    <string name="raw_response_title">Rohantwort von %1$s</string>
+    <string name="raw_response_captured">Erfasst %1$s</string>
+    <string name="raw_response_failed">Letzte Anfrage fehlgeschlagen: %1$s</string>
+    <string name="raw_response_empty">Noch nichts erfasst. Aktualisieren Sie dieses Paket mit Internetverbindung und öffnen Sie es erneut.</string>
+    <string name="copy_raw_response">Kopieren</string>
+    <string name="raw_response_copied">Antwort kopiert</string>
+    <string name="close">Schließen</string>
 </resources>

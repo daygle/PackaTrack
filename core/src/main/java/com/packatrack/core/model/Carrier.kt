@@ -22,12 +22,14 @@ enum class Carrier(
     UBI_SMART_PARCEL(
         id = "ubi_smart_parcel",
         displayName = "UBI Smart Parcel",
-        webUrlTemplate = "https://global.cainiao.com/global/detail.json?mailNos=%s&lang=en",
+        // The tracking page, not /global/detail.json: that endpoint returns the raw payload the
+        // app parses, which a browser renders as a wall of JSON.
+        webUrlTemplate = "https://global.cainiao.com/newDetail.htm?mailNoList=%s&lang=en",
     ),
     CAINIAO(
         id = "cainiao",
         displayName = "Cainiao",
-        webUrlTemplate = "https://global.cainiao.com/global/detail.json?mailNos=%s&lang=en",
+        webUrlTemplate = "https://global.cainiao.com/newDetail.htm?mailNoList=%s&lang=en",
     ),
     IMILE(
         id = "imile",

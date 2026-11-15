@@ -176,4 +176,14 @@
         <item quantity="one">Tracking number looks too short (min %1$d character)</item>
         <item quantity="other">Tracking number looks too short (min %1$d chars)</item>
     </plurals>
+
+    <!-- Troubleshooting: the raw payload a courier returned for one tracking number. -->
+    <string name="raw_response_action">View response</string>
+    <string name="raw_response_title">%1$s raw response</string>
+    <string name="raw_response_captured">Captured %1$s</string>
+    <string name="raw_response_failed">Last request failed: %1$s</string>
+    <string name="raw_response_empty">Nothing captured yet. Refresh this parcel while online, then open it again.</string>
+    <string name="copy_raw_response">Copy</string>
+    <string name="raw_response_copied">Response copied</string>
+    <string name="close">Close</string>
 </resources>

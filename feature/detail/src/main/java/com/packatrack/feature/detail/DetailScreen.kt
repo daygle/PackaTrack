@@ -9,6 +9,9 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import kotlin.math.abs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -71,6 +75,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -90,6 +95,8 @@ import com.packatrack.feature.common.theme.daysInTransitColor as daysInTransitCo
 import com.packatrack.feature.common.theme.statusColor
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.model.RawResponse
+import com.packatrack.core.model.rawResponseFor
 import com.packatrack.core.util.FingerprintUtil
 import com.packatrack.core.util.TimeUtil
 
@@ -148,6 +155,24 @@ fun DetailScreen(
     var showAddOrder by remember { mutableStateOf(value = false) }
     var showCombine by remember { mutableStateOf(value = false) }
     var showEdit by remember { mutableStateOf(value = false) }
+    var responseLegId by remember { mutableStateOf<Long?>(null) }
+
+    // Troubleshooting: what each courier last returned for this parcel's numbers.
+    val rawResponses by viewModel.rawResponses.collectAsStateWithLifecycle(initialValue = emptyMap())
+    responseLegId?.let { legId ->
+        legById[legId]?.let { leg ->
+            RawResponseDialog(
+                title = stringResource(
+                    R.string.raw_response_title,
+                    Carrier.fromId(leg.carrierId)?.displayName ?: stringResource(R.string.courier),
+                ),
+                trackingNumber = leg.trackingNumber,
+                response = rawResponses.rawResponseFor(leg.carrierId, leg.trackingNumber, leg.aliasNumbers),
+                datePattern = prefs.dateTimeFormat,
+                onDismiss = { responseLegId = null },
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -233,6 +258,7 @@ fun DetailScreen(
                             }
                         },
                         onRemove = { viewModel.removeCourier(leg.id) },
+                        onShowResponse = { responseLegId = leg.id },
                     )
                 }
 
@@ -512,6 +538,7 @@ private fun CourierRow(
     canRemove: Boolean,
     onOpenSite: () -> Unit,
     onRemove: () -> Unit,
+    onShowResponse: () -> Unit,
 ) {
     val carrier = Carrier.fromId(leg.carrierId)
     Card(
@@ -567,8 +594,96 @@ private fun CourierRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Text(
+                stringResource(R.string.raw_response_action),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .clickable(onClick = onShowResponse),
+            )
         }
     }
+}
+
+/**
+ * What this courier actually returned for one number: the payload as received, or why the last
+ * request produced nothing, and when it was captured. Monospace and scrollable because these
+ * bodies are raw JSON/XML.
+ */
+@Composable
+private fun RawResponseDialog(
+    title: String,
+    trackingNumber: String,
+    response: RawResponse?,
+    datePattern: String,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    // Resolved here, not in the click handler: LocalContext.current is not configuration-aware,
+    // so reading the resource inside the lambda could show a stale locale.
+    val copiedLabel = stringResource(R.string.raw_response_copied)
+    val body = response?.body
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(trackingNumber, style = MonoNumber, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (response == null) {
+                    Text(
+                        stringResource(R.string.raw_response_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    Text(
+                        stringResource(
+                            R.string.raw_response_captured,
+                            formatLocalDateTime(response.capturedAt, datePattern),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    response.error?.let { error ->
+                        Text(
+                            stringResource(R.string.raw_response_failed, error),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    body?.let { payload ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 360.dp)
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            SelectionContainer {
+                                Text(
+                                    payload,
+                                    style = MaterialTheme.typography.bodySmall
+                                        .copy(fontFamily = FontFamily.Monospace),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = body != null,
+                onClick = {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("carrier response", body))
+                    Toast.makeText(context, copiedLabel, Toast.LENGTH_SHORT).show()
+                },
+            ) { Text(stringResource(R.string.copy_raw_response)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+        },
+    )
 }
 
 @Composable

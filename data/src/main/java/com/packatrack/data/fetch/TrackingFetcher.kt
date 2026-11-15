@@ -2,7 +2,9 @@ package com.packatrack.data.fetch
 
 import android.util.Log
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.Snapshot
+import com.packatrack.core.model.rawResponseKey
 import com.packatrack.core.parse.AramexParser
 import com.packatrack.core.parse.AusPostParser
 import com.packatrack.core.parse.CainiaoParser
@@ -34,6 +36,11 @@ fun interface TrackingFetcher {
  */
 class HttpTrackingFetcher(
     private val ausPostKey: () -> String?,
+    /**
+     * Receives every request's key and outcome so the app can show a user what a courier actually
+     * returned. A callback rather than fetcher state, so the fetcher itself stays stateless.
+     */
+    private val onRawResponse: (String, RawResponse) -> Unit = { _, _ -> },
 ) : TrackingFetcher {
 
     private val client = OkHttpClient.Builder()
@@ -53,10 +60,10 @@ class HttpTrackingFetcher(
         runCatching {
             when (carrier) {
                 Carrier.UBI_SMART_PARCEL,
-                Carrier.CAINIAO -> fetchCainiao(trackingNumber)
-                Carrier.AUSTRALIA_POST -> fetchAusPost(trackingNumber)
-                Carrier.IMILE -> fetchImile(trackingNumber)
-                Carrier.ARAMEX -> fetchAramex(trackingNumber)
+                Carrier.CAINIAO -> fetchCainiao(rawResponseKey(carrier.id, trackingNumber), trackingNumber)
+                Carrier.AUSTRALIA_POST -> fetchAusPost(rawResponseKey(carrier.id, trackingNumber), trackingNumber)
+                Carrier.IMILE -> fetchImile(rawResponseKey(carrier.id, trackingNumber), trackingNumber)
+                Carrier.ARAMEX -> fetchAramex(rawResponseKey(carrier.id, trackingNumber), trackingNumber)
                 // No usable public scan endpoint; the parcel stays visible and the
                 // "Open on carrier website" link still works.
                 Carrier.MORNING_GLOBAL -> null
@@ -72,7 +79,22 @@ class HttpTrackingFetcher(
         }
     }
 
-    private fun get(url: HttpUrl, headers: Map<String, String>, redirectsLeft: Int = MAX_REDIRECTS): String? {
+    private fun get(
+        owner: String,
+        url: HttpUrl,
+        headers: Map<String, String>,
+        redirectsLeft: Int = MAX_REDIRECTS,
+    ): String? {
+        // Every exit records what happened, so a failed request is as visible to the user as a
+        // successful one - "no data" on screen is exactly when the payload matters most.
+        fun record(body: String?, error: String? = null) {
+            val stored = when {
+                body == null -> null
+                body.length <= MAX_STORED_CHARS -> body
+                else -> body.take(MAX_STORED_CHARS) + "\n[truncated: ${body.length} characters total]"
+            }
+            onRawResponse(owner, RawResponse(stored, System.currentTimeMillis(), error))
+        }
         val builder = Request.Builder().url(url)
             // Let OkHttp add Accept-Encoding: gzip itself so it also decompresses the
             // response transparently. Setting the header manually would make us receive
@@ -92,14 +114,16 @@ class HttpTrackingFetcher(
                     return@use if (target != null && redirectsLeft > 0 &&
                         target.isHttps && target.host == resp.request.url.host
                     ) {
-                        get(target, headers, redirectsLeft - 1)
+                        get(owner, target, headers, redirectsLeft - 1)
                     } else {
                         Log.w(TAG, "Not following redirect ${resp.code} from ${url.host} to ${target?.host ?: "?"}")
+                        record(null, "Redirect ${resp.code} from ${url.host} not followed")
                         null
                     }
                 }
                 if (!resp.isSuccessful) {
                     Log.w(TAG, "HTTP ${resp.code} from ${url.host}")
+                    record(null, "HTTP ${resp.code} from ${url.host}")
                     return@use null
                 }
                 // Cap what a single response may buffer: these are undocumented endpoints, and a
@@ -107,20 +131,23 @@ class HttpTrackingFetcher(
                 val length = resp.body.contentLength()
                 if (length > MAX_BODY_BYTES) {
                     Log.w(TAG, "Response from ${url.host} too large ($length bytes), skipping")
+                    record(null, "Response from ${url.host} too large ($length bytes)")
                     return@use null
                 }
                 // peekBody also bounds responses with no declared length (chunked).
-                resp.peekBody(MAX_BODY_BYTES).string().also {
-                    debug { "GET ${url.host}${url.encodedPath} -> ${resp.code} (${it.length} bytes)" }
+                resp.peekBody(MAX_BODY_BYTES).string().also { body ->
+                    record(body)
+                    debug { "GET ${url.host}${url.encodedPath} -> ${resp.code} (${body.length} bytes)" }
                 }
             }
         } catch (e: Exception) {
             Log.w(TAG, "Request to ${url.host} failed", e)
+            record(null, e.message ?: e.javaClass.simpleName)
             null
         }
     }
 
-    private fun fetchCainiao(number: String): Snapshot? {
+    private fun fetchCainiao(owner: String, number: String): Snapshot? {
         // The standard JSON endpoint first, then the newer one that takes otherMailNoList.
         val attempts = listOf(
             listOf("mailNos" to number),
@@ -134,7 +161,7 @@ class HttpTrackingFetcher(
             val referer = CAINIAO_PAGE.toHttpUrl().newBuilder()
                 .apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }
                 .build()
-            val body = get(url, mapOf("Referer" to referer.toString(), "Accept" to "application/json")) ?: continue
+            val body = get(owner, url, mapOf("Referer" to referer.toString(), "Accept" to "application/json")) ?: continue
             debug { "Cainiao response: ${body.take(500)}" }
             CainiaoParser.parse(body)?.let { snap ->
                 debug { "Parsed ${snap.events.size} events from Cainiao" }
@@ -151,7 +178,7 @@ class HttpTrackingFetcher(
         return null
     }
 
-    private fun fetchAusPost(number: String): Snapshot? {
+    private fun fetchAusPost(owner: String, number: String): Snapshot? {
         val key = ausPostKey()?.takeIf { it.isNotBlank() }
         if (key == null) {
             Log.w(TAG, "AusPost API key not configured, skipping")
@@ -160,11 +187,11 @@ class HttpTrackingFetcher(
         val url = "https://digitalapi.auspost.com.au/v2/postage/track/events".toHttpUrl().newBuilder()
             .addQueryParameter("q", number)
             .build()
-        val body = get(url, mapOf("AUTH-KEY" to key, "Accept" to "application/json")) ?: return null
+        val body = get(owner, url, mapOf("AUTH-KEY" to key, "Accept" to "application/json")) ?: return null
         return AusPostParser.parse(body, number)
     }
 
-    private fun fetchImile(number: String): Snapshot? {
+    private fun fetchImile(owner: String, number: String): Snapshot? {
         // Endpoint used by imile.com's own web tracker. The previously used hosts are gone:
         // customer.track.imile.com no longer resolves and www.imile.com/api/track now 404s.
         // The site signs every query, so mirror that signing instead of guessing endpoints:
@@ -180,7 +207,7 @@ class HttpTrackingFetcher(
             .addQueryParameter("waybillNo", number)
             .addQueryParameter("code", imileQueryCode(number))
             .build()
-        val body = get(url, headers) ?: return null
+        val body = get(owner, url, headers) ?: return null
         debug { "iMile response: ${body.take(500)}" }
         return ImileParser.parse(body, number)
     }
@@ -213,7 +240,7 @@ class HttpTrackingFetcher(
     }
 
     /** Best-effort: Aramex's public shipment-tracking endpoints; graceful null when unreachable. */
-    private fun fetchAramex(number: String): Snapshot? {
+    private fun fetchAramex(owner: String, number: String): Snapshot? {
         val candidates = listOf(
             "https://www.aramex.com/api/tracking/gettrackingresults".toHttpUrl().newBuilder()
                 .addQueryParameter("shipmentNumber", number).build(),
@@ -221,7 +248,7 @@ class HttpTrackingFetcher(
                 .addQueryParameter("ShipmentNumber", number).build(),
         )
         for (url in candidates) {
-            val body = get(url, mapOf("Accept" to "application/json")) ?: continue
+            val body = get(owner, url, mapOf("Accept" to "application/json")) ?: continue
             val snap = AramexParser.parse(body, number)
             if (snap != null) return snap
         }
@@ -234,6 +261,12 @@ class HttpTrackingFetcher(
 
         /** Largest response body accepted from a carrier (2 MiB); real timelines are far smaller. */
         const val MAX_BODY_BYTES = 2L * 1024 * 1024
+
+        /**
+         * Largest body kept for the troubleshooting view (128 KiB). Real carrier responses are a
+         * few kilobytes; the cap keeps a pathological one from sitting in memory per parcel.
+         */
+        const val MAX_STORED_CHARS = 128 * 1024
         const val CAINIAO_DETAIL = "https://global.cainiao.com/global/detail.json"
         const val CAINIAO_PAGE = "https://global.cainiao.com/newDetail.htm"
 

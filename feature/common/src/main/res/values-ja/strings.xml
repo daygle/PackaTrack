@@ -171,4 +171,13 @@
     <plurals name="tracking_number_too_short">
         <item quantity="other">追跡番号が短すぎます（最小 %1$d 文字）</item>
     </plurals>
+
+    <string name="raw_response_action">応答を表示</string>
+    <string name="raw_response_title">%1$s の生データ</string>
+    <string name="raw_response_captured">取得日時 %1$s</string>
+    <string name="raw_response_failed">前回のリクエストに失敗しました: %1$s</string>
+    <string name="raw_response_empty">まだ取得していません。オンラインでこの荷物を更新してから、もう一度開いてください。</string>
+    <string name="copy_raw_response">コピー</string>
+    <string name="raw_response_copied">応答をコピーしました</string>
+    <string name="close">閉じる</string>
 </resources>

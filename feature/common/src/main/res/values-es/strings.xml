@@ -179,4 +179,13 @@
         <item quantity="other">El número de seguimiento parece demasiado corto (mín. %1$d caracteres)</item>
         <item quantity="many">El número de seguimiento parece demasiado corto (mín. %1$d de caracteres)</item>
     </plurals>
+
+    <string name="raw_response_action">Ver respuesta</string>
+    <string name="raw_response_title">Respuesta sin formato de %1$s</string>
+    <string name="raw_response_captured">Capturada %1$s</string>
+    <string name="raw_response_failed">La última solicitud falló: %1$s</string>
+    <string name="raw_response_empty">Aún no se ha capturado nada. Actualiza este paquete con conexión y vuelve a abrirlo.</string>
+    <string name="copy_raw_response">Copiar</string>
+    <string name="raw_response_copied">Respuesta copiada</string>
+    <string name="close">Cerrar</string>
 </resources>

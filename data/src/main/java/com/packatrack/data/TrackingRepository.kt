@@ -16,12 +16,18 @@ import com.packatrack.core.model.Carrier
 import com.packatrack.core.model.ChangeDisplay
 import com.packatrack.core.model.overallStatusCode
 import com.packatrack.core.model.ParcelChange
+import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.Snapshot
+import com.packatrack.core.model.rawResponseFor
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.FingerprintUtil
 import kotlinx.coroutines.flow.Flow
 import androidx.room.withTransaction
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -41,7 +47,21 @@ class TrackingRepository @Inject constructor(
     private val changes = db.changeDao()
     private val refreshMutex = Mutex()
 
-    val httpFetcher = HttpTrackingFetcher { prefs.ausPostApiKey }
+    /**
+     * Last raw payload per courier number, for the troubleshooting view on a parcel. Session
+     * memory only: it describes what this run has fetched, not stored parcel data.
+     */
+    private val _rawResponses = MutableStateFlow<Map<String, RawResponse>>(emptyMap())
+    val rawResponses: StateFlow<Map<String, RawResponse>> = _rawResponses.asStateFlow()
+
+    val httpFetcher = HttpTrackingFetcher(
+        ausPostKey = { prefs.ausPostApiKey },
+        onRawResponse = { key, response -> _rawResponses.update { it + (key to response) } },
+    )
+
+    /** Last payload captured for a stored leg, following its aliases if it was renumbered. */
+    fun rawResponseFor(leg: TrackingLegEntity): RawResponse? =
+        _rawResponses.value.rawResponseFor(leg.carrierId, leg.trackingNumber, leg.aliasNumbers)
 
     /* ---------- observers ---------- */
 
@@ -461,12 +481,16 @@ class TrackingRepository @Inject constructor(
         }
 
         // Cainiao/UBI commonly reports the destination-carrier number in the same
-        // response. Keep it as a second leg so its scans can be fetched independently.
+        // response. Keep it as a second leg so its scans can be fetched independently, but only
+        // when it belongs to a different courier: Cainiao also fills realMailNo/copyRealMailNo
+        // with its own alternative identifiers, and turning those into legs gave one parcel two
+        // identical Cainiao entries tracking the same scans.
         if (snapshot.relatedTrackingNumbers.isNotEmpty()) {
             for (relatedNumber in snapshot.relatedTrackingNumbers) {
                 val normalized = FingerprintUtil.normalize(relatedNumber)
                 if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
                 for (relatedCarrier in detectCarriers(normalized).ifEmpty { listOf(Carrier.CAINIAO) }) {
+                    if (relatedCarrier == carrier) continue
                     addCourierUnlocked(leg.shipmentId, normalized, relatedCarrier)
                 }
             }

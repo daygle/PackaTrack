@@ -79,6 +79,28 @@ class CainiaoParserTest {
         assertTrue(snap.relatedTrackingNumbers.contains("36YPH337263201000935107"))
     }
 
+    // Live response where the reported "Latest Tracking Number" is another Cainiao id rather
+    // than a hand-off: CNG00100180303113 belongs to the same carrier as CNG00100183257245.
+    private val sameCarrierRealMailNoShape = """
+    {"module":[{"mailNo":"CNG00100183257245","realMailNo":"Latest Tracking Number:\tCNG00100180303113",
+      "status":"DELIVERING","statusDesc":"Delivering","copyRealMailNo":"CNG00100180303113",
+      "detailList":[
+        {"time":1794669621000,"timeStr":"2026-11-14 23:20:21","desc":"Outbound in sorting center","standerdDesc":"[Jiulong Town] Departed from sorting center","actionCode":"SC_OUTBOUND_SUCCESS"},
+        {"time":1794667148000,"timeStr":"2026-11-14 22:39:08","desc":"Inbound in sorting center","standerdDesc":"[Jiulong Town] Processing at sorting center","actionCode":"SC_INBOUND_SUCCESS"},
+        {"time":1794401618000,"timeStr":"2026-11-11 20:53:38","desc":"Accepted by carrier","standerdDesc":"Received by logistics company","actionCode":"PU_PICKUP_SUCCESS"}
+      ]}],"success":true}
+    """.trimIndent()
+
+    @Test fun realMailNoIsSurfacedAsRelatedNumber() {
+        val snap = CainiaoParser.parse(sameCarrierRealMailNoShape)
+        assertNotNull(snap)
+        assertEquals("CNG00100183257245", snap!!.trackingNumber)
+        assertEquals(3, snap.events.size)
+        // Surfaced once (realMailNo and copyRealMailNo agree), for the repository to weigh up; the
+        // same-carrier check there is what stops it becoming a duplicate leg.
+        assertEquals(listOf("CNG00100180303113"), snap.relatedTrackingNumbers)
+    }
+
     @Test fun parsesSectionsShape() {
         val snap = CainiaoParser.parse(sectionsShape)
         assertNotNull(snap)
