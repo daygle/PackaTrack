@@ -84,8 +84,10 @@ object Notifier {
                 display.oldNumber.orEmpty(),
                 display.newNumber.orEmpty(),
             )
-            ChangeDisplay.Kind.COMBINED -> res.getString(
-                R.string.notice_combined,
+            // The count is both the plural selector and an argument: "3 parcels", not "3 parcel".
+            ChangeDisplay.Kind.COMBINED -> res.getQuantityString(
+                R.plurals.notice_combined,
+                display.count,
                 parcel,
                 display.count,
                 display.into.orEmpty(),

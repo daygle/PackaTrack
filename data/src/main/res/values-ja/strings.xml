@@ -2,7 +2,9 @@
     <string name="notice_progress">%1$s: %2$s</string>
     <string name="notice_progress_timed">%1$s: %2$s - %3$s</string>
     <string name="notice_renumbered">%1$s: 追跡番号が%2$sから%3$sに変更されました</string>
-    <string name="notice_combined">%1$s: %2$d個の荷物を%3$sに統合しました</string>
+    <plurals name="notice_combined">
+        <item quantity="other">%1$s: %2$d個の荷物を%3$sに統合しました</item>
+    </plurals>
     <string name="notice_merged_with">%1$s: %2$sと統合しました</string>
     <string name="notice_consolidated">%1$s: Cainiaoが「%2$s」をこの荷物にまとめました</string>
     <string name="notice_folded_into">%1$s: 統合荷物%2$sにまとめられました</string>

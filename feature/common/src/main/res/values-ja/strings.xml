@@ -168,5 +168,7 @@
     <string name="theme_dark">ダーク</string>
     <string name="backup_exported">バックアップを書き出しました</string>
     <string name="backup_restored">バックアップを復元しました</string>
-    <string name="tracking_number_too_short">追跡番号が短すぎます（最小 %1$d 文字）</string>
+    <plurals name="tracking_number_too_short">
+        <item quantity="other">追跡番号が短すぎます（最小 %1$d 文字）</item>
+    </plurals>
 </resources>

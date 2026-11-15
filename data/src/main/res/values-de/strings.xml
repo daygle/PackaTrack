@@ -2,7 +2,10 @@
     <string name="notice_progress">%1$s: %2$s</string>
     <string name="notice_progress_timed">%1$s: %2$s - %3$s</string>
     <string name="notice_renumbered">%1$s: Sendungsnummer geändert von %2$s -&gt; %3$s</string>
-    <string name="notice_combined">%1$s: %2$d Pakete zu %3$s zusammengeführt</string>
+    <plurals name="notice_combined">
+        <item quantity="one">%1$s: %2$d Paket zu %3$s zusammengeführt</item>
+        <item quantity="other">%1$s: %2$d Pakete zu %3$s zusammengeführt</item>
+    </plurals>
     <string name="notice_merged_with">%1$s: Zusammengeführt mit %2$s</string>
     <string name="notice_consolidated">%1$s: Cainiao hat „%2$s“ in dieses Paket konsolidiert</string>
     <string name="notice_folded_into">%1$s: In Sammelsendung %2$s eingefügt</string>

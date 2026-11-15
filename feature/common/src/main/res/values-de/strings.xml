@@ -171,5 +171,8 @@
     <string name="theme_dark">Dunkel</string>
     <string name="backup_exported">Tragbare Sicherung exportiert</string>
     <string name="backup_restored">Sicherung wiederhergestellt</string>
-    <string name="tracking_number_too_short">Sendungsnummer scheint zu kurz (min. %1$d Zeichen)</string>
+    <plurals name="tracking_number_too_short">
+        <item quantity="one">Sendungsnummer scheint zu kurz (min. %1$d Zeichen)</item>
+        <item quantity="other">Sendungsnummer scheint zu kurz (min. %1$d Zeichen)</item>
+    </plurals>
 </resources>

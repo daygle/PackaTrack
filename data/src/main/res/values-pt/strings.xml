@@ -2,7 +2,11 @@
     <string name="notice_progress">%1$s: %2$s</string>
     <string name="notice_progress_timed">%1$s: %2$s - %3$s</string>
     <string name="notice_renumbered">%1$s: número de rastreamento alterado de %2$s -&gt; %3$s</string>
-    <string name="notice_combined">%1$s: %2$d pacotes combinados em %3$s</string>
+    <plurals name="notice_combined">
+        <item quantity="one">%1$s: %2$d pacote combinado em %3$s</item>
+        <item quantity="other">%1$s: %2$d pacotes combinados em %3$s</item>
+        <item quantity="many">%1$s: %2$d de pacotes combinados em %3$s</item>
+    </plurals>
     <string name="notice_merged_with">%1$s: combinado com %2$s</string>
     <string name="notice_consolidated">%1$s: a Cainiao consolidou “%2$s” neste pacote</string>
     <string name="notice_folded_into">%1$s: incorporado ao pacote combinado %2$s</string>

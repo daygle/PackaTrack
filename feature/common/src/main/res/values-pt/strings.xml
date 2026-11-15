@@ -5,6 +5,7 @@
     <plurals name="shipment_summary">
         <item quantity="one">%1$d em trânsito · %2$d no total</item>
         <item quantity="other">%1$d em trânsito · %2$d no total</item>
+        <item quantity="many">%1$d em trânsito · %2$d no total</item>
     </plurals>
     <string name="offline">Offline</string>
     <string name="search">Pesquisar</string>
@@ -22,6 +23,7 @@
     <plurals name="day_count">
         <item quantity="one">%1$d dia</item>
         <item quantity="other">%1$d dias</item>
+        <item quantity="many">%1$d de dias</item>
     </plurals>
     <string name="actions">Ações</string>
     <string name="refresh">Atualizar</string>
@@ -73,6 +75,7 @@
     <plurals name="couriers_count_label">
         <item quantity="one">%1$d Transportadora</item>
         <item quantity="other">%1$d Transportadoras</item>
+        <item quantity="many">%1$d de transportadoras</item>
     </plurals>
     <string name="add_courier_title">Adicionar transportadora</string>
     <string name="add_courier_hint">Rastrear este mesmo pacote com outro número.</string>
@@ -171,5 +174,9 @@
     <string name="theme_dark">Escuro</string>
     <string name="backup_exported">Backup portátil exportado</string>
     <string name="backup_restored">Backup restaurado</string>
-    <string name="tracking_number_too_short">O número de rastreamento parece muito curto (mín. %1$d caracteres)</string>
+    <plurals name="tracking_number_too_short">
+        <item quantity="one">O número de rastreamento parece muito curto (mín. %1$d caractere)</item>
+        <item quantity="other">O número de rastreamento parece muito curto (mín. %1$d caracteres)</item>
+        <item quantity="many">O número de rastreamento parece muito curto (mín. %1$d de caracteres)</item>
+    </plurals>
 </resources>

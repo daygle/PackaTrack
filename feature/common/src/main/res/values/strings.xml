@@ -172,5 +172,8 @@
     <string name="theme_dark">Dark</string>
     <string name="backup_exported">Portable backup exported</string>
     <string name="backup_restored">Backup restored</string>
-    <string name="tracking_number_too_short">Tracking number looks too short (min %1$d chars)</string>
+    <plurals name="tracking_number_too_short">
+        <item quantity="one">Tracking number looks too short (min %1$d character)</item>
+        <item quantity="other">Tracking number looks too short (min %1$d chars)</item>
+    </plurals>
 </resources>

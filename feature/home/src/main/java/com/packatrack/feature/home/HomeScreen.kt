@@ -668,11 +668,9 @@ private fun AddShipmentDialog(
                 if (duplicate) {
                     Text(stringResource(R.string.duplicate_number_error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 } else if (tooShort) {
+                    val minChars = com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH
                     Text(
-                        stringResource(
-                            R.string.tracking_number_too_short,
-                            com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH,
-                        ),
+                        pluralStringResource(R.plurals.tracking_number_too_short, minChars, minChars),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error,
                     )

@@ -168,5 +168,7 @@
     <string name="theme_dark">深色</string>
     <string name="backup_exported">便携备份已导出</string>
     <string name="backup_restored">备份已恢复</string>
-    <string name="tracking_number_too_short">运单号似乎过短（至少 %1$d 个字符）</string>
+    <plurals name="tracking_number_too_short">
+        <item quantity="other">运单号似乎过短（至少 %1$d 个字符）</item>
+    </plurals>
 </resources>
