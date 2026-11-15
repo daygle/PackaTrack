@@ -693,11 +693,17 @@ class TrackingRepository @Inject constructor(
         // Snapshots are cumulative, so a size change means the carrier added scans.
         val dataChanged = snapshot.events.size != prevEvents.size || adopted
 
+        // The carrier's own route and percentage, so the detail screen can show it even after a
+        // failed poll. Only overwritten when this response actually reported it.
+        val progress = snapshot.progress
         legs.update(
             mutable.copy(
                 pollCount = mutable.pollCount + 1,
                 lastSyncAt = now,
                 lastStatusCode = latest?.statusCode ?: mutable.lastStatusCode,
+                progressStages = progress?.toStoredStages() ?: mutable.progressStages,
+                progressRate = progress?.rate ?: mutable.progressRate,
+                progressStageIndex = progress?.reachedIndex ?: mutable.progressStageIndex,
             ),
         )
 

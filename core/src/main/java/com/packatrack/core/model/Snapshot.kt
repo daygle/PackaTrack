@@ -7,6 +7,8 @@ data class Snapshot(
     val events: List<TrackingEvent>,
     /** Alternate/current numbers reported by the carrier for the same parcel. */
     val relatedTrackingNumbers: List<String> = emptyList(),
+    /** Stages and percentage the carrier reports for the route, when it reports any. */
+    val progress: CarrierProgress? = null,
 )
 
 /** Parcel dimensions in centimetres. */

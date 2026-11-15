@@ -1,5 +1,6 @@
 package com.packatrack.core.parse
 
+import com.packatrack.core.model.CarrierProgress
 import com.packatrack.core.model.ShipmentStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -99,6 +100,100 @@ class CainiaoParserTest {
         // Surfaced once (realMailNo and copyRealMailNo agree), for the repository to weigh up; the
         // same-carrier check there is what stops it becoming a duplicate leg.
         assertEquals(listOf("CNG00100180303113"), snap.relatedTrackingNumbers)
+    }
+
+    // The warehouse phase of a live UBI Smart Parcel response: five scans, no city/country
+    // keys at all (the facility rides in standerdDesc's bracketed prefix), and CW_/PU_ codes.
+    private val warehouseShape = """
+    {"success":true,"module":[{"mailNo":"AP00100193611525","originCountry":"Mainland China",
+      "destCountry":"Australia","status":"DELIVERING","statusDesc":"Delivering",
+      "mailNoSource":"OTHER","daysNumber":"2\tday(s)",
+      "processInfo":{"progressStatus":"NORMAL","progressRate":0.2222222222222222,"type":"OTHER",
+        "progressPointList":[{"pointName":"Mainland China","light":true},{"pointName":"Australia"},{"pointName":"Delivered"}]},
+      "detailList":[
+        {"time":1794706248000,"timeStr":"2026-11-15 09:30:48","desc":"Received by warehouse","standerdDesc":"Received by warehouse","descTitle":"Carrier note:","timeZone":"GMT+8","actionCode":"CW_INBOUND"},
+        {"time":1794704506000,"timeStr":"2026-11-15 09:01:46","desc":"Arrived at warehouse","standerdDesc":"Arrived at warehouse","actionCode":"CW_SIGN_IN_SUCCESS"},
+        {"time":1794693101000,"timeStr":"2026-11-15 05:51:41","desc":"Outbound in sorting center","standerdDesc":"[Shatian Town] Departed from sorting center","actionCode":"SC_OUTBOUND_SUCCESS"},
+        {"time":1794641249000,"timeStr":"2026-11-14 15:27:29","desc":"Inbound in sorting center","standerdDesc":"[Shatian Town] Processing at sorting center","actionCode":"SC_INBOUND_SUCCESS"},
+        {"time":1794633051000,"timeStr":"2026-11-14 13:10:51","desc":"Accepted by carrier","standerdDesc":"Received by logistics company","actionCode":"PU_PICKUP_SUCCESS"}
+      ]}]}
+    """.trimIndent()
+
+    @Test fun parsesWarehousePhaseScans() {
+        val snap = CainiaoParser.parse(warehouseShape)
+        assertNotNull(snap)
+        assertEquals("AP00100193611525", snap!!.trackingNumber)
+        assertEquals(5, snap.events.size)
+        assertTrue(snap.events.first().description.startsWith("Received by warehouse"))
+    }
+
+    @Test fun facilityTownIsTakenFromStandardDescBrackets() {
+        val snap = CainiaoParser.parse(warehouseShape)!!
+        // The payload has no city key, so the town only exists in standerdDesc.
+        val outbound = snap.events.first { it.description.startsWith("Outbound in sorting") }
+        assertEquals("Shatian Town", outbound.location)
+        // A scan whose standerdDesc has no bracket must not invent a location.
+        val received = snap.events.first { it.description.startsWith("Received by warehouse") }
+        assertEquals(null, received.location)
+    }
+
+    @Test fun warehouseAndPickupScansAreInTransit() {
+        val snap = CainiaoParser.parse(warehouseShape)!!
+        // Every scan in this phase is movement. An unmapped code falls through as the raw
+        // actionCode, which ShipmentStatus.fromCode reads as UNKNOWN and renders as a grey dot.
+        assertEquals(listOf("IN_TRANSIT"), snap.events.mapNotNull { it.statusCode }.distinct())
+    }
+
+    // UBI Smart Parcel and Cainiao are one network behind one parser, so a Cainiao-numbered copy
+    // of this payload must come out identical. This is the CI guard that the shared-parser fixes
+    // (CW_/PU_ codes, the facility town, journey stages) reach both brands, not just UBI.
+    @Test fun cainiaoNumberGetsTheSameFixesAsUbi() {
+        val ubi = CainiaoParser.parse(warehouseShape)!!
+        val cainiao = CainiaoParser.parse(
+            warehouseShape.replace("AP00100193611525", "CNG00100183257245"),
+        )!!
+        assertEquals("CNG00100183257245", cainiao.trackingNumber)
+        assertEquals(5, cainiao.events.size)
+        // Identical scans, codes and towns; only the number the carrier reports differs.
+        assertEquals(
+            ubi.events.map { Triple(it.description, it.timeMs, it.statusCode) },
+            cainiao.events.map { Triple(it.description, it.timeMs, it.statusCode) },
+        )
+        assertEquals(ubi.events.map { it.location }, cainiao.events.map { it.location })
+        assertEquals(ubi.progress, cainiao.progress)
+        assertEquals(listOf("IN_TRANSIT"), cainiao.events.mapNotNull { it.statusCode }.distinct())
+    }
+
+    @Test fun warehousePrefixDoesNotReadAsDelivered() {
+        assertEquals("IN_TRANSIT", CainiaoParser.mapCode("CW_INBOUND"))
+        // CW_SIGN_IN_SUCCESS is a warehouse stock-in, not a delivery signature.
+        assertEquals("IN_TRANSIT", CainiaoParser.mapCode("CW_SIGN_IN_SUCCESS"))
+        assertEquals("IN_TRANSIT", CainiaoParser.mapCode("PU_PICKUP_SUCCESS"))
+        // Failures still win over the new prefixes.
+        assertEquals("EXCEPTION", CainiaoParser.mapCode("PU_PICKUP_FAIL"))
+        assertEquals("DELIVERED", CainiaoParser.mapCode("CW_SIGNED"))
+    }
+
+    @Test fun extractsCarrierJourneyStagesAndProgress() {
+        val snap = CainiaoParser.parse(warehouseShape)!!
+        val progress = snap.progress
+        assertNotNull(progress)
+        assertEquals(0.2222222222222222, progress!!.rate!!, 0.0001)
+        // The route the carrier reports, and the one stage it has lit so far.
+        assertEquals(listOf("Mainland China", "Australia", "Delivered"), progress.stages.map { it.name })
+        assertEquals(listOf(true, false, false), progress.stages.map { it.reached })
+        assertEquals(0, progress.reachedIndex)
+        // The leg row stores the stages; the detail screen must get the same thing back.
+        assertEquals(
+            progress,
+            CarrierProgress.fromStored(progress.toStoredStages(), progress.rate, progress.reachedIndex),
+        )
+    }
+
+    @Test fun missingProcessInfoLeavesProgressNull() {
+        // Older shapes carry no processInfo, so the detail screen keeps its own steps.
+        assertEquals(null, CainiaoParser.parse(moduleShape)!!.progress)
+        assertEquals(null, CarrierProgress.fromStored("", null, -1))
     }
 
     @Test fun parsesSectionsShape() {

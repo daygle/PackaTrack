@@ -5,6 +5,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.packatrack.data.DatabaseKey
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
@@ -16,7 +18,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         EventEntity::class,
         ChangeEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +36,16 @@ abstract class AppDatabase : RoomDatabase() {
 
         // Schema baseline is version 1: the app has no released installs, so the historical
         // 1->4 migrations were dead code. Future schema changes add migrations from here.
+
+        /** Adds the carrier's journey stages and percentage to each courier leg. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tracking_legs ADD COLUMN progressStages TEXT")
+                db.execSQL("ALTER TABLE tracking_legs ADD COLUMN progressRate REAL")
+                db.execSQL("ALTER TABLE tracking_legs ADD COLUMN progressStageIndex INTEGER")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: run {
@@ -48,6 +60,7 @@ abstract class AppDatabase : RoomDatabase() {
                     val factory = SupportOpenHelperFactory(key)
                     Room.databaseBuilder(appContext, AppDatabase::class.java, DB_NAME)
                         .openHelperFactory(factory)
+                        .addMigrations(MIGRATION_1_2)
                         .build()
                         .also { instance = it }
                 }

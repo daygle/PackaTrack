@@ -103,6 +103,7 @@ import com.packatrack.feature.common.theme.daysInTransitColor as daysInTransitCo
 import com.packatrack.feature.common.theme.statusColor
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.model.CarrierProgress
 import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.rawResponseFor
 import com.packatrack.core.util.FingerprintUtil
@@ -491,8 +492,24 @@ private fun HeroSection(
                 )
             }
 
+            // The carrier's own route when it reports one (Cainiao/UBI send China -> Australia ->
+            // Delivered); the generic four-step bar otherwise.
+            val carrierProgress = remember(legs) {
+                legs.firstNotNullOfOrNull { leg ->
+                    CarrierProgress.fromStored(leg.progressStages, leg.progressRate, leg.progressStageIndex)
+                        ?.takeIf { it.stages.isNotEmpty() }
+                }
+            }
             Spacer(Modifier.height(24.dp))
-            com.packatrack.feature.common.components.ShipmentProgressTracker(status)
+            if (carrierProgress != null) {
+                com.packatrack.feature.common.components.CarrierJourneyTracker(
+                    stages = carrierProgress.stages,
+                    rate = carrierProgress.rate,
+                    status = status,
+                )
+            } else {
+                com.packatrack.feature.common.components.ShipmentProgressTracker(status)
+            }
 
             Spacer(Modifier.height(16.dp))
             FlowRow(

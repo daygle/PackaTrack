@@ -1,6 +1,8 @@
 package com.packatrack.core.parse
 
 import com.packatrack.core.json.JsonUtil
+import com.packatrack.core.model.CarrierProgress
+import com.packatrack.core.model.JourneyStage
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.TimeUtil
@@ -127,11 +129,28 @@ object CainiaoParser {
 
         events.sortByDescending { it.timeMs ?: Long.MAX_VALUE }
 
+        // The carrier's own route, e.g. Mainland China -> Australia -> Delivered, with the
+        // fraction it considers complete. Only shape C carries this; the others simply report
+        // nothing and the detail screen falls back to its own steps.
+        val progress = pkg.optJSONObject("processInfo")?.let { info ->
+            val rate = info.optDouble("progressRate", Double.NaN)
+                .takeIf { !it.isNaN() && it in 0.0..1.0 }
+            val stages = info.optJSONArray("progressPointList")?.let { points ->
+                (0 until points.length()).mapNotNull { i ->
+                    val point = points.optJSONObject(i) ?: return@mapNotNull null
+                    point.optString("pointName").trim().takeIf { it.isNotEmpty() }
+                        ?.let { name -> JourneyStage(name, reached = point.optBoolean("light")) }
+                }
+            }.orEmpty()
+            CarrierProgress(rate = rate, stages = stages).takeIf { rate != null || stages.isNotEmpty() }
+        }
+
         return Snapshot(
             trackingNumber = number,
             dimensionsCm = null,
             events = events,
             relatedTrackingNumbers = relatedNumbers.toList(),
+            progress = progress,
         )
     }
 
@@ -144,7 +163,12 @@ object CainiaoParser {
             trackingNumber = number,
             timeMs = TimeUtil.parse(time),
             description = firstNonBlank(d, "desc", "standerdDesc", "statusDesc", "status") ?: "Update",
-            location = firstNonBlank(d, "city", "country", "location", "areaName"),
+            // Live scans carry no city/country key at all: the facility is only in the
+            // square-bracketed prefix of `standerdDesc` ("[Shatian Town] Departed from
+            // sorting center"), so without this every scan loses its location.
+            location = firstNonBlank(d, "city", "country", "location", "areaName")
+                ?: BRACKET_CITY.find(d.optString("standerdDesc"))?.groupValues?.getOrNull(1)
+                    ?.trim()?.takeIf { it.isNotEmpty() },
             statusCode = mapCode(firstNonBlank(d, "actionCode", "standStillCode", "status", "standerdDesc")),
         )
     }
@@ -174,9 +198,13 @@ object CainiaoParser {
             // Delivered ("SIGNED" as its own word, so e.g. "ASSIGNED" does not match)
             SIGNED.containsMatchIn(c) || c.contains("DELIVER") -> "DELIVERED"
             c.contains("LAST_MILE") -> "OUT_FOR_DELIVERY"
-            // In transit - prefix-based patterns for Cainiao/UBI action codes
+            // In transit - prefix-based patterns for Cainiao/UBI action codes.
+            // CW_ is warehouse handling (inbound, sign-in) and PU_ is the carrier pickup; both
+            // are movement, not arrival. This includes CW_SIGN_IN_SUCCESS, which is a stock-in
+            // scan and is one letter away from the SIGNED signature check above.
             c.startsWith("LH_") || c.startsWith("CC_") || c.startsWith("SC_") ||
                 c.startsWith("GWMS_") || c.startsWith("WM_") ||
+                c.startsWith("CW_") || c.startsWith("PU_") ||
                 c.contains("GOT") || c.contains("ACCEPT") -> "IN_TRANSIT"
             else -> raw
         }
@@ -186,6 +214,8 @@ object CainiaoParser {
         keys.firstNotNullOfOrNull { JsonUtil.stringOr(obj, it) }
 
     private val SIGNED = Regex("(^|[^A-Z])SIGNED")
+    /** Facility name in the leading brackets of `standerdDesc`, e.g. "[Shatian Town] Departed". */
+    private val BRACKET_CITY = Regex("^\\[([^\\]]{1,80})\\]")
     private val LATEST_NUMBER_LABEL =
         Regex("latest\\s+tracking\\s+number\\s*[:：]?\\s*([A-Za-z0-9]+)", RegexOption.IGNORE_CASE)
     private val TRAILING_NUMBER = Regex("([A-Za-z0-9]{6,})\\s*$")
