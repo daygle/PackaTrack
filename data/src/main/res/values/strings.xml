@@ -17,4 +17,6 @@
     <string name="notice_public_text">New parcel activity</string>
     <string name="notice_channel_name">Parcel changes</string>
     <string name="notice_channel_description">Delivery updates, exceptions and parcel changes</string>
+    <!-- A courier leg was dropped because it only repeated another leg's scans. -->
+    <string name="notice_duplicate_removed">%1$s: Merged duplicate %2$s tracking %3$s into %4$s</string>
 </resources>

@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -56,7 +57,12 @@ object Notifier {
         // Tapping opens the specific parcel when every update is about the same one; a mixed
         // batch has no single target, so it falls back to the parcel list.
         val targetShipmentId = filtered.map { it.shipmentId }.distinct().singleOrNull()
-        post(context, filtered.map { localizedText(context, it) }, targetShipmentId, prefs.biometricLock)
+        post(
+            context,
+            filtered.map { localizedText(context.resources, it) },
+            targetShipmentId,
+            prefs.biometricLock,
+        )
     }
 
     /**
@@ -64,9 +70,8 @@ object Notifier {
      * detected, or the stored English message when the row was read back from storage (a change
      * imported from a backup predates any display data).
      */
-    private fun localizedText(context: Context, change: ChangeEntity): String {
+    fun localizedText(res: Resources, change: ChangeEntity): String {
         val display = change.display ?: return change.message
-        val res = context.resources
         val parcel = display.parcel.orEmpty()
         return when (display.kind) {
             ChangeDisplay.Kind.PROGRESS -> {
@@ -110,6 +115,13 @@ object Notifier {
             ChangeDisplay.Kind.COURIER_ADDED -> res.getString(
                 R.string.notice_courier_added,
                 display.carrier.orEmpty(),
+                display.newNumber.orEmpty(),
+            )
+            ChangeDisplay.Kind.DUPLICATE_REMOVED -> res.getString(
+                R.string.notice_duplicate_removed,
+                parcel,
+                display.carrier.orEmpty(),
+                display.oldNumber.orEmpty(),
                 display.newNumber.orEmpty(),
             )
         }

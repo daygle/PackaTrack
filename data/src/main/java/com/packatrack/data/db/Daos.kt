@@ -182,6 +182,9 @@ interface ChangeDao {
     @Query("SELECT * FROM changes ORDER BY createdAt ASC")
     suspend fun all(): List<ChangeEntity>
 
+    @Query("SELECT * FROM changes WHERE shipmentId = :shipmentId ORDER BY createdAt DESC")
+    fun observeFor(shipmentId: Long): Flow<List<ChangeEntity>>
+
     @Query("DELETE FROM changes WHERE shipmentId = :shipmentId")
     suspend fun deleteForShipment(shipmentId: Long)
 

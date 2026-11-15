@@ -74,6 +74,9 @@ class TrackingRepository @Inject constructor(
     fun observeShipment(id: Long): Flow<ShipmentWithLegs?> = shipments.observeWithLegs(id)
     fun observeEvents(shipmentId: Long): Flow<List<EventEntity>> = events.observeForShipment(shipmentId)
 
+    /** Changes the app itself recorded for one parcel, newest first (shown in its timeline). */
+    fun observeChangesFor(shipmentId: Long): Flow<List<ChangeEntity>> = changes.observeFor(shipmentId)
+
     /** Earliest scan time per shipment (shipmentId -> first event ms), for "days in transit". */
     fun observeFirstEventTimes(): Flow<Map<Long, Long>> =
         events.observeFirstEventTimes().map { rows ->
@@ -243,11 +246,11 @@ class TrackingRepository @Inject constructor(
      * it is dropped and its number is kept as an alias of the leg that survives - the number stays
      * visible on that courier and still matches the parcel if the carrier reports it again.
      *
-     * @return how many legs were removed.
+     * @return the change recorded for each removed leg, so the caller can notify about them.
      */
-    suspend fun removeDuplicateLegs(shipmentId: Long): Int = refreshMutex.withLock {
+    suspend fun removeDuplicateLegs(shipmentId: Long): List<ChangeEntity> = refreshMutex.withLock {
         val allLegs = legs.legsForShipment(shipmentId)
-        if (allLegs.size < 2) return@withLock 0
+        if (allLegs.size < 2) return@withLock emptyList()
         val scansByLeg = events.eventsForLegs(allLegs.map { it.id })
             .groupBy { it.legId }
             .mapValues { (_, rows) ->
@@ -264,7 +267,10 @@ class TrackingRepository @Inject constructor(
                 )
             },
         )
-        if (duplicates.isEmpty()) return@withLock 0
+        if (duplicates.isEmpty()) return@withLock emptyList()
+        val label = parcelLabel(shipmentId)
+        val now = System.currentTimeMillis()
+        val recorded = mutableListOf<ChangeEntity>()
         db.withTransaction {
             for (duplicate in duplicates) {
                 val survivor = allLegs.first { it.id == duplicate.survivorLegId }
@@ -278,10 +284,31 @@ class TrackingRepository @Inject constructor(
                 }
                 events.deleteForLeg(duplicate.legId)
                 legs.deleteById(duplicate.legId)
+                // Recorded so the history explains why a tracking number disappeared; the number
+                // itself stays on the survivor's alias list.
+                val carrierName = Carrier.fromId(survivor.carrierId)?.displayName
+                val change = ChangeEntity(
+                    shipmentId = shipmentId,
+                    type = "DUPLICATE",
+                    message = "$label: Merged duplicate ${carrierName ?: survivor.carrierId} " +
+                        "tracking ${duplicate.trackingNumber} into ${survivor.trackingNumber}",
+                    createdAt = now,
+                ).withDisplay(
+                    ChangeDisplay(
+                        kind = ChangeDisplay.Kind.DUPLICATE_REMOVED,
+                        category = ChangeDisplay.Category.TRANSIT,
+                        parcel = label,
+                        carrier = carrierName,
+                        oldNumber = duplicate.trackingNumber,
+                        newNumber = survivor.trackingNumber,
+                    ),
+                )
+                changes.insert(change)
+                recorded += change
             }
         }
-        Log.i("TrackingRepository", "Removed ${duplicates.size} duplicate leg(s) from parcel $shipmentId")
-        duplicates.size
+        Log.i("TrackingRepository", "Removed ${recorded.size} duplicate leg(s) from parcel $shipmentId")
+        recorded
     }
 
     /** Updates a parcel's custom name. */

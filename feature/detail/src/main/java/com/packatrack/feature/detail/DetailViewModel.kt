@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.packatrack.core.db.ChangeEntity
 import com.packatrack.core.db.EventEntity
 import com.packatrack.core.db.ShipmentWithLegs
 import com.packatrack.core.model.Carrier
@@ -52,6 +53,9 @@ class DetailViewModel @Inject constructor(
 
     fun observeEvents(id: Long): Flow<List<EventEntity>> = repository.observeEvents(id)
 
+    /** Events the app recorded itself (a merged duplicate leg), shown in the parcel timeline. */
+    fun observeChanges(id: Long): Flow<List<ChangeEntity>> = repository.observeChangesFor(id)
+
     fun refresh(id: Long) {
         if (_syncing.value) return
         launchSync { repository.refreshShipment(id, force = true) }
@@ -68,7 +72,12 @@ class DetailViewModel @Inject constructor(
      * Clears courier legs that only repeat another leg's scans. Runs when the parcel is opened, so
      * installs left with duplicates by the old related-number handling tidy themselves up.
      */
-    fun removeDuplicateLegs(id: Long) = perform { repository.removeDuplicateLegs(id) }
+    fun removeDuplicateLegs(id: Long) = perform {
+        val recorded = repository.removeDuplicateLegs(id)
+        // Notified here because the cleanup is not part of a refresh, so nothing else would post
+        // it; postChanges applies the user's notification switches and language.
+        if (recorded.isNotEmpty()) Notifier.postChanges(context, recorded)
+    }
 
     fun addOrder(id: Long, name: String, orderUrl: String?) = perform { repository.addOrder(id, name, orderUrl) }
 

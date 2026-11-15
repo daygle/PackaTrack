@@ -14,9 +14,15 @@ data class ChangeDisplay(
     val category: Category,
     /** Display name of the parcel the change belongs to. */
     val parcel: String? = null,
-    /** Previous tracking number for [Kind.RENUMBERED]. */
+    /**
+     * Previous tracking number for [Kind.RENUMBERED], or the removed number for
+     * [Kind.DUPLICATE_REMOVED].
+     */
     val oldNumber: String? = null,
-    /** New/current tracking number for [Kind.RENUMBERED] or [Kind.COURIER_ADDED]. */
+    /**
+     * New/current tracking number for [Kind.RENUMBERED] or [Kind.COURIER_ADDED], or the number
+     * that kept the scans for [Kind.DUPLICATE_REMOVED].
+     */
     val newNumber: String? = null,
     /** How many parcels were folded together for [Kind.COMBINED]. */
     val count: Int = 0,
@@ -25,7 +31,7 @@ data class ChangeDisplay(
     /** Carrier-reported scan text for [Kind.PROGRESS]. */
     val description: String? = null,
     val timeMs: Long? = null,
-    /** Courier display name for [Kind.COURIER_ADDED]. */
+    /** Courier display name for [Kind.COURIER_ADDED] and [Kind.DUPLICATE_REMOVED]. */
     val carrier: String? = null,
 ) {
     /** Which notification sentence describes this change. */
@@ -37,6 +43,9 @@ data class ChangeDisplay(
         CONSOLIDATED,
         FOLDED_INTO,
         COURIER_ADDED,
+
+        /** A courier leg was dropped because it only repeated another leg's scans. */
+        DUPLICATE_REMOVED,
     }
 
     /** Which notification setting governs this change. */

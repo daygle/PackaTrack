@@ -14,4 +14,5 @@
     <string name="notice_public_text">Neue Paketaktivität</string>
     <string name="notice_channel_name">Paketänderungen</string>
     <string name="notice_channel_description">Zustellungen, Ausnahmen und Paketänderungen</string>
+    <string name="notice_duplicate_removed">%1$s: Doppelte %2$s-Sendungsnummer %3$s in %4$s zusammengeführt</string>
 </resources>

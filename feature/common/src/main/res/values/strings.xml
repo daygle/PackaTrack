@@ -186,4 +186,7 @@
     <string name="copy_raw_response">Copy</string>
     <string name="raw_response_copied">Response copied</string>
     <string name="close">Close</string>
+
+    <!-- Parcel timeline entry for an event the app recorded itself. -->
+    <string name="timeline_duplicate_removed">Duplicate courier tracking merged</string>
 </resources>

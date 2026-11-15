@@ -15,4 +15,5 @@
     <string name="notice_public_text">Nouvelle activité de colis</string>
     <string name="notice_channel_name">Changements de colis</string>
     <string name="notice_channel_description">Livraisons, exceptions et changements de colis</string>
+    <string name="notice_duplicate_removed">%1$s : suivi %2$s en double %3$s fusionné dans %4$s</string>
 </resources>

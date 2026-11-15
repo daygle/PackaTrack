@@ -188,4 +188,5 @@
     <string name="copy_raw_response">Copier</string>
     <string name="raw_response_copied">Réponse copiée</string>
     <string name="close">Fermer</string>
+    <string name="timeline_duplicate_removed">Suivi de transporteur en double fusionné</string>
 </resources>

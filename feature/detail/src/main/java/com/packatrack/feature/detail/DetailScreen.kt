@@ -81,10 +81,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.packatrack.core.db.ChangeEntity
 import com.packatrack.core.db.OrderItemEntity
 import com.packatrack.core.db.ShipmentWithLegs
 import com.packatrack.core.db.EventEntity
 import com.packatrack.core.db.TrackingLegEntity
+import com.packatrack.feature.common.appChangeText
+import com.packatrack.feature.common.timelineChangeTypes
 import com.packatrack.feature.common.components.CarrierChip
 import com.packatrack.feature.common.components.StatusPill
 import com.packatrack.feature.common.daysInTransit
@@ -118,6 +121,23 @@ private data class TimelineDisplayEvent(
     val carriers: List<Pair<String?, String?>>, // (carrierId, displayName)
 )
 
+/** One row of the parcel timeline: a carrier scan, or an event the app recorded itself. */
+private sealed interface TimelineItem {
+    /** Stable list key, unique across both kinds. */
+    val key: String
+    val timeMs: Long?
+
+    data class Scan(val event: TimelineDisplayEvent) : TimelineItem {
+        override val key: String get() = "ev_${event.id}"
+        override val timeMs: Long? get() = event.timeMs
+    }
+
+    data class AppEvent(val change: ChangeEntity) : TimelineItem {
+        override val key: String get() = "chg_${change.id}"
+        override val timeMs: Long? get() = change.createdAt
+    }
+}
+
 @Composable
 fun DetailScreen(
     id: Long,
@@ -129,8 +149,10 @@ fun DetailScreen(
     // Remembered per id: a fresh Flow on each recomposition would restart the query.
     val entryFlow = remember(id) { viewModel.observeShipment(id) }
     val eventsFlow = remember(id) { viewModel.observeEvents(id) }
+    val changesFlow = remember(id) { viewModel.observeChanges(id) }
     val entry by entryFlow.collectAsStateWithLifecycle(initialValue = null)
     val timelineRaw by eventsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    val changesRaw by changesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val allParcels by viewModel.activeShipments.collectAsStateWithLifecycle(initialValue = emptyList())
     val newestEventMsByLeg by viewModel.newestEventMsByLeg.collectAsStateWithLifecycle(initialValue = emptyMap())
     val syncing by viewModel.syncing.collectAsStateWithLifecycle()
@@ -147,6 +169,20 @@ fun DetailScreen(
         // Deduplicate scans from multiple carriers reporting the same event
         // (e.g. Cainiao + UBI Smart Parcel share the same API response).
         deduplicateTimeline(sorted, legById)
+    }
+    // The timeline also shows what the app itself did (a duplicate leg merged away), so the
+    // history explains why a tracking number is no longer listed.
+    val timelineRows = remember(timeline, changesRaw, historySort) {
+        val rows = buildList<TimelineItem> {
+            timeline.forEach { add(TimelineItem.Scan(it)) }
+            changesRaw.filter { it.type in timelineChangeTypes }
+                .forEach { add(TimelineItem.AppEvent(it)) }
+        }
+        if (historySort == "oldest") {
+            rows.sortedBy { it.timeMs ?: Long.MAX_VALUE }
+        } else {
+            rows.sortedByDescending { it.timeMs ?: Long.MIN_VALUE }
+        }
     }
     val firstEventMs = remember(timelineRaw) { timelineRaw.mapNotNull { it.timeMs }.minOrNull() }
 
@@ -293,7 +329,7 @@ fun DetailScreen(
             item(key = "timeline_title") {
                 SectionHeader(
                     title = stringResource(R.string.timeline_title),
-                    count = timeline.size,
+                    count = timelineRows.size,
                     action = {
                         Box {
                             IconButton(onClick = { historySortMenuOpen = true }) {
@@ -323,20 +359,33 @@ fun DetailScreen(
                     }
                 )
             }
-            if (timeline.isEmpty()) {
+            if (timelineRows.isEmpty()) {
                 item(key = "timeline_empty") {
                     EmptySectionText(stringResource(R.string.scanning_updates))
                 }
             }
-            itemsIndexed(timeline, key = { _, ev -> "ev_${ev.id}" }) { index, ev ->
-                TimelineRow(
-                    time = TimeUtil.format(ev.timeMs, prefs.dateTimeFormat) ?: stringResource(R.string.time_unknown),
-                    description = ev.description,
-                    location = ev.location,
-                    statusCode = ev.statusCode,
-                    carriers = ev.carriers,
-                    isLast = index == timeline.lastIndex
-                )
+            itemsIndexed(timelineRows, key = { _, item -> item.key }) { index, item ->
+                val isLast = index == timelineRows.lastIndex
+                when (item) {
+                    is TimelineItem.Scan -> TimelineRow(
+                        time = TimeUtil.format(item.timeMs, prefs.dateTimeFormat)
+                            ?: stringResource(R.string.time_unknown),
+                        description = item.event.description,
+                        location = item.event.location,
+                        statusCode = item.event.statusCode,
+                        carriers = item.event.carriers,
+                        isLast = isLast,
+                    )
+                    // The app's own action, labelled as such so it is not mistaken for a scan.
+                    is TimelineItem.AppEvent -> TimelineRow(
+                        time = formatLocalDateTime(item.change.createdAt, prefs.dateTimeFormat),
+                        description = appChangeText(item.change),
+                        location = stringResource(R.string.app_name),
+                        statusCode = null,
+                        carriers = emptyList(),
+                        isLast = isLast,
+                    )
+                }
             }
                 item(key = "footer") { Spacer(Modifier.height(40.dp)) }
             }

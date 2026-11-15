@@ -13,4 +13,5 @@
     <string name="notice_public_text">有新的包裹动态</string>
     <string name="notice_channel_name">包裹动态</string>
     <string name="notice_channel_description">配送更新、异常和包裹动态</string>
+    <string name="notice_duplicate_removed">%1$s：重复的%2$s追踪号%3$s已合并至%4$s</string>
 </resources>

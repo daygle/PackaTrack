@@ -180,4 +180,5 @@
     <string name="copy_raw_response">コピー</string>
     <string name="raw_response_copied">応答をコピーしました</string>
     <string name="close">閉じる</string>
+    <string name="timeline_duplicate_removed">重複した追跡番号を統合しました</string>
 </resources>

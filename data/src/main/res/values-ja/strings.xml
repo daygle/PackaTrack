@@ -13,4 +13,5 @@
     <string name="notice_public_text">荷物に新しい動きがあります</string>
     <string name="notice_channel_name">荷物の更新</string>
     <string name="notice_channel_description">配達・例外・荷物の更新について</string>
+    <string name="notice_duplicate_removed">%1$s: 重複した%2$sの追跡番号%3$sを%4$sに統合しました</string>
 </resources>

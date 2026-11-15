@@ -15,4 +15,5 @@
     <string name="notice_public_text">Nueva actividad de paquetes</string>
     <string name="notice_channel_name">Cambios de paquetes</string>
     <string name="notice_channel_description">Entregas, incidencias y cambios de paquetes</string>
+    <string name="notice_duplicate_removed">%1$s: Seguimiento %2$s duplicado %3$s fusionado en %4$s</string>
 </resources>
