@@ -56,7 +56,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -649,9 +648,8 @@ private fun AppearanceScreen(onBack: () -> Unit, viewModel: SettingsViewModel = 
 // ─── Backup & restore ────────────────────────────────────────────────────────
 
 @Composable
-private fun BackupScreen(onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+private fun BackupScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val prefs = viewModel.prefs
     val scope = rememberCoroutineScope()
     val backupManager = remember { BackupManager(context) }
 

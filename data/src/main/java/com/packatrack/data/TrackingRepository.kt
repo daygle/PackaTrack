@@ -21,7 +21,6 @@ import com.packatrack.core.model.scanFingerprint
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.Snapshot
-import com.packatrack.core.model.rawResponseFor
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.util.FingerprintUtil
 import kotlinx.coroutines.flow.Flow
@@ -61,10 +60,6 @@ class TrackingRepository @Inject constructor(
         ausPostKey = { prefs.ausPostApiKey },
         onRawResponse = { key, response -> _rawResponses.update { it + (key to response) } },
     )
-
-    /** Last payload captured for a stored leg, following its aliases if it was renumbered. */
-    fun rawResponseFor(leg: TrackingLegEntity): RawResponse? =
-        _rawResponses.value.rawResponseFor(leg.carrierId, leg.trackingNumber, leg.aliasNumbers)
 
     /* ---------- observers ---------- */
 

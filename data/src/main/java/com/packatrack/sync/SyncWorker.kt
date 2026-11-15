@@ -25,7 +25,6 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         val entryPoint = EntryPointAccessors.fromApplication(applicationContext, DataEntryPoint::class.java)
         val repo = entryPoint.repository()
-        val prefs = entryPoint.prefs()
 
         // Adaptive Sync: Skip during quiet hours (11 PM - 7 AM) or low battery (<15%) to save power.
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
