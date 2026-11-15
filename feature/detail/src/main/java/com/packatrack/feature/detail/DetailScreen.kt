@@ -67,6 +67,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -156,6 +157,10 @@ fun DetailScreen(
     var showCombine by remember { mutableStateOf(value = false) }
     var showEdit by remember { mutableStateOf(value = false) }
     var responseLegId by remember { mutableStateOf<Long?>(null) }
+
+    // A leg that only repeats another courier's scans is left over from the old related-number
+    // handling; opening the parcel clears it (see TrackingRepository.removeDuplicateLegs).
+    LaunchedEffect(id) { viewModel.removeDuplicateLegs(id) }
 
     // Troubleshooting: what each courier last returned for this parcel's numbers.
     val rawResponses by viewModel.rawResponses.collectAsStateWithLifecycle(initialValue = emptyMap())

@@ -64,6 +64,12 @@ class DetailViewModel @Inject constructor(
 
     fun removeCourier(legId: Long) = perform { repository.removeCourier(legId) }
 
+    /**
+     * Clears courier legs that only repeat another leg's scans. Runs when the parcel is opened, so
+     * installs left with duplicates by the old related-number handling tidy themselves up.
+     */
+    fun removeDuplicateLegs(id: Long) = perform { repository.removeDuplicateLegs(id) }
+
     fun addOrder(id: Long, name: String, orderUrl: String?) = perform { repository.addOrder(id, name, orderUrl) }
 
     fun removeOrder(orderId: Long) = perform { repository.removeOrder(orderId) }

@@ -14,7 +14,10 @@ import com.packatrack.core.changelog.ChangeLogService
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import com.packatrack.core.model.ChangeDisplay
+import com.packatrack.core.model.LegScans
+import com.packatrack.core.model.findDuplicateLegs
 import com.packatrack.core.model.overallStatusCode
+import com.packatrack.core.model.scanFingerprint
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.Snapshot
@@ -229,6 +232,56 @@ class TrackingRepository @Inject constructor(
             events.deleteForLeg(legId)
             legs.deleteById(legId)
         }
+    }
+
+    /**
+     * Removes legs that only repeat another leg of the same courier, scan for scan.
+     *
+     * Carriers report one parcel under several of their own numbers (Cainiao's `realMailNo` is
+     * one), and an earlier version of the app turned each of those into an extra leg, so a parcel
+     * listed the same courier twice with an identical timeline. The repeating leg adds nothing, so
+     * it is dropped and its number is kept as an alias of the leg that survives - the number stays
+     * visible on that courier and still matches the parcel if the carrier reports it again.
+     *
+     * @return how many legs were removed.
+     */
+    suspend fun removeDuplicateLegs(shipmentId: Long): Int = refreshMutex.withLock {
+        val allLegs = legs.legsForShipment(shipmentId)
+        if (allLegs.size < 2) return@withLock 0
+        val scansByLeg = events.eventsForLegs(allLegs.map { it.id })
+            .groupBy { it.legId }
+            .mapValues { (_, rows) ->
+                rows.mapTo(HashSet()) { row -> scanFingerprint(row.timeMs, row.description) }
+            }
+        val duplicates = findDuplicateLegs(
+            allLegs.map { leg ->
+                LegScans(
+                    legId = leg.id,
+                    carrierId = leg.carrierId,
+                    trackingNumber = leg.trackingNumber,
+                    order = leg.id,
+                    scans = scansByLeg[leg.id].orEmpty(),
+                )
+            },
+        )
+        if (duplicates.isEmpty()) return@withLock 0
+        db.withTransaction {
+            for (duplicate in duplicates) {
+                val survivor = allLegs.first { it.id == duplicate.survivorLegId }
+                val aliases = (survivor.aliasNumbers.split(',') + duplicate.trackingNumber)
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() && it != survivor.trackingNumber }
+                    .distinct()
+                    .joinToString(",")
+                if (aliases != survivor.aliasNumbers) {
+                    legs.update(survivor.copy(aliasNumbers = aliases))
+                }
+                events.deleteForLeg(duplicate.legId)
+                legs.deleteById(duplicate.legId)
+            }
+        }
+        Log.i("TrackingRepository", "Removed ${duplicates.size} duplicate leg(s) from parcel $shipmentId")
+        duplicates.size
     }
 
     /** Updates a parcel's custom name. */
