@@ -138,7 +138,7 @@
     <string name="import_file">Importer le fichier</string>
     <string name="restore_passphrase_label">Phrase secrète de restauration</string>
     <string name="biometric_lock">Verrouillage de l\'application</string>
-    <string name="biometric_lock_hint">Exiger l\'authentification biométrique pour ouvrir l\'application</string>
+    <string name="biometric_lock_hint">Déverrouiller avec la biométrie ou le code, schéma ou mot de passe de l\'appareil</string>
     <string name="transit_thresholds">Seuils de transit</string>
     <string name="transit_green_hint">Le colis est vert quand il est en transit depuis moins de jours que cette valeur</string>
     <string name="transit_yellow_hint">Le colis devient jaune quand il est en transit depuis plus de jours que cette valeur</string>
@@ -149,4 +149,27 @@
     <string name="github_repo">Dépôt GitHub</string>
     <string name="tracking_number_copied">Numéro de suivi copié</string>
     <string name="aliases_label">Alias : %1$s</string>
+
+    <string name="status_delivered">Livré</string>
+    <string name="status_out_for_delivery">En cours de livraison</string>
+    <string name="status_pickup_available">Prêt à retirer</string>
+    <string name="status_in_transit">En transit</string>
+    <string name="status_label_created">Étiquette créée</string>
+    <string name="status_exception">Exception</string>
+    <string name="status_waiting_for_scans">En attente de scans</string>
+    <string name="app_lock_error_no_hardware">Cet appareil n\'a pas de biométrie ni de verrouillage d\'écran</string>
+    <string name="app_lock_error_hardware_unavailable">Le matériel biométrique est indisponible pour le moment</string>
+    <string name="app_lock_error_none_enrolled">Configurez d\'abord la biométrie ou le verrouillage de l\'écran</string>
+    <string name="lock_after_title">Verrouiller après</string>
+    <string name="lock_after_immediately">Immédiatement</string>
+    <string name="lock_after_30_seconds">30 secondes</string>
+    <string name="lock_after_1_minute">1 minute</string>
+    <string name="lock_after_5_minutes">5 minutes</string>
+    <string name="app_lock_threat_note">Masque l\'application d\'un accès rapide. Vos données ne sont pas chiffrées pour autant.</string>
+    <string name="theme_system">Système</string>
+    <string name="theme_light">Clair</string>
+    <string name="theme_dark">Sombre</string>
+    <string name="backup_exported">Sauvegarde portable exportée</string>
+    <string name="backup_restored">Sauvegarde restaurée</string>
+    <string name="tracking_number_too_short">Le numéro de suivi semble trop court (min. %1$d caractères)</string>
 </resources>

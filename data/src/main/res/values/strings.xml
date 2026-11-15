@@ -1,0 +1,17 @@
+<resources>
+    <!-- Notification wording for detected parcel changes. The English text is identical to the
+         stored ChangeEntity.message so a notification reads the same whichever path produced it. -->
+    <string name="notice_progress">%1$s: %2$s</string>
+    <string name="notice_progress_timed">%1$s: %2$s - %3$s</string>
+    <string name="notice_renumbered">%1$s: Tracking number changed from %2$s -&gt; %3$s</string>
+    <string name="notice_combined">%1$s: %2$d parcels combined into %3$s</string>
+    <string name="notice_merged_with">%1$s: Combined with %2$s</string>
+    <string name="notice_consolidated">%1$s: Cainiao consolidated “%2$s” into this parcel</string>
+    <string name="notice_folded_into">%1$s: Folded into combined parcel %2$s</string>
+    <string name="notice_courier_added">Added %1$s tracking %2$s</string>
+    <!-- Notification chrome; the public version hides parcel details on a locked device. -->
+    <string name="notice_title">PackaTrack Update</string>
+    <string name="notice_public_text">New parcel activity</string>
+    <string name="notice_channel_name">Parcel changes</string>
+    <string name="notice_channel_description">Delivery updates, exceptions and parcel changes</string>
+</resources>

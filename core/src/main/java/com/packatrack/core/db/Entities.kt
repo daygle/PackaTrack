@@ -2,9 +2,11 @@ package com.packatrack.core.db
 
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Ignore
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
+import com.packatrack.core.model.ChangeDisplay
 
 /**
  * A logical parcel the user cares about.
@@ -122,6 +124,19 @@ data class ChangeEntity(
     val shipmentId: Long,
     /** One of: RENUMBERED | COMBINED | PROGRESS | COURIER */
     val type: String,
+    /** Canonical English wording: stored, exported in backups and used as the de-duplication key. */
     val message: String,
     val createdAt: Long = 0L,
-)
+) {
+    /**
+     * In-memory only: the structured facts behind this change, so the notification can be
+     * worded in the user's language. Rows read back from the database (and rows restored from
+     * a backup) leave it null and fall back to [message].
+     *
+     * Declared in the class body rather than the constructor: Room's processor cannot match an
+     * `@Ignore`d constructor parameter to a property, and rejects the whole entity when it sees
+     * one ("must have a usable public constructor").
+     */
+    @Ignore
+    var display: ChangeDisplay? = null
+}

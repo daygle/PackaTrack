@@ -135,7 +135,7 @@
     <string name="import_file">导入文件</string>
     <string name="restore_passphrase_label">恢复密码</string>
     <string name="biometric_lock">应用锁</string>
-    <string name="biometric_lock_hint">打开应用需要生物识别验证</string>
+    <string name="biometric_lock_hint">使用生物识别，或设备 PIN、图案或密码解锁</string>
     <string name="transit_thresholds">运输阈值</string>
     <string name="transit_green_hint">运输天数少于此值时包裹显示绿色</string>
     <string name="transit_yellow_hint">运输天数多于此值时包裹显示黄色</string>
@@ -146,4 +146,27 @@
     <string name="github_repo">GitHub仓库</string>
     <string name="tracking_number_copied">追踪号码已复制</string>
     <string name="aliases_label">别名: %1$s</string>
+
+    <string name="status_delivered">已送达</string>
+    <string name="status_out_for_delivery">派送中</string>
+    <string name="status_pickup_available">待取件</string>
+    <string name="status_in_transit">运输中</string>
+    <string name="status_label_created">已创建电子面单</string>
+    <string name="status_exception">异常</string>
+    <string name="status_waiting_for_scans">等待扫描</string>
+    <string name="app_lock_error_no_hardware">此设备没有生物识别或屏幕锁定</string>
+    <string name="app_lock_error_hardware_unavailable">生物识别硬件当前不可用</string>
+    <string name="app_lock_error_none_enrolled">请先设置生物识别或屏幕锁定</string>
+    <string name="lock_after_title">锁定等待时间</string>
+    <string name="lock_after_immediately">立即</string>
+    <string name="lock_after_30_seconds">30 秒</string>
+    <string name="lock_after_1_minute">1 分钟</string>
+    <string name="lock_after_5_minutes">5 分钟</string>
+    <string name="app_lock_threat_note">可防止他人随手查看应用，但不会加密你的数据。</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+    <string name="backup_exported">便携备份已导出</string>
+    <string name="backup_restored">备份已恢复</string>
+    <string name="tracking_number_too_short">运单号似乎过短（至少 %1$d 个字符）</string>
 </resources>

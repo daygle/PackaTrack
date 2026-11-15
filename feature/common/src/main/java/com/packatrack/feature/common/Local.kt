@@ -1,5 +1,8 @@
 package com.packatrack.feature.common
 
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import com.packatrack.core.db.OrderItemEntity
 import com.packatrack.core.db.ShipmentEntity
 import com.packatrack.core.db.TrackingLegEntity
@@ -20,15 +23,25 @@ fun parcelName(
     return legs.firstOrNull()?.trackingNumber ?: "Parcel"
 }
 
-fun statusLabel(code: String?): String = when (code?.trim()?.uppercase()) {
-    "DELIVERED" -> "Delivered"
-    "OUT_FOR_DELIVERY" -> "Out for delivery"
-    "PICKUP_AVAILABLE" -> "Pickup available"
-    "IN_TRANSIT" -> "In transit"
-    "LABEL_CREATED" -> "Label created"
-    "EXCEPTION" -> "Exception"
-    null, "" -> "Waiting for scans"
-    else -> code.trim().lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+/** String resource for a normalized status code, or null when the code is not one we know. */
+@StringRes
+fun statusLabelRes(code: String?): Int? = when (code?.trim()?.uppercase()) {
+    "DELIVERED" -> R.string.status_delivered
+    "OUT_FOR_DELIVERY" -> R.string.status_out_for_delivery
+    "PICKUP_AVAILABLE" -> R.string.status_pickup_available
+    "IN_TRANSIT" -> R.string.status_in_transit
+    "LABEL_CREATED" -> R.string.status_label_created
+    "EXCEPTION" -> R.string.status_exception
+    null, "" -> R.string.status_waiting_for_scans
+    else -> null
+}
+
+/** Localized label for a normalized status code. */
+@Composable
+fun statusLabel(code: String?): String {
+    statusLabelRes(code)?.let { return stringResource(it) }
+    // An unrecognised carrier code: show it tidied up rather than inventing a translation.
+    return code.orEmpty().trim().lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
 fun daysInTransit(startMs: Long?): Int {
@@ -43,15 +56,24 @@ fun overallStatusCode(
     newestEventMsByLeg: Map<Long, Long?>? = null,
 ): String? = com.packatrack.core.model.overallStatusCode(legs, newestEventMsByLeg)
 
+private const val DEFAULT_DATE_PATTERN = "dd MMM yyyy, HH:mm"
+
+// Built once per pattern per thread: SimpleDateFormat is neither thread-safe nor cheap to
+// construct, and these are called for every card and timeline row on every recomposition.
+private val dateFormatters = object : ThreadLocal<HashMap<String, SimpleDateFormat>>() {
+    override fun initialValue() = HashMap<String, SimpleDateFormat>()
+}
+
 /**
  * Formats a device-clock timestamp (e.g. a scan time or last sync) with the user's chosen
  * pattern in the device's time zone, falling back to the default pattern if it is invalid.
  */
-fun formatLocalDateTime(timeMs: Long, pattern: String): String {
-    val sdf = try {
-        SimpleDateFormat(pattern, Locale.getDefault())
-    } catch (_: IllegalArgumentException) {
-        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+fun formatLocalDateTime(timeMs: Long, pattern: String): String = dateFormatters.get()!!
+    .getOrPut(pattern) {
+        try {
+            SimpleDateFormat(pattern, Locale.getDefault())
+        } catch (_: IllegalArgumentException) {
+            SimpleDateFormat(DEFAULT_DATE_PATTERN, Locale.getDefault())
+        }
     }
-    return sdf.format(Date(timeMs))
-}
+    .format(Date(timeMs))

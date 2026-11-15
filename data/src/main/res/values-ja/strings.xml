@@ -1,0 +1,14 @@
+<resources>
+    <string name="notice_progress">%1$s: %2$s</string>
+    <string name="notice_progress_timed">%1$s: %2$s - %3$s</string>
+    <string name="notice_renumbered">%1$s: 追跡番号が%2$sから%3$sに変更されました</string>
+    <string name="notice_combined">%1$s: %2$d個の荷物を%3$sに統合しました</string>
+    <string name="notice_merged_with">%1$s: %2$sと統合しました</string>
+    <string name="notice_consolidated">%1$s: Cainiaoが「%2$s」をこの荷物にまとめました</string>
+    <string name="notice_folded_into">%1$s: 統合荷物%2$sにまとめられました</string>
+    <string name="notice_courier_added">%1$sの追跡番号%2$sを追加しました</string>
+    <string name="notice_title">PackaTrack の更新</string>
+    <string name="notice_public_text">荷物に新しい動きがあります</string>
+    <string name="notice_channel_name">荷物の更新</string>
+    <string name="notice_channel_description">配達・例外・荷物の更新について</string>
+</resources>

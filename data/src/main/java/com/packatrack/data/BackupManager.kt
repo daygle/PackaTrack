@@ -67,7 +67,19 @@ class BackupManager(context: Context) {
         BackupMerger.validate(shipments, legs, orders, events, changes)
 
         db.withTransaction {
-            if (replaceExisting) db.clearAllTables()
+            // Delete through the DAOs rather than RoomDatabase.clearAllTables(): that call
+            // checks the connection out again through runBlockingUninterruptible and opens a
+            // nested transaction; that relies on Room's internal guards rather than on any
+            // documented contract for being called inside a caller's transaction.
+            // Plain deletes keep the wipe atomic with the restore, so a restore that fails
+            // part-way leaves the existing data intact.
+            if (replaceExisting) {
+                db.eventDao().deleteAll()
+                db.changeDao().deleteAll()
+                db.orderDao().deleteAll()
+                db.legDao().deleteAll()
+                db.shipmentDao().deleteAll()
+            }
 
             // tracking number -> existing shipment already carrying a leg with that number.
             val existingShipmentIdByTrackingNumber = db.legDao().all().associate { it.trackingNumber to it.shipmentId }

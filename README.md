@@ -2,7 +2,7 @@
 
 [![Android CI](https://github.com/daygle/PackaTrack/actions/workflows/android-ci.yml/badge.svg)](https://github.com/daygle/PackaTrack/actions/workflows/android-ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Kotlin](https://img.shields.io/badge/kotlin-2.4.20-blue.svg?logo=kotlin)](http://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.4.21-blue.svg?logo=kotlin)](http://kotlinlang.org)
 [![Platform](https://img.shields.io/badge/platform-Android-green.svg?logo=android)](https://www.android.com)
 
 **PackaTrack** is a modern, native Android application designed to handle the complexities of international package tracking. It specializes in tracking shipments from **AliExpress**, **Cainiao**, **Australia Post**, and **iMile**, with a focus on solving the "renumbering" and "consolidation" problems that often leave users confused.
@@ -26,11 +26,11 @@
 
 ## 🛠 Tech Stack
 
-- **Language**: Kotlin 2.4.20
+- **Language**: Kotlin 2.4.21
 - **UI**: Jetpack Compose (Material 3)
 - **Architecture**: MVVM (ViewModels per screen), modularized by layer and feature
 - **Database**: Room (with SQLCipher encryption)
-- **Networking**: OkHttp 5.5.0
+- **Networking**: OkHttp 5.5.1
 - **Background Work**: WorkManager
 - **DI**: Hilt
 
@@ -94,6 +94,19 @@ The application shell: Hilt setup, navigation, biometric lock and worker schedul
 ## 🔒 Security & Privacy
 
 We value your privacy. PackaTrack does not use any intermediate servers to store your data. Your tracking history is fetched directly from the carriers and stored locally in a secure, encrypted database.
+
+### 🔐 App Lock
+
+App Lock is a UI gate, not encryption. While it is on, PackaTrack asks for a biometric or your
+device PIN, pattern or password before showing your parcels, sets `FLAG_SECURE` so screenshots
+and the app-switcher thumbnail are blanked, and hides parcel details from notifications while
+the device is locked.
+
+It deliberately fails open: if a device has no biometrics and no screen lock at all, the app
+opens instead of trapping you outside your own tracking history. It also does not encrypt the
+database on its own, so someone holding your unlocked device - or with root or a device backup -
+can still read your data. The cryptographic boundary in PackaTrack is the passphrase on portable
+backups.
 
 For more information, please see our [SECURITY.md](SECURITY.md) and [LICENSE](LICENSE).
 

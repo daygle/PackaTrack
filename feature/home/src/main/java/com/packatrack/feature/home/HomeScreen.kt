@@ -82,7 +82,6 @@ import com.packatrack.feature.common.parcelName
 import com.packatrack.feature.common.theme.MonoNumber
 import com.packatrack.feature.common.theme.daysInTransitColor as daysInTransitColorDynamic
 import com.packatrack.core.detect.CarrierDetector
-import com.packatrack.core.util.FingerprintUtil
 import com.packatrack.core.model.Carrier
 
 import androidx.compose.material.icons.filled.Archive
@@ -624,7 +623,10 @@ private fun AddShipmentDialog(
     LaunchedEffect(Unit) {
         if (number.isBlank()) {
             val clipText = clipboard.getClipEntry()?.clipData?.getItemAt(0)?.text?.toString()?.trim()
-            if (!clipText.isNullOrBlank()) {
+            // Only prefill when the clipboard actually looks like a tracking number. The
+            // clipboard often holds unrelated (and sometimes sensitive) text, and anything put
+            // in this field is sent to carrier APIs once the parcel is saved.
+            if (!clipText.isNullOrBlank() && CarrierDetector.detectAll(clipText).isNotEmpty()) {
                 number = clipText
             }
         }
@@ -666,7 +668,14 @@ private fun AddShipmentDialog(
                 if (duplicate) {
                     Text(stringResource(R.string.duplicate_number_error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 } else if (tooShort) {
-                    Text("Tracking number looks too short (min ${com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH} chars)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(
+                            R.string.tracking_number_too_short,
+                            com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
 
                 if (needsAusPostKey && !hasAusPostKey) {

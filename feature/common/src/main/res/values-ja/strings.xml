@@ -135,7 +135,7 @@
     <string name="import_file">ファイルをインポート</string>
     <string name="restore_passphrase_label">復元パスフレーズ</string>
     <string name="biometric_lock">アプリロック</string>
-    <string name="biometric_lock_hint">アプリを開くには生体認証が必要</string>
+    <string name="biometric_lock_hint">生体認証、または端末のPIN・パターン・パスワードでロック解除</string>
     <string name="transit_thresholds">配送閾値</string>
     <string name="transit_green_hint">この値より少ない日数配送中なら荷物は緑色になります</string>
     <string name="transit_yellow_hint">この値より多い日数配送中なら荷物は黄色になります</string>
@@ -146,4 +146,27 @@
     <string name="github_repo">GitHubリポジトリ</string>
     <string name="tracking_number_copied">追跡番号をコピーしました</string>
     <string name="aliases_label">エイリアス: %1$s</string>
+
+    <string name="status_delivered">配達完了</string>
+    <string name="status_out_for_delivery">配達中</string>
+    <string name="status_pickup_available">受け取り可能</string>
+    <string name="status_in_transit">配送中</string>
+    <string name="status_label_created">ラベル作成済み</string>
+    <string name="status_exception">例外</string>
+    <string name="status_waiting_for_scans">スキャン待ち</string>
+    <string name="app_lock_error_no_hardware">この端末には生体認証も画面ロックもありません</string>
+    <string name="app_lock_error_hardware_unavailable">生体認証ハードウェアを現在使用できません</string>
+    <string name="app_lock_error_none_enrolled">先に生体認証または画面ロックを設定してください</string>
+    <string name="lock_after_title">ロックまでの時間</string>
+    <string name="lock_after_immediately">すぐに</string>
+    <string name="lock_after_30_seconds">30秒</string>
+    <string name="lock_after_1_minute">1分</string>
+    <string name="lock_after_5_minutes">5分</string>
+    <string name="app_lock_threat_note">アプリを第三者から隠します。データは暗号化されません。</string>
+    <string name="theme_system">システム</string>
+    <string name="theme_light">ライト</string>
+    <string name="theme_dark">ダーク</string>
+    <string name="backup_exported">バックアップを書き出しました</string>
+    <string name="backup_restored">バックアップを復元しました</string>
+    <string name="tracking_number_too_short">追跡番号が短すぎます（最小 %1$d 文字）</string>
 </resources>

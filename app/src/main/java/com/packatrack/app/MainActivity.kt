@@ -4,11 +4,14 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
@@ -44,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.packatrack.data.PrefsStore
+import com.packatrack.data.security.AppLockAuthenticators
 import com.packatrack.feature.common.R
 import com.packatrack.feature.detail.DetailScreen
 import com.packatrack.notify.Notifier
@@ -64,6 +68,24 @@ class MainActivity : FragmentActivity() {
 
     private var isAuthenticated by mutableStateOf(false)
 
+    /** Uptime when the app was last backgrounded, for the optional lock grace period. */
+    private var stoppedAtElapsed = 0L
+
+    /**
+     * Whether the lock screen can be satisfied right now. Enrolment is not permanent - the user
+     * can remove their fingerprints (or the device PIN) from system settings while this app is
+     * backgrounded - and the lock screen has no other way through, with Settings sitting behind
+     * it. So the lock is only shown while some allowed authenticator actually exists.
+     */
+    private var lockAuthenticatorsAvailable by mutableStateOf(false)
+
+    /**
+     * Biometrics plus the device PIN/pattern/password. Shared with the settings switch, so the
+     * two can never disagree about which devices can use App Lock.
+     */
+    private val allowedAuthenticators: Int
+        get() = AppLockAuthenticators.allowed
+
     // Parcel to open on launch, set when the activity is started from a notification tap.
     private var pendingShipmentId by mutableStateOf<Long?>(null)
 
@@ -78,12 +100,20 @@ class MainActivity : FragmentActivity() {
         }
 
         pendingShipmentId = readOpenShipmentId(intent)
+        lockAuthenticatorsAvailable = canAuthenticate()
 
         setContent {
             val themeMode by remember { prefs.observeThemeMode() }
                 .collectAsStateWithLifecycle(initialValue = prefs.themeMode)
+            // Observed rather than read once, so turning the switch on takes effect immediately
+            // and the app-switcher thumbnail is protected from the moment it is enabled.
+            val appLockEnabled by remember { prefs.observeBiometricLock() }
+                .collectAsStateWithLifecycle(initialValue = prefs.biometricLock)
+            // Keep parcel names and delivery addresses out of the recents thumbnail and
+            // out of screenshots while the lock is on.
+            LaunchedEffect(appLockEnabled) { applyScreenshotProtection(appLockEnabled) }
             // Re-read on every recomposition; isAuthenticated flips (e.g. in onStop) trigger one.
-            val locked = prefs.biometricLock && !isAuthenticated
+            val locked = appLockEnabled && !isAuthenticated && lockAuthenticatorsAvailable
 
             PackaTrackTheme(themeMode = themeMode) {
                 Box(Modifier.fillMaxSize()) {
@@ -109,12 +139,31 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    override fun onStop() {
-        super.onStop()
-        // Re-lock whenever the app leaves the screen
-        if (prefs.biometricLock) {
+    override fun onStart() {
+        super.onStart()
+        // Enrolment can change while the app is backgrounded, so re-check before deciding
+        // whether to lock - including the case where the screen lock was removed entirely.
+        lockAuthenticatorsAvailable = canAuthenticate()
+        if (prefs.biometricLock && isAuthenticated && lockGraceElapsed()) {
             isAuthenticated = false
         }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Remember when we left; the grace period is measured on the way back in.
+        if (prefs.biometricLock) {
+            stoppedAtElapsed = SystemClock.elapsedRealtime()
+        }
+    }
+
+    /**
+     * True when the app has been away long enough to lock again. With the default grace of 0
+     * this is always true, which reproduces the original "lock on every return" behaviour.
+     */
+    private fun lockGraceElapsed(): Boolean {
+        val graceMs = prefs.lockGraceSeconds * 1000L
+        return SystemClock.elapsedRealtime() - stoppedAtElapsed >= graceMs
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -126,6 +175,20 @@ class MainActivity : FragmentActivity() {
 
     private fun readOpenShipmentId(intent: Intent?): Long? =
         intent?.getLongExtra(Notifier.EXTRA_OPEN_SHIPMENT_ID, -1L)?.takeIf { it > 0 }
+
+    /** True when at least one allowed authenticator is present, enrolled and available. */
+    private fun canAuthenticate(): Boolean =
+        BiometricManager.from(this).canAuthenticate(allowedAuthenticators) ==
+            BiometricManager.BIOMETRIC_SUCCESS
+
+    /** Blocks screenshots and the app-switcher thumbnail while App Lock is enabled. */
+    private fun applyScreenshotProtection(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
 
     private fun authenticate() {
         val executor = ContextCompat.getMainExecutor(this)
@@ -147,7 +210,9 @@ class MainActivity : FragmentActivity() {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(getString(R.string.lock_title))
             .setSubtitle(getString(R.string.lock_subtitle))
-            .setNegativeButtonText(getString(R.string.cancel))
+            // No negative button: setNegativeButtonText is incompatible with device credential
+            // authentication, and the system prompt provides its own cancel affordance.
+            .setAllowedAuthenticators(allowedAuthenticators)
             .build()
 
         biometricPrompt.authenticate(promptInfo)
@@ -218,6 +283,15 @@ private fun PackaTrackNavHost(
     ) {
         composable(
             route = "home",
+            // The deep link supplies ?number=; declaring it here is what turns the query
+            // parameter into a navigation argument the screen can read.
+            arguments = listOf(
+                navArgument("number") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
             deepLinks = listOf(
                 navDeepLink { uriPattern = "packatrack://add?number={number}" }
             )

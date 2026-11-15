@@ -1,0 +1,14 @@
+<resources>
+    <string name="notice_progress">%1$s : %2$s</string>
+    <string name="notice_progress_timed">%1$s : %2$s - %3$s</string>
+    <string name="notice_renumbered">%1$s : numéro de suivi changé de %2$s -&gt; %3$s</string>
+    <string name="notice_combined">%1$s : %2$d colis regroupés dans %3$s</string>
+    <string name="notice_merged_with">%1$s : combiné avec %2$s</string>
+    <string name="notice_consolidated">%1$s : Cainiao a regroupé « %2$s » dans ce colis</string>
+    <string name="notice_folded_into">%1$s : fusionné dans le colis combiné %2$s</string>
+    <string name="notice_courier_added">Suivi %1$s %2$s ajouté</string>
+    <string name="notice_title">Mise à jour PackaTrack</string>
+    <string name="notice_public_text">Nouvelle activité de colis</string>
+    <string name="notice_channel_name">Changements de colis</string>
+    <string name="notice_channel_description">Livraisons, exceptions et changements de colis</string>
+</resources>

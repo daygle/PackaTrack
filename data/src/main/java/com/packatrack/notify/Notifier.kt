@@ -13,6 +13,8 @@ import androidx.core.app.NotificationManagerCompat
 import com.packatrack.data.PrefsStore
 import com.packatrack.data.R
 import com.packatrack.core.db.ChangeEntity
+import com.packatrack.core.model.ChangeDisplay
+import com.packatrack.core.util.TimeUtil
 
 object Notifier {
     private const val CHANNEL_ID = "parcel_changes"
@@ -24,9 +26,18 @@ object Notifier {
     fun createChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Parcel changes", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Delivery updates, exceptions and parcel changes"
-            })
+            val name = context.getString(R.string.notice_channel_name)
+            // A channel keeps the name it was first created with, so an install that predates the
+            // translations would stay English for ever. Recreate it once, when the stored name no
+            // longer matches the translated one (this also resets the user's importance choice).
+            manager.getNotificationChannel(CHANNEL_ID)?.let { existing ->
+                if (existing.name != name) manager.deleteNotificationChannel(CHANNEL_ID)
+            }
+            manager.createNotificationChannel(
+                NotificationChannel(CHANNEL_ID, name, NotificationManager.IMPORTANCE_DEFAULT).apply {
+                    description = context.getString(R.string.notice_channel_description)
+                },
+            )
         }
     }
 
@@ -35,21 +46,84 @@ object Notifier {
         val prefs = PrefsStore(context)
         if (!prefs.notificationsEnabled) return
         val filtered = changes.filter { change ->
-            val text = change.message.lowercase()
-            when {
-                text.contains("deliver") -> prefs.notifyOnDelivered
-                text.contains("exception") || text.contains("failed") || text.contains("delay") || text.contains("customs") || text.contains("return") -> prefs.notifyOnExceptions
-                else -> prefs.notifyOnTransit
+            when (change.display?.category ?: ChangeDisplay.categoryFromWording(change.message)) {
+                ChangeDisplay.Category.DELIVERED -> prefs.notifyOnDelivered
+                ChangeDisplay.Category.EXCEPTION -> prefs.notifyOnExceptions
+                ChangeDisplay.Category.TRANSIT -> prefs.notifyOnTransit
             }
         }
         if (filtered.isEmpty()) return
         // Tapping opens the specific parcel when every update is about the same one; a mixed
         // batch has no single target, so it falls back to the parcel list.
         val targetShipmentId = filtered.map { it.shipmentId }.distinct().singleOrNull()
-        post(context, filtered.map { it.message }, targetShipmentId)
+        post(context, filtered.map { localizedText(context, it) }, targetShipmentId, prefs.biometricLock)
     }
 
-    private fun post(context: Context, messages: List<String>, shipmentId: Long?) {
+    /**
+     * Wording for one change: translated from the [ChangeDisplay] attached when the change was
+     * detected, or the stored English message when the row was read back from storage (a change
+     * imported from a backup predates any display data).
+     */
+    private fun localizedText(context: Context, change: ChangeEntity): String {
+        val display = change.display ?: return change.message
+        val res = context.resources
+        val parcel = display.parcel.orEmpty()
+        return when (display.kind) {
+            ChangeDisplay.Kind.PROGRESS -> {
+                val text = display.description.orEmpty()
+                val timeMs = display.timeMs
+                if (timeMs == null) {
+                    res.getString(R.string.notice_progress, parcel, text)
+                } else {
+                    res.getString(R.string.notice_progress_timed, parcel, text, utcStamp(timeMs))
+                }
+            }
+            ChangeDisplay.Kind.RENUMBERED -> res.getString(
+                R.string.notice_renumbered,
+                parcel,
+                display.oldNumber.orEmpty(),
+                display.newNumber.orEmpty(),
+            )
+            ChangeDisplay.Kind.COMBINED -> res.getString(
+                R.string.notice_combined,
+                parcel,
+                display.count,
+                display.into.orEmpty(),
+            )
+            ChangeDisplay.Kind.MERGED_WITH -> res.getString(
+                R.string.notice_merged_with,
+                parcel,
+                display.into.orEmpty(),
+            )
+            ChangeDisplay.Kind.CONSOLIDATED -> res.getString(
+                R.string.notice_consolidated,
+                parcel,
+                display.into.orEmpty(),
+            )
+            ChangeDisplay.Kind.FOLDED_INTO -> res.getString(
+                R.string.notice_folded_into,
+                parcel,
+                display.into.orEmpty(),
+            )
+            ChangeDisplay.Kind.COURIER_ADDED -> res.getString(
+                R.string.notice_courier_added,
+                display.carrier.orEmpty(),
+                display.newNumber.orEmpty(),
+            )
+        }
+    }
+
+    /** UTC stamp shown beside a scan, matching the wording the change log already uses. */
+    private fun utcStamp(timeMs: Long): String =
+        "${TimeUtil.format(timeMs, "yyyy-MM-dd HH:mm").orEmpty()} UTC"
+
+
+    private fun post(
+        context: Context,
+        messages: List<String>,
+        shipmentId: Long?,
+        redactContent: Boolean,
+    ) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             if (shipmentId != null) putExtra(EXTRA_OPEN_SHIPMENT_ID, shipmentId)
@@ -57,18 +131,26 @@ object Notifier {
         } ?: return
         val pending = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val style = NotificationCompat.InboxStyle().also { messages.take(5).forEach(it::addLine) }
-        runCatching {
-            NotificationManagerCompat.from(context).notify(
-                SUMMARY_ID,
-                NotificationCompat.Builder(context, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.ic_stat_parcel)
-                    .setContentTitle("PackaTrack Update")
-                    .setContentText(messages.first())
-                    .setStyle(style)
-                    .setAutoCancel(true)
-                    .setContentIntent(pending)
-                    .build(),
-            )
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_parcel)
+            .setContentTitle(context.getString(R.string.notice_title))
+            .setContentText(messages.first())
+            .setStyle(style)
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+        if (redactContent) {
+            // With App Lock on, a locked device must not show parcel names or numbers.
+            builder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(
+                    NotificationCompat.Builder(context, CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_stat_parcel)
+                        .setContentTitle(context.getString(R.string.notice_title))
+                        .setContentText(context.getString(R.string.notice_public_text))
+                        .setAutoCancel(true)
+                        .setContentIntent(pending)
+                        .build(),
+                )
         }
+        runCatching { NotificationManagerCompat.from(context).notify(SUMMARY_ID, builder.build()) }
     }
 }
