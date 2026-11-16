@@ -20,12 +20,12 @@ class ChangeLogServiceTest {
         assertTrue(changes[0] is ParcelChange.Progress)
     }
 
-    @Test fun renumberedViaSuffixFingerprint() {
-        val prev = Snapshot("600087654321", emptyList())
-        val cur = Snapshot("AU600087654321", emptyList())
-        val changes = ChangeLogService.detect(mapOf("600087654321" to prev), cur)
-        assertEquals(1, changes.size)
-        assertEquals(ParcelChange.Renumbered::class.java, changes[0].javaClass)
+    @Test fun differentNumberProducesNoChange() {
+        // Renumbering is the repository's job (it compares the number the carrier reports with
+        // the one it polled), so a snapshot under another number is simply not a progress update.
+        val prev = Snapshot("600087654321", listOf(TrackingEvent("600087654321", 1L, "Arrived Sydney")))
+        val cur = Snapshot("AU600087654321", listOf(TrackingEvent("AU600087654321", 2L, "Out for delivery")))
+        assertTrue(ChangeLogService.detect(mapOf("600087654321" to prev), cur).isEmpty())
     }
 
     @Test fun combinedDetectedBySharedConsolidationEvent() {

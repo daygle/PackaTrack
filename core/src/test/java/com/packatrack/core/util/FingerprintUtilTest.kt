@@ -8,9 +8,4 @@ class FingerprintUtilTest {
     @Test fun normalizeStripsSeparatorsAndUppercases() {
         assertEquals("AB123456789AU", FingerprintUtil.normalize("ab-123 456\n789 au"))
     }
-
-    @Test fun commonSuffixLengthCountsFromEnd() {
-        assertEquals(12, FingerprintUtil.commonSuffixLength("XX600087654321", "600087654321"))
-        assertEquals(0, FingerprintUtil.commonSuffixLength("AAA111", "BBB222"))
-    }
 }
