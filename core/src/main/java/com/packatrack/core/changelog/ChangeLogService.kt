@@ -8,20 +8,24 @@ import com.packatrack.core.util.TimeUtil
 /**
  * The heart of PackaTrack's "understands AliExpress" logic.
  *
- * Compares two consecutive [Snapshot]s (previous vs. latest poll) for parcels under the
- * same user order and produces human-readable [ParcelChange]s:
+ * Compares consecutive [Snapshot]s (previous vs. latest poll) and produces human-readable
+ * [ParcelChange]s:
  *
- *  - **Tracking number changed** - the old number no longer resolves but a new number's
- *    fingerprint suffix matches the old one (carriers append prefixes/suffixes when
- *    re-issuing).
- *  - **Packages combined** - several earlier numbers report the consolidation event that a
- *    new number now carries.
- *  - **Progress** - ordinary checkpoint added.
+ *  - **Progress** ([detect]) - a new checkpoint on the same tracking number.
+ *  - **Packages combined** ([detectCombination]) - several earlier numbers report the
+ *    consolidation event that a new number now carries.
+ *
+ * A carrier re-issuing a number is detected by the repository itself, which compares the number
+ * the carrier reports against the one it polled; [humanReadable] words that change too.
  */
 object ChangeLogService {
 
     /**
-     * @param previousByNumber last known snapshot keyed by tracking number (may be empty)
+     * The newest checkpoint [current] adds over the previous snapshot of the same number, as a
+     * [ParcelChange.Progress]. Empty when there is no previous snapshot under that number or
+     * nothing new was scanned.
+     *
+     * @param previousByNumber last known snapshot keyed by normalized tracking number (may be empty)
      * @param current the fresh snapshot just fetched
      */
     fun detect(
@@ -31,26 +35,15 @@ object ChangeLogService {
         val changes = mutableListOf<ParcelChange>()
         if (previousByNumber.isEmpty()) return changes
 
-        // 1. Straight update on same number?
         val prevSame = previousByNumber[FingerprintUtil.normalize(current.trackingNumber)]
-        if (prevSame != null) {
-            val previousDescriptions = prevSame.events.mapTo(HashSet()) { it.description }
-            val newestNewEvent = current.events
-                .asSequence()
-                .filterNot { it.description in previousDescriptions }
-                .maxByOrNull { it.timeMs ?: Long.MIN_VALUE }
-            if (newestNewEvent != null) {
-                changes += ParcelChange.Progress(newestNewEvent.description, newestNewEvent.timeMs)
-            }
-            return changes
-        }
-
-        // 2. Renumbered? Find the first previous number sharing a long enough suffix.
-        val renamedFrom = previousByNumber.keys.firstOrNull { oldNo ->
-            FingerprintUtil.commonSuffixLength(oldNo, current.trackingNumber) >= 8
-        }
-        if (renamedFrom != null) {
-            changes += ParcelChange.Renumbered(renamedFrom, current.trackingNumber)
+            ?: return changes
+        val previousDescriptions = prevSame.events.mapTo(HashSet()) { it.description }
+        val newestNewEvent = current.events
+            .asSequence()
+            .filterNot { it.description in previousDescriptions }
+            .maxByOrNull { it.timeMs ?: Long.MIN_VALUE }
+        if (newestNewEvent != null) {
+            changes += ParcelChange.Progress(newestNewEvent.description, newestNewEvent.timeMs)
         }
         return changes
     }
