@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.ksp)
 }
 
 android {
@@ -27,9 +26,8 @@ android {
 }
 
 dependencies {
+    // Entity annotations only; the Room compiler runs in :data, where the @Database lives.
     implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
 
     testImplementation(libs.junit)
     // Real org.json for JVM unit tests (Android stubs throw under test).

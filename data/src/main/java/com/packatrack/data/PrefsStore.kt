@@ -32,7 +32,7 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
             if (!ausPostKeyLoaded) {
                 decryptedAusPostKey = prefs.getString(KEY_AUSPOST_KEY, null)
                     ?.let { stored ->
-                        runCatching { String(KeystoreCrypto.decryptFromBase64(stored)) }.getOrNull()
+                        runCatching { String(KeystoreCrypto.decryptFromBase64(stored), Charsets.UTF_8) }.getOrNull()
                     }
                 ausPostKeyLoaded = true
             }
@@ -44,7 +44,7 @@ class PrefsStore @Inject constructor(@ApplicationContext private val context: Co
                 if (trimmed.isNullOrEmpty()) {
                     remove(KEY_AUSPOST_KEY)
                 } else {
-                    putString(KEY_AUSPOST_KEY, KeystoreCrypto.encryptToBase64(trimmed.toByteArray()))
+                    putString(KEY_AUSPOST_KEY, KeystoreCrypto.encryptToBase64(trimmed.toByteArray(Charsets.UTF_8)))
                 }
             }
             decryptedAusPostKey = trimmed?.takeIf { it.isNotEmpty() }

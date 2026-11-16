@@ -1,4 +1,4 @@
-package com.packatrack.feature.common
+package com.packatrack.core.model
 
 import com.packatrack.core.db.TrackingLegEntity
 import org.junit.Assert.assertEquals

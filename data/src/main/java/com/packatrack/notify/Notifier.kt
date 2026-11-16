@@ -11,11 +11,12 @@ import android.content.res.Resources
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import com.packatrack.data.PrefsStore
-import com.packatrack.data.R
+import com.packatrack.core.changelog.ChangeLogService
 import com.packatrack.core.db.ChangeEntity
 import com.packatrack.core.model.ChangeDisplay
 import com.packatrack.core.util.TimeUtil
+import com.packatrack.data.PrefsStore
+import com.packatrack.data.R
 
 object Notifier {
     private const val CHANNEL_ID = "parcel_changes"
@@ -129,8 +130,7 @@ object Notifier {
 
     /** UTC stamp shown beside a scan, matching the wording the change log already uses. */
     private fun utcStamp(timeMs: Long): String =
-        "${TimeUtil.format(timeMs, "yyyy-MM-dd HH:mm").orEmpty()} UTC"
-
+        "${TimeUtil.format(timeMs, ChangeLogService.UTC_STAMP_PATTERN).orEmpty()} UTC"
 
     private fun post(
         context: Context,
@@ -141,7 +141,13 @@ object Notifier {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
             if (shipmentId != null) putExtra(EXTRA_OPEN_SHIPMENT_ID, shipmentId)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            // SINGLE_TOP with CLEAR_TOP delivers the tap to the running activity's onNewIntent.
+            // CLEAR_TOP alone finishes and recreates a standard-launch activity, which drops its
+            // back stack and App Lock state, and never reaches onNewIntent.
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            )
         } ?: return
         val pending = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val style = NotificationCompat.InboxStyle().also { messages.take(5).forEach(it::addLine) }

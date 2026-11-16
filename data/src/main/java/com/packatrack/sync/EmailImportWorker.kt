@@ -64,6 +64,8 @@ class EmailImportWorker(
 
             prefs.smartImportLastRunAt = startedAt
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Email import failed", e)
             Result.retry()

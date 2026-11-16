@@ -15,13 +15,13 @@ interface ConnectivityObserver {
     fun observe(): Flow<Status>
 
     enum class Status {
-        Available, Unavailable, Losing, Lost
+        Available, Losing, Lost
     }
 }
 
 class NetworkConnectivityObserver(
-    context: Context
-): ConnectivityObserver {
+    context: Context,
+) : ConnectivityObserver {
 
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

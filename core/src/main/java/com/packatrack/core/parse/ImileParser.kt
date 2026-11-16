@@ -27,8 +27,9 @@ object ImileParser {
     fun parse(json: String, requestedNumber: String): Snapshot? {
         val root = JsonUtil.objOrNull(json) ?: return null
 
+        // Legacy envelope: either a non-200 code or an explicit success=false is a failure.
         val code = JsonUtil.stringOr(root, "code")
-        if (code != null && code != "200" && !root.optBoolean("success", true)) return null
+        if ((code != null && code != "200") || !root.optBoolean("success", true)) return null
 
         // The live envelope reports failures through root "status"; anything but
         // "success" means iMile has nothing to show for this number.

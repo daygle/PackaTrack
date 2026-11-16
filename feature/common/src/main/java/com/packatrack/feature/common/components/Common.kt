@@ -52,7 +52,7 @@ fun StatusPill(code: String?, modifier: Modifier = Modifier) {
             statusLabel(code),
             style = MaterialTheme.typography.labelMedium,
             color = color,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -74,7 +74,7 @@ fun CarrierChip(carrierId: String?, name: String, modifier: Modifier = Modifier)
             name,
             style = MaterialTheme.typography.labelMedium,
             color = color,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -150,7 +150,8 @@ fun CarrierJourneyTracker(
 @Composable
 fun ShipmentProgressTracker(status: String?, modifier: Modifier = Modifier) {
     val steps = listOf("LABEL_CREATED", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED")
-    val currentIndex = steps.indexOf(status?.uppercase()).coerceAtLeast(-1)
+    // -1 (nothing lit) for statuses off the happy path, e.g. EXCEPTION or no scans yet.
+    val currentIndex = steps.indexOf(status?.uppercase())
 
     val activeColor = statusColor(status)
     val inactiveColor = MaterialTheme.colorScheme.outlineVariant
@@ -160,16 +161,13 @@ fun ShipmentProgressTracker(status: String?, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        steps.forEachIndexed { index, step ->
-            val isActive = index <= currentIndex
-            val color = if (isActive) activeColor else inactiveColor
-
+        steps.indices.forEach { index ->
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .height(4.dp)
                     .clip(CircleShape)
-                    .background(color)
+                    .background(if (index <= currentIndex) activeColor else inactiveColor),
             )
         }
     }

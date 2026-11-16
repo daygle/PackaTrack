@@ -128,7 +128,7 @@ data class ShipmentFirstEvent(
 /** Newest scan time for one courier leg (projection for the status recency vote). */
 data class LegLatestEvent(
     val legId: Long,
-    val firstMs: Long?,
+    val latestMs: Long?,
 )
 
 /** Human-readable change entries: renumbered / combined / progress / courier added. */
@@ -136,7 +136,7 @@ data class LegLatestEvent(
 data class ChangeEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val shipmentId: Long,
-    /** One of: RENUMBERED | COMBINED | PROGRESS | COURIER */
+    /** One of: RENUMBERED | COMBINED | PROGRESS | COURIER | DUPLICATE */
     val type: String,
     /** Canonical English wording: stored, exported in backups and used as the de-duplication key. */
     val message: String,

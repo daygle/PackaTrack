@@ -68,14 +68,19 @@ class TrackingRepositoryTest {
     }
 
     @Test
-    fun `archive updates shipment archived status`() = runTest {
+    fun `archive writes only the archived flag`() = runTest {
         val shipmentId = 123L
-        val entity = ShipmentEntity(id = shipmentId, createdAt = 1000L, archived = false)
-        coEvery { shipments.byId(shipmentId) } returns entity
 
         repository.archive(shipmentId)
 
-        coVerify { shipments.update(match { it.id == shipmentId && it.archived }) }
+        coVerify { shipments.setArchived(shipmentId, true) }
+    }
+
+    @Test
+    fun `rename writes only the title and blanks clear it`() = runTest {
+        repository.updateShipment(7L, "  ")
+
+        coVerify { shipments.setTitle(7L, null) }
     }
 
     /** Leg whose lastSyncAt is "now" so the poll cooldown skips it - no network in tests. */
@@ -95,12 +100,12 @@ class TrackingRepositoryTest {
         val leg = skippedLeg(10L, shipmentId = 1L, statusCode = "DELIVERED", syncedAt = System.currentTimeMillis())
         coEvery { legs.allActiveLegs() } returns listOf(leg)
         coEvery { legs.legsForShipment(1L) } returns listOf(leg)
-        coEvery { events.latestEventMsByLeg() } returns listOf(LegLatestEvent(legId = 10L, firstMs = System.currentTimeMillis()))
+        coEvery { events.latestEventMsByLeg() } returns listOf(LegLatestEvent(legId = 10L, latestMs = System.currentTimeMillis()))
         coEvery { shipments.byId(1L) } returns ShipmentEntity(id = 1L, createdAt = 1L, archived = false)
 
         repository.refreshAll()
 
-        coVerify { shipments.update(match { it.id == 1L && it.archived }) }
+        coVerify { shipments.setArchived(1L, true) }
     }
 
     @Test
@@ -115,13 +120,13 @@ class TrackingRepositoryTest {
         coEvery { legs.allActiveLegs() } returns listOf(deliveredLeg)
         coEvery { legs.legsForShipment(1L) } returns listOf(deliveredLeg, transitLeg)
         coEvery { events.latestEventMsByLeg() } returns listOf(
-            LegLatestEvent(legId = 10L, firstMs = now - 3L * 24 * 60 * 60 * 1000),
-            LegLatestEvent(legId = 11L, firstMs = now),
+            LegLatestEvent(legId = 10L, latestMs = now - 3L * 24 * 60 * 60 * 1000),
+            LegLatestEvent(legId = 11L, latestMs = now),
         )
         coEvery { shipments.byId(1L) } returns ShipmentEntity(id = 1L, createdAt = 1L, archived = false)
 
         repository.refreshAll()
 
-        coVerify(exactly = 0) { shipments.update(any()) }
+        coVerify(exactly = 0) { shipments.setArchived(any(), any()) }
     }
 }

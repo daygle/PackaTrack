@@ -35,8 +35,16 @@ interface ShipmentDao {
     @Insert
     suspend fun insertAll(shipments: List<ShipmentEntity>): List<Long>
 
-    @Update
-    suspend fun update(shipment: ShipmentEntity)
+    /**
+     * Single-column writes. A read-modify-write of the whole row (byId + update) can put back a
+     * stale title or archived flag written meanwhile by another path - e.g. a rename from the
+     * detail screen racing the post-refresh auto-archive.
+     */
+    @Query("UPDATE shipments SET archived = :archived WHERE id = :id")
+    suspend fun setArchived(id: Long, archived: Boolean)
+
+    @Query("UPDATE shipments SET title = :title WHERE id = :id")
+    suspend fun setTitle(id: Long, title: String?)
 
     @Query("DELETE FROM shipments WHERE id = :id")
     suspend fun deleteById(id: Long)
@@ -154,11 +162,11 @@ interface EventDao {
     fun observeLatestByShipment(): Flow<List<EventEntity>>
 
     /** Newest timestamped event time per leg (legId -> max timeMs), for status recency votes. */
-    @Query("SELECT legId AS legId, MAX(timeMs) AS firstMs FROM events WHERE timeMs IS NOT NULL GROUP BY legId")
+    @Query("SELECT legId AS legId, MAX(timeMs) AS latestMs FROM events WHERE timeMs IS NOT NULL GROUP BY legId")
     fun observeLatestEventMsByLeg(): Flow<List<LegLatestEvent>>
 
     /** One-shot variant of [observeLatestEventMsByLeg] for post-refresh archive decisions. */
-    @Query("SELECT legId AS legId, MAX(timeMs) AS firstMs FROM events WHERE timeMs IS NOT NULL GROUP BY legId")
+    @Query("SELECT legId AS legId, MAX(timeMs) AS latestMs FROM events WHERE timeMs IS NOT NULL GROUP BY legId")
     suspend fun latestEventMsByLeg(): List<LegLatestEvent>
 
     @Query("UPDATE events SET shipmentId = :newShipmentId WHERE shipmentId = :oldShipmentId")

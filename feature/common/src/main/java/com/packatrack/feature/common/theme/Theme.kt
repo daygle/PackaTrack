@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /* ---------------- Brand palette (matches the app icon) ---------------- */
@@ -17,15 +18,16 @@ private val Indigo = Color(0xFF6366F1)
 private val IndigoDark = Color(0xFF4338CA)
 private val Sky = Color(0xFF0EA5E9)
 private val Emerald = Color(0xFF10B981)
+private val Amber = Color(0xFFF59E0B)
+private val Red = Color(0xFFEF4444)
 
 /** Green when transit days < greenThreshold, amber when < yellowThreshold, orange when < orangeThreshold, red otherwise. */
-@Composable
 fun daysInTransitColor(days: Int, greenThreshold: Int = 15, yellowThreshold: Int = 30, orangeThreshold: Int = 45): Color =
     when {
-        days < greenThreshold -> Color(0xFF10B981)  // green
-        days < yellowThreshold -> Color(0xFFF59E0B)  // amber/yellow
-        days < orangeThreshold -> Color(0xFFF97316)  // orange
-        else -> Color(0xFFEF4444)  // red
+        days < greenThreshold -> Emerald
+        days < yellowThreshold -> Amber
+        days < orangeThreshold -> Color(0xFFF97316) // orange
+        else -> Red
     }
 
 private val LightColors = lightColorScheme(
@@ -82,11 +84,11 @@ private val DarkColors = darkColorScheme(
 private val AppTypography = Typography().run {
     val defaultFont = FontFamily.Default
     copy(
-        displayMedium = displayMedium.copy(fontFamily = defaultFont, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-        headlineSmall = headlineSmall.copy(fontFamily = defaultFont, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-        titleLarge = titleLarge.copy(fontFamily = defaultFont, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, letterSpacing = 0.sp),
-        titleMedium = titleMedium.copy(fontFamily = defaultFont, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
-        labelLarge = labelLarge.copy(fontFamily = defaultFont, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium),
+        displayMedium = displayMedium.copy(fontFamily = defaultFont, fontWeight = FontWeight.Bold),
+        headlineSmall = headlineSmall.copy(fontFamily = defaultFont, fontWeight = FontWeight.Bold),
+        titleLarge = titleLarge.copy(fontFamily = defaultFont, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+        titleMedium = titleMedium.copy(fontFamily = defaultFont, fontWeight = FontWeight.SemiBold),
+        labelLarge = labelLarge.copy(fontFamily = defaultFont, fontWeight = FontWeight.Medium),
         bodyLarge = bodyLarge.copy(fontFamily = defaultFont, letterSpacing = 0.2.sp),
         bodyMedium = bodyMedium.copy(fontFamily = defaultFont, letterSpacing = 0.2.sp),
     )
@@ -97,7 +99,7 @@ val MonoNumber: TextStyle = TextStyle(
     fontFamily = FontFamily.Monospace,
     fontSize = 13.sp,
     letterSpacing = 0.5.sp,
-    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+    fontWeight = FontWeight.Medium
 )
 
 /* ---------------- Status + carrier colours ---------------- */
@@ -105,9 +107,9 @@ val MonoNumber: TextStyle = TextStyle(
 /** Dot / accent colour for a normalized status code. */
 fun statusColor(code: String?): Color = when (code?.uppercase()) {
     "DELIVERED" -> Emerald
-    "OUT_FOR_DELIVERY" -> Color(0xFFF59E0B)
+    "OUT_FOR_DELIVERY" -> Amber
     "PICKUP_AVAILABLE" -> Color(0xFF8B5CF6)
-    "EXCEPTION" -> Color(0xFFEF4444)
+    "EXCEPTION" -> Red
     "LABEL_CREATED" -> Color(0xFF94A3B8)
     "IN_TRANSIT" -> Sky
     else -> Color(0xFF64748B)
