@@ -10,9 +10,9 @@ import org.junit.Test
 class ChangeLogServiceTest {
 
     @Test fun sameNumberWithNewLastEventProducesProgress() {
-        val prev = Snapshot("CNX111", null,
+        val prev = Snapshot("CNX111",
             listOf(TrackingEvent("CNX111", 1L, "Arrived Sydney")))
-        val cur = Snapshot("CNX111", null,
+        val cur = Snapshot("CNX111",
             listOf(TrackingEvent("CNX111", 2L, "Out for delivery")))
 
         val changes = ChangeLogService.detect(mapOf("CNX111" to prev), cur)
@@ -21,31 +21,22 @@ class ChangeLogServiceTest {
     }
 
     @Test fun renumberedViaSuffixFingerprint() {
-        val prev = Snapshot("600087654321", null, emptyList())
-        val cur = Snapshot("AU600087654321", null, emptyList())
+        val prev = Snapshot("600087654321", emptyList())
+        val cur = Snapshot("AU600087654321", emptyList())
         val changes = ChangeLogService.detect(mapOf("600087654321" to prev), cur)
         assertEquals(1, changes.size)
         assertEquals(ParcelChange.Renumbered::class.java, changes[0].javaClass)
     }
 
-    @Test fun renumberedViaWeightPlusDimensions() {
-        val prev = Snapshot("IML00AABBCCDD",
-            com.packatrack.core.model.Dimensions(30.0, 20.0, 10.0), emptyList())
-        val cur = Snapshot("NZ99XYZ",
-            com.packatrack.core.model.Dimensions(31.0, 20.0, 10.0), emptyList())
-        val changes = ChangeLogService.detect(mapOf(prev.trackingNumber to prev), cur)
-        assertTrue(changes[0] is ParcelChange.Renumbered)
-    }
-
     @Test fun combinedDetectedBySharedConsolidationEvent() {
         val consolidated = "Parcel consolidated in warehouse"
-        val p1 = Snapshot("CNPART00001", null,
+        val p1 = Snapshot("CNPART00001",
             listOf(TrackingEvent("CNPART00001", 1L, consolidated)))
-        val p2 = Snapshot("CNPART00002", null,
+        val p2 = Snapshot("CNPART00002",
             listOf(TrackingEvent("CNPART00002", 2L, consolidated.uppercase())))
-        val unrelated = Snapshot("CNOTHER0003", null,
+        val unrelated = Snapshot("CNOTHER0003",
             listOf(TrackingEvent("CNOTHER0003", 3L, "Arrived at sorting centre")))
-        val combined = Snapshot("CNCOMBO9XZ", null,
+        val combined = Snapshot("CNCOMBO9XZ",
             listOf(TrackingEvent("CNCOMBO9XZ", 4L, consolidated)))
 
         val result = ChangeLogService.detectCombination(
@@ -57,11 +48,11 @@ class ChangeLogServiceTest {
 
     @Test fun noCombinationWhenOnlyOtherParcelsMentionConsolidation() {
         // Regression: a keyword on unrelated parcels used to flag every refreshed parcel.
-        val p1 = Snapshot("CNPART00001", null,
+        val p1 = Snapshot("CNPART00001",
             listOf(TrackingEvent("CNPART00001", 1L, "Parcel consolidated in warehouse")))
-        val p2 = Snapshot("CNPART00002", null,
+        val p2 = Snapshot("CNPART00002",
             listOf(TrackingEvent("CNPART00002", 2L, "Parcel consolidated in warehouse")))
-        val current = Snapshot("CNCOMBO9XZ", null,
+        val current = Snapshot("CNCOMBO9XZ",
             listOf(TrackingEvent("CNCOMBO9XZ", 4L, "Arrived at sorting centre")))
 
         assertEquals(null, ChangeLogService.detectCombination(
@@ -72,18 +63,18 @@ class ChangeLogServiceTest {
 
     @Test fun noCombinationWithSingleSharingParcel() {
         val consolidated = "Parcel consolidated in warehouse"
-        val p1 = Snapshot("CNPART00001", null, listOf(TrackingEvent("CNPART00001", 1L, consolidated)))
-        val p2 = Snapshot("CNPART00002", null, emptyList())
-        val combined = Snapshot("CNCOMBO9XZ", null, listOf(TrackingEvent("CNCOMBO9XZ", 4L, consolidated)))
+        val p1 = Snapshot("CNPART00001", listOf(TrackingEvent("CNPART00001", 1L, consolidated)))
+        val p2 = Snapshot("CNPART00002", emptyList())
+        val combined = Snapshot("CNCOMBO9XZ", listOf(TrackingEvent("CNCOMBO9XZ", 4L, consolidated)))
 
         assertEquals(null, ChangeLogService.detectCombination(
             listOf(p1, p2).associateBy { it.trackingNumber }, combined))
     }
 
     @Test fun noFalseCombinationWhenNothingChanged() {
-        val p = Snapshot("SNGL001", null, emptyList())
+        val p = Snapshot("SNGL001", emptyList())
         assertEquals(null, ChangeLogService.detectCombination(mapOf(p.trackingNumber to p),
-            Snapshot("SNGL001", null, emptyList())))
+            Snapshot("SNGL001", emptyList())))
     }
 
     @Test fun humanReadableLines() {
@@ -95,9 +86,9 @@ class ChangeLogServiceTest {
     }
 
     @Test fun progressCarriesEventTimeMs() {
-        val prev = Snapshot("CNX111", null,
+        val prev = Snapshot("CNX111",
             listOf(TrackingEvent("CNX111", 1L, "Arrived Sydney")))
-        val cur = Snapshot("CNX111", null,
+        val cur = Snapshot("CNX111",
             listOf(TrackingEvent("CNX111", 1_700_000_000_000L, "Out for delivery")))
 
         val changes = ChangeLogService.detect(mapOf("CNX111" to prev), cur)

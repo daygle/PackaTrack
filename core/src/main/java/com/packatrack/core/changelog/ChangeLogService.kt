@@ -4,7 +4,6 @@ import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.util.FingerprintUtil
 import com.packatrack.core.util.TimeUtil
-import kotlin.math.abs
 
 /**
  * The heart of PackaTrack's "understands AliExpress" logic.
@@ -14,7 +13,7 @@ import kotlin.math.abs
  *
  *  - **Tracking number changed** - the old number no longer resolves but a new number's
  *    fingerprint suffix matches the old one (carriers append prefixes/suffixes when
- *    re-issuing), or the physical signature matches within tolerance.
+ *    re-issuing).
  *  - **Packages combined** - several earlier numbers report the consolidation event that a
  *    new number now carries.
  *  - **Progress** - ordinary checkpoint added.
@@ -46,14 +45,10 @@ object ChangeLogService {
             return changes
         }
 
-        // 2. Renumbered? Find the first previous snapshot with a matching fingerprint.
-        val renamedFrom = previousByNumber.entries.firstOrNull { (oldNo, oldSnap) ->
-            val numMatch = FingerprintUtil.commonSuffixLength(oldNo, current.trackingNumber) >= 8
-            val dimsMatch =
-                oldSnap.dimensionsCm != null && current.dimensionsCm != null &&
-                    abs(oldSnap.dimensionsCm.lengthCm - current.dimensionsCm.lengthCm) <= 2.0
-            numMatch || dimsMatch
-        }?.key
+        // 2. Renumbered? Find the first previous number sharing a long enough suffix.
+        val renamedFrom = previousByNumber.keys.firstOrNull { oldNo ->
+            FingerprintUtil.commonSuffixLength(oldNo, current.trackingNumber) >= 8
+        }
         if (renamedFrom != null) {
             changes += ParcelChange.Renumbered(renamedFrom, current.trackingNumber)
         }

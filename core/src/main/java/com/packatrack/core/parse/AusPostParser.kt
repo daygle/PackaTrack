@@ -61,7 +61,6 @@ object AusPostParser {
 
         return Snapshot(
             trackingNumber = number,
-            dimensionsCm = null,
             events = events,
         )
     }
