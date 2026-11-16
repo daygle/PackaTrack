@@ -559,7 +559,6 @@ class TrackingRepository @Inject constructor(
         val prevEvents = events.eventsForLeg(leg.id).map { it.toTrackingEvent() }
         val prevSnapshot = Snapshot(
             trackingNumber = FingerprintUtil.normalize(leg.trackingNumber),
-            dimensionsCm = null,
             events = prevEvents
         )
         val detected = ChangeLogService.detect(mapOf(prevSnapshot.trackingNumber to prevSnapshot), snapshot)
@@ -712,7 +711,6 @@ class TrackingRepository @Inject constructor(
             if (legEvents.isEmpty()) return@mapNotNull null
             Snapshot(
                 trackingNumber = firstLeg.trackingNumber,
-                dimensionsCm = null,
                 events = legEvents.map { it.toTrackingEvent() },
             )
         }.associateBy { it.trackingNumber }

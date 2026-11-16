@@ -71,7 +71,6 @@ object ImileParser {
 
         return Snapshot(
             trackingNumber = number,
-            dimensionsCm = null,
             events = events,
         )
     }

@@ -147,7 +147,6 @@ object CainiaoParser {
 
         return Snapshot(
             trackingNumber = number,
-            dimensionsCm = null,
             events = events,
             relatedTrackingNumbers = relatedNumbers.toList(),
             progress = progress,
