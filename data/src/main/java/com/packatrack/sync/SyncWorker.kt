@@ -4,16 +4,18 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.util.Log
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.packatrack.data.di.DataEntryPoint
 import com.packatrack.notify.Notifier
 import dagger.hilt.android.EntryPointAccessors
-import androidx.work.Constraints
-import androidx.work.NetworkType
+import kotlinx.coroutines.CancellationException
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -38,14 +40,15 @@ class SyncWorker(
             if (pct < 0.15f) return Result.success()
         }
 
-        return runCatching {
-            val outcome = repo.refreshAll()
-            if (outcome.notable.isNotEmpty()) {
-                Notifier.postChanges(applicationContext, outcome.notable)
-            }
+        return try {
+            Notifier.postChanges(applicationContext, repo.refreshAll().notable)
             Result.success()
-        }.getOrElse { error ->
-            android.util.Log.e("SyncWorker", "Background sync failed", error)
+        } catch (e: CancellationException) {
+            // WorkManager stopped the job (constraints lost, app updated): let it see that, rather
+            // than reporting a retry for work that was cancelled on purpose.
+            throw e
+        } catch (e: Exception) {
+            Log.e("SyncWorker", "Background sync failed", e)
             Result.retry()
         }
     }

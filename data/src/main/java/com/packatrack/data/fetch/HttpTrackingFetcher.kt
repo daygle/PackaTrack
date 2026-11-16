@@ -16,16 +16,12 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.security.KeyFactory
+import java.security.MessageDigest
+import java.security.PublicKey
+import java.security.spec.X509EncodedKeySpec
 import java.util.concurrent.TimeUnit
-
-/**
- * Fetches a tracking snapshot for one number from its carrier.
- *
- * @param pollCount is reserved for fetchers that need polling context; HTTP fetchers ignore it.
- */
-fun interface TrackingFetcher {
-    suspend fun fetch(carrier: Carrier, trackingNumber: String, pollCount: Int): Snapshot?
-}
+import javax.crypto.Cipher
 
 /**
  * Live HTTP fetchers built on each carrier's public endpoint.
@@ -41,7 +37,7 @@ class HttpTrackingFetcher(
      * returned. A callback rather than fetcher state, so the fetcher itself stays stateless.
      */
     private val onRawResponse: (String, RawResponse) -> Unit = { _, _ -> },
-) : TrackingFetcher {
+) {
 
     private val client = OkHttpClient.Builder()
         .callTimeout(15, TimeUnit.SECONDS)
@@ -52,11 +48,8 @@ class HttpTrackingFetcher(
         .followSslRedirects(false)
         .build()
 
-    override suspend fun fetch(
-        carrier: Carrier,
-        trackingNumber: String,
-        pollCount: Int,
-    ): Snapshot? = withContext(Dispatchers.IO) {
+    /** Fetches a tracking snapshot for one number from its carrier; null when there is none. */
+    suspend fun fetch(carrier: Carrier, trackingNumber: String): Snapshot? = withContext(Dispatchers.IO) {
         runCatching {
             when (carrier) {
                 Carrier.UBI_SMART_PARCEL,
@@ -214,20 +207,24 @@ class HttpTrackingFetcher(
 
     /** Query signature iMile's web tracker appends to every track query. */
     private fun imileQueryCode(number: String): String =
-        java.security.MessageDigest.getInstance("MD5")
+        MessageDigest.getInstance("MD5")
             .digest((number + IMILE_CODE_SALT).toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
 
+    /**
+     * iMile's public key, decoded once rather than on every poll. If decoding throws, nothing is
+     * cached: [imileSign] falls back to an unsigned query and the next poll tries again.
+     */
+    private val imilePublicKey: PublicKey by lazy {
+        KeyFactory.getInstance("RSA").generatePublic(
+            X509EncodedKeySpec(android.util.Base64.decode(IMILE_PUBLIC_KEY, android.util.Base64.DEFAULT)),
+        )
+    }
+
     /** RSA (PKCS#1 v1.5) encryption of the waybill with iMile's published public key. */
     private fun imileSign(number: String): String? = try {
-        val publicKey = java.security.KeyFactory.getInstance("RSA")
-            .generatePublic(
-                java.security.spec.X509EncodedKeySpec(
-                    android.util.Base64.decode(IMILE_PUBLIC_KEY, android.util.Base64.DEFAULT),
-                ),
-            )
-        val cipher = javax.crypto.Cipher.getInstance("RSA/ECB/PKCS1Padding")
-        cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, publicKey)
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.ENCRYPT_MODE, imilePublicKey)
         android.util.Base64.encodeToString(
             cipher.doFinal(number.toByteArray(Charsets.UTF_8)),
             android.util.Base64.NO_WRAP,

@@ -1,7 +1,6 @@
 package com.packatrack.core.parse
 
 import com.packatrack.core.model.CarrierProgress
-import com.packatrack.core.model.ShipmentStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -140,7 +139,7 @@ class CainiaoParserTest {
     @Test fun warehouseAndPickupScansAreInTransit() {
         val snap = CainiaoParser.parse(warehouseShape)!!
         // Every scan in this phase is movement. An unmapped code falls through as the raw
-        // actionCode, which ShipmentStatus.fromCode reads as UNKNOWN and renders as a grey dot.
+        // actionCode, which the UI has no label for and renders as a grey dot.
         assertEquals(listOf("IN_TRANSIT"), snap.events.mapNotNull { it.statusCode }.distinct())
     }
 
@@ -237,10 +236,5 @@ class CainiaoParserTest {
         assertEquals("DELIVERED", CainiaoParser.mapCode("GTMS_SIGNED"))
         assertEquals("DELIVERED", CainiaoParser.mapCode("SIGNED_SUCCESS"))
         assertEquals("IN_TRANSIT", CainiaoParser.mapCode("GWMS_ACCEPT"))
-    }
-
-    @Test fun statusCodeMapsToNormalizedStatus() {
-        assertEquals(ShipmentStatus.DELIVERED, ShipmentStatus.fromCode("DELIVERED"))
-        assertEquals(ShipmentStatus.IN_TRANSIT, ShipmentStatus.fromCode("ARRIVED"))
     }
 }

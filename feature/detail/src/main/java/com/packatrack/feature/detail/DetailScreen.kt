@@ -93,18 +93,20 @@ import com.packatrack.core.db.TrackingLegEntity
 import com.packatrack.feature.common.appChangeText
 import com.packatrack.feature.common.timelineChangeTypes
 import com.packatrack.feature.common.components.CarrierChip
+import com.packatrack.feature.common.components.CarrierJourneyTracker
+import com.packatrack.feature.common.components.ShipmentProgressTracker
 import com.packatrack.feature.common.components.StatusPill
 import com.packatrack.feature.common.daysInTransit
 import com.packatrack.feature.common.formatLocalDateTime
-import com.packatrack.feature.common.overallStatusCode
 import com.packatrack.feature.common.parcelName
 import com.packatrack.feature.common.theme.MonoNumber
-import com.packatrack.feature.common.theme.daysInTransitColor as daysInTransitColorCompat
+import com.packatrack.feature.common.theme.daysInTransitColor
 import com.packatrack.feature.common.theme.statusColor
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import com.packatrack.core.model.CarrierProgress
 import com.packatrack.core.model.RawResponse
+import com.packatrack.core.model.overallStatusCode
 import com.packatrack.core.model.rawResponseFor
 import com.packatrack.core.util.FingerprintUtil
 import com.packatrack.core.util.TimeUtil
@@ -332,67 +334,67 @@ fun DetailScreen(
                     }
                 }
 
-            item(key = "timeline_title") {
-                SectionHeader(
-                    title = stringResource(R.string.timeline_title),
-                    count = timelineRows.size,
-                    action = {
-                        Box {
-                            IconButton(onClick = { historySortMenuOpen = true }) {
-                                Icon(Icons.AutoMirrored.Filled.Sort, stringResource(R.string.sort_history), modifier = Modifier.size(20.dp))
-                            }
-                            DropdownMenu(expanded = historySortMenuOpen, onDismissRequest = { historySortMenuOpen = false }) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.newest_first)) },
-                                    onClick = {
-                                        historySort = "newest"
-                                        prefs.historySortOrder = "newest"
-                                        historySortMenuOpen = false
-                                    },
-                                    trailingIcon = { if (historySort == "newest") Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.oldest_first)) },
-                                    onClick = {
-                                        historySort = "oldest"
-                                        prefs.historySortOrder = "oldest"
-                                        historySortMenuOpen = false
-                                    },
-                                    trailingIcon = { if (historySort == "oldest") Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
-                                )
+                item(key = "timeline_title") {
+                    SectionHeader(
+                        title = stringResource(R.string.timeline_title),
+                        count = timelineRows.size,
+                        action = {
+                            Box {
+                                IconButton(onClick = { historySortMenuOpen = true }) {
+                                    Icon(Icons.AutoMirrored.Filled.Sort, stringResource(R.string.sort_history), modifier = Modifier.size(20.dp))
+                                }
+                                DropdownMenu(expanded = historySortMenuOpen, onDismissRequest = { historySortMenuOpen = false }) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.newest_first)) },
+                                        onClick = {
+                                            historySort = "newest"
+                                            prefs.historySortOrder = "newest"
+                                            historySortMenuOpen = false
+                                        },
+                                        trailingIcon = { if (historySort == "newest") Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.oldest_first)) },
+                                        onClick = {
+                                            historySort = "oldest"
+                                            prefs.historySortOrder = "oldest"
+                                            historySortMenuOpen = false
+                                        },
+                                        trailingIcon = { if (historySort == "oldest") Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                                    )
+                                }
                             }
                         }
+                    )
+                }
+                if (timelineRows.isEmpty()) {
+                    item(key = "timeline_empty") {
+                        EmptySectionText(stringResource(R.string.scanning_updates))
                     }
-                )
-            }
-            if (timelineRows.isEmpty()) {
-                item(key = "timeline_empty") {
-                    EmptySectionText(stringResource(R.string.scanning_updates))
                 }
-            }
-            itemsIndexed(timelineRows, key = { _, item -> item.key }) { index, item ->
-                val isLast = index == timelineRows.lastIndex
-                when (item) {
-                    is TimelineItem.Scan -> TimelineRow(
-                        time = TimeUtil.format(item.timeMs, prefs.dateTimeFormat)
-                            ?: stringResource(R.string.time_unknown),
-                        description = item.event.description,
-                        location = item.event.location,
-                        statusCode = item.event.statusCode,
-                        carriers = item.event.carriers,
-                        isLast = isLast,
-                    )
-                    // The app's own action, labelled as such so it is not mistaken for a scan.
-                    is TimelineItem.AppEvent -> TimelineRow(
-                        time = formatLocalDateTime(item.change.createdAt, prefs.dateTimeFormat),
-                        description = appChangeText(item.change),
-                        location = stringResource(R.string.app_name),
-                        statusCode = null,
-                        carriers = emptyList(),
-                        isLast = isLast,
-                    )
+                itemsIndexed(timelineRows, key = { _, item -> item.key }) { index, item ->
+                    val isLast = index == timelineRows.lastIndex
+                    when (item) {
+                        is TimelineItem.Scan -> TimelineRow(
+                            time = TimeUtil.format(item.timeMs, prefs.dateTimeFormat)
+                                ?: stringResource(R.string.time_unknown),
+                            description = item.event.description,
+                            location = item.event.location,
+                            statusCode = item.event.statusCode,
+                            carriers = item.event.carriers,
+                            isLast = isLast,
+                        )
+                        // The app's own action, labelled as such so it is not mistaken for a scan.
+                        is TimelineItem.AppEvent -> TimelineRow(
+                            time = formatLocalDateTime(item.change.createdAt, prefs.dateTimeFormat),
+                            description = appChangeText(item.change),
+                            location = stringResource(R.string.app_name),
+                            statusCode = null,
+                            carriers = emptyList(),
+                            isLast = isLast,
+                        )
+                    }
                 }
-            }
                 item(key = "footer") { Spacer(Modifier.height(40.dp)) }
             }
         }
@@ -471,10 +473,12 @@ private fun HeroSection(
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val days = daysInTransit(firstEventMs ?: shipment?.createdAt)
-                val greenThreshold = prefs.transitGreenDays
-                val yellowThreshold = prefs.transitYellowDays
-                val orangeThreshold = prefs.transitOrangeDays
-                val transitColor = daysInTransitColorCompat(days, greenThreshold, yellowThreshold, orangeThreshold)
+                val transitColor = daysInTransitColor(
+                    days,
+                    greenThreshold = prefs.transitGreenDays,
+                    yellowThreshold = prefs.transitYellowDays,
+                    orangeThreshold = prefs.transitOrangeDays,
+                )
                 Icon(Icons.Default.History, null, modifier = Modifier.size(14.dp), tint = transitColor)
                 Spacer(Modifier.width(4.dp))
                 Text(
@@ -502,13 +506,13 @@ private fun HeroSection(
             }
             Spacer(Modifier.height(24.dp))
             if (carrierProgress != null) {
-                com.packatrack.feature.common.components.CarrierJourneyTracker(
+                CarrierJourneyTracker(
                     stages = carrierProgress.stages,
                     rate = carrierProgress.rate,
                     status = status,
                 )
             } else {
-                com.packatrack.feature.common.components.ShipmentProgressTracker(status)
+                ShipmentProgressTracker(status)
             }
 
             Spacer(Modifier.height(16.dp))

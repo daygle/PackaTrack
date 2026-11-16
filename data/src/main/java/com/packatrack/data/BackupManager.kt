@@ -81,8 +81,9 @@ class BackupManager(context: Context) {
                 db.shipmentDao().deleteAll()
             }
 
+            val existingLegs = db.legDao().all()
             // tracking number -> existing shipment already carrying a leg with that number.
-            val existingShipmentIdByTrackingNumber = db.legDao().all().associate { it.trackingNumber to it.shipmentId }
+            val existingShipmentIdByTrackingNumber = existingLegs.associate { it.trackingNumber to it.shipmentId }
 
             val targets: Map<Long, Long?> = if (replaceExisting) {
                 emptyMap()
@@ -101,10 +102,13 @@ class BackupManager(context: Context) {
                 shipment.id to (targets[shipment.id] ?: insertedIdBySource.getValue(shipment.id))
             }
 
-            // A leg whose tracking number already exists is a duplicate: skip it (its events stay
-            // with the leg already in the database). Only newly inserted legs receive events.
-            val existingTrackingNumbers = existingShipmentIdByTrackingNumber.keys
-            val newLegs = legs.filter { it.trackingNumber !in existingTrackingNumbers }
+            // A leg whose (number, courier) pair already exists is a duplicate: skip it (its
+            // events stay with the leg already in the database). Only newly inserted legs receive
+            // events. The pair is what the table's unique index enforces, so the same number under
+            // another courier (e.g. the UBI twin of a Cainiao leg) is still restored, into the
+            // parcel its number merged with.
+            val existingLegKeys = existingLegs.mapTo(HashSet()) { it.trackingNumber to it.carrierId }
+            val newLegs = legs.filter { (it.trackingNumber to it.carrierId) !in existingLegKeys }
             val newLegIds = db.legDao().insertAll(
                 newLegs.map { it.copy(id = 0, shipmentId = shipmentMap.getValue(it.shipmentId)) },
             )
@@ -153,7 +157,7 @@ private fun EventEntity.toJson() = JSONObject().put("id", id).put("shipmentId", 
 private fun ChangeEntity.toJson() = JSONObject().put("id", id).put("shipmentId", shipmentId).put("type", type).put("message", message).put("createdAt", createdAt)
 
 private fun JSONObject.toShipment() = ShipmentEntity(getLong("id"), optString("title").takeIf { !isNull("title") }, optString("orderUrl").takeIf { !isNull("orderUrl") }, getBoolean("archived"), getLong("createdAt"))
-private fun JSONObject.toLeg() = TrackingLegEntity(getLong("id"), getLong("shipmentId"), getString("trackingNumber"), getString("carrierId"), optString("aliasNumbers"), getInt("pollCount"), optLong("lastSyncAt").takeIf { !isNull("lastSyncAt") }, optString("lastStatusCode").takeIf { !isNull("lastStatusCode") }, getLong("createdAt"), progressStages = optString("progressStages"), progressRate = optDouble("progressRate").takeIf { !isNull("progressRate") }, progressStageIndex = optInt("progressStageIndex", -1).takeIf { !isNull("progressStageIndex") })
+private fun JSONObject.toLeg() = TrackingLegEntity(getLong("id"), getLong("shipmentId"), getString("trackingNumber"), getString("carrierId"), optString("aliasNumbers"), getInt("pollCount"), optLong("lastSyncAt").takeIf { !isNull("lastSyncAt") }, optString("lastStatusCode").takeIf { !isNull("lastStatusCode") }, getLong("createdAt"), progressStages = optString("progressStages").takeIf { !isNull("progressStages") }, progressRate = optDouble("progressRate").takeIf { !isNull("progressRate") }, progressStageIndex = optInt("progressStageIndex", -1).takeIf { !isNull("progressStageIndex") })
 private fun JSONObject.toOrder() = OrderItemEntity(getLong("id"), getLong("shipmentId"), getString("name"), optString("orderUrl").takeIf { !isNull("orderUrl") }, getLong("createdAt"))
 private fun JSONObject.toEvent() = EventEntity(getLong("id"), getLong("shipmentId"), getLong("legId"), getString("trackingNumber"), optLong("timeMs").takeIf { !isNull("timeMs") }, getString("description"), optString("location").takeIf { !isNull("location") }, optString("statusCode").takeIf { !isNull("statusCode") })
 private fun JSONObject.toChange() = ChangeEntity(getLong("id"), getLong("shipmentId"), getString("type"), getString("message"), getLong("createdAt"))

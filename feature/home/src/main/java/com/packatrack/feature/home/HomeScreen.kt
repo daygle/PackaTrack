@@ -73,15 +73,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.packatrack.data.ParcelSortOrder
 import com.packatrack.core.db.ShipmentWithLegs
 import com.packatrack.feature.common.components.CarrierChip
+import com.packatrack.feature.common.components.ShipmentProgressTracker
 import com.packatrack.feature.common.components.StatusPill
 import com.packatrack.feature.common.daysInTransit
-import com.packatrack.feature.common.formatLocalDateTime
-import com.packatrack.feature.common.overallStatusCode
 import com.packatrack.feature.common.parcelName
 import com.packatrack.feature.common.theme.MonoNumber
-import com.packatrack.feature.common.theme.daysInTransitColor as daysInTransitColorDynamic
+import com.packatrack.feature.common.theme.daysInTransitColor
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
+import com.packatrack.core.model.overallStatusCode
+import com.packatrack.core.util.FingerprintUtil
+import com.packatrack.core.util.TimeUtil
 
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Search
@@ -437,6 +439,13 @@ private fun ParcelCard(
     val primary = legs.firstOrNull()
     val title = parcelName(shipment, entry.orders, legs)
     val status = overallStatusCode(legs, newestEventMsByLeg)
+    val days = daysInTransit(firstEventMs ?: shipment.createdAt)
+    val transitColor = daysInTransitColor(
+        days,
+        greenThreshold = prefs.transitGreenDays,
+        yellowThreshold = prefs.transitYellowDays,
+        orangeThreshold = prefs.transitOrangeDays,
+    )
 
     // Parcels with tracking changes the user hasn't opened yet get an accent border, a tinted
     // surface, and a bell beside the title. Opening the parcel clears the highlight.
@@ -458,12 +467,7 @@ private fun ParcelCard(
             if (hasNewActivity) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
         )
     ) {
-    val days = daysInTransit(firstEventMs ?: shipment.createdAt)
-    val greenThreshold = prefs.transitGreenDays
-    val yellowThreshold = prefs.transitYellowDays
-    val orangeThreshold = prefs.transitOrangeDays
-    val transitColor = daysInTransitColorDynamic(days, greenThreshold, yellowThreshold, orangeThreshold)
-    Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (hasNewActivity) {
                     Icon(
@@ -541,7 +545,7 @@ private fun ParcelCard(
 
             Spacer(Modifier.height(16.dp))
 
-            com.packatrack.feature.common.components.ShipmentProgressTracker(status)
+            ShipmentProgressTracker(status)
 
             latestEvent?.let { event ->
                 Spacer(Modifier.height(12.dp))
@@ -552,10 +556,12 @@ private fun ParcelCard(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        event.timeMs?.let { timeMs ->
+                        // Formatted like the detail timeline, so a scan shows the same time on both
+                        // screens: as the carrier reported it, not shifted into the device zone.
+                        TimeUtil.format(event.timeMs, prefs.dateTimeFormat)?.let { time ->
                             Spacer(Modifier.weight(1f))
                             Text(
-                                formatLocalDateTime(timeMs, prefs.dateTimeFormat),
+                                time,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             )
@@ -614,10 +620,10 @@ private fun AddShipmentDialog(
     var showManual by remember { mutableStateOf(value = false) }
 
     val trimmed = number.trim()
-    val normalized = com.packatrack.core.util.FingerprintUtil.normalize(trimmed)
+    val normalized = FingerprintUtil.normalize(trimmed)
     val allLegs = (activeShipments + archivedShipments).flatMap { it.legs }
     val duplicate = allLegs.any { it.trackingNumber == normalized }
-    val tooShort = normalized.isNotEmpty() && normalized.length < com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH
+    val tooShort = normalized.isNotEmpty() && normalized.length < FingerprintUtil.MIN_NUMBER_LENGTH
 
     val clipboard = LocalClipboard.current
     LaunchedEffect(Unit) {
@@ -644,7 +650,7 @@ private fun AddShipmentDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
-                enabled = normalized.length >= com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH && !duplicate,
+                enabled = normalized.length >= FingerprintUtil.MIN_NUMBER_LENGTH && !duplicate,
                 onClick = {
                     onSave(
                         trimmed,
@@ -668,7 +674,7 @@ private fun AddShipmentDialog(
                 if (duplicate) {
                     Text(stringResource(R.string.duplicate_number_error), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 } else if (tooShort) {
-                    val minChars = com.packatrack.core.util.FingerprintUtil.MIN_NUMBER_LENGTH
+                    val minChars = FingerprintUtil.MIN_NUMBER_LENGTH
                     Text(
                         pluralStringResource(R.plurals.tracking_number_too_short, minChars, minChars),
                         style = MaterialTheme.typography.bodySmall,

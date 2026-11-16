@@ -1,9 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Nothing leaves the device. Each domain is excluded explicitly: excluding "root" does not cover
+    the file, database and sharedpref domains, which the backup agent handles separately. Device-to-
+    device transfer ignores allowBackup="false" on Android 12+, so these rules are what keep the
+    SQLCipher database, the Keystore-wrapped keys and plain preferences (such as the Gmail account
+    used by Smart Import) from being copied. Portable backups go through Settings > Backup instead.
+-->
 <data-extraction-rules>
     <cloud-backup disableIfNoEncryptionCapabilities="true">
         <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </cloud-backup>
     <device-transfer>
         <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
     </device-transfer>
 </data-extraction-rules>

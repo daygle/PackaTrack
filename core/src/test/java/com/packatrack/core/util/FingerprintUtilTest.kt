@@ -1,8 +1,6 @@
 package com.packatrack.core.util
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FingerprintUtilTest {
@@ -14,10 +12,5 @@ class FingerprintUtilTest {
     @Test fun commonSuffixLengthCountsFromEnd() {
         assertEquals(12, FingerprintUtil.commonSuffixLength("XX600087654321", "600087654321"))
         assertEquals(0, FingerprintUtil.commonSuffixLength("AAA111", "BBB222"))
-    }
-
-    @Test fun suffixMatchRespectsMinimum() {
-        assertTrue(FingerprintUtil.suffixMatch("AU1234567890001", "1234567890001", 10))
-        assertFalse(FingerprintUtil.suffixMatch("AU1", "1", 10))
     }
 }

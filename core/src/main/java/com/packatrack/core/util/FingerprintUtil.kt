@@ -6,11 +6,8 @@ import kotlin.math.min
  * Utilities for comparing parcel identities.
  *
  * AliExpress/Cainiao frequently issue a *new* tracking number when a package is
- * transferred between carriers or consolidated into another parcel. To still connect
- * these together we fingerprint each parcel by:
- *  - its (normalized) tracking number suffixes of several lengths, and
- *  - a fuzzy weight/size signature, so a renumbered parcel can be linked even when the
- *    number changed completely but weight stays close.
+ * transferred between carriers or consolidated into another parcel. Numbers are compared in
+ * normalized form, and a long shared suffix links a re-issued number to the original.
  */
 object FingerprintUtil {
 
@@ -31,8 +28,4 @@ object FingerprintUtil {
         while ((len < max) && (x[x.length - 1 - len] == y[y.length - 1 - len])) len++
         return len
     }
-
-    /** True when the last [minChars] characters of both numbers match. */
-    fun suffixMatch(a: String, b: String, minChars: Int): Boolean =
-        commonSuffixLength(a, b) >= minChars
 }

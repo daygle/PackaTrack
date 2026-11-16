@@ -3,10 +3,8 @@ package com.packatrack.core.changelog
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.util.FingerprintUtil
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import com.packatrack.core.util.TimeUtil
+import kotlin.math.abs
 
 /**
  * The heart of PackaTrack's "understands AliExpress" logic.
@@ -48,19 +46,16 @@ object ChangeLogService {
             return changes
         }
 
-        // 2. Renumbered? Find previous snapshot with matching fingerprint.
-        val renames = mutableListOf<Pair<String, String>>()
-        for ((oldNo, oldSnap) in previousByNumber) {
+        // 2. Renumbered? Find the first previous snapshot with a matching fingerprint.
+        val renamedFrom = previousByNumber.entries.firstOrNull { (oldNo, oldSnap) ->
             val numMatch = FingerprintUtil.commonSuffixLength(oldNo, current.trackingNumber) >= 8
             val dimsMatch =
                 oldSnap.dimensionsCm != null && current.dimensionsCm != null &&
-                    kotlin.math.abs(oldSnap.dimensionsCm.lengthCm - current.dimensionsCm.lengthCm) <= 2.0
-            if (numMatch || dimsMatch) renames += oldNo to current.trackingNumber
-        }
-        when {
-            renames.isNotEmpty() ->
-                changes += ParcelChange.Renumbered(renames.first().first, renames.first().second)
-            else -> Unit
+                    abs(oldSnap.dimensionsCm.lengthCm - current.dimensionsCm.lengthCm) <= 2.0
+            numMatch || dimsMatch
+        }?.key
+        if (renamedFrom != null) {
+            changes += ParcelChange.Renumbered(renamedFrom, current.trackingNumber)
         }
         return changes
     }
@@ -119,13 +114,10 @@ object ChangeLogService {
         }
     }
 
-    /**
-     * Formats epoch millis as "yyyy-MM-dd HH:mm" in UTC.
-     * Uses SimpleDateFormat (available on all API levels) instead of java.time.Instant.
-     */
-    private fun formatUtcTimestamp(timeMs: Long): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-        sdf.timeZone = TimeZone.getTimeZone("UTC")
-        return sdf.format(Date(timeMs)) + " UTC"
-    }
+    /** Formats epoch millis as "yyyy-MM-dd HH:mm UTC", reusing TimeUtil's cached formatter. */
+    private fun formatUtcTimestamp(timeMs: Long): String =
+        "${TimeUtil.format(timeMs, UTC_STAMP_PATTERN)} UTC"
+
+    /** Pattern of the UTC stamp in stored change messages; notifications reuse it. */
+    const val UTC_STAMP_PATTERN = "yyyy-MM-dd HH:mm"
 }

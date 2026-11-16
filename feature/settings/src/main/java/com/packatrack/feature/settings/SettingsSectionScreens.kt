@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.packatrack.data.BackupCodec
 import com.packatrack.data.BackupManager
 import com.packatrack.data.ParcelSortOrder
 import com.packatrack.data.security.AppLockAuthenticators
@@ -80,14 +81,16 @@ private val graceOptions = listOf(0, 30, 60, 300)
 private val greenOptions = listOf(7, 10, 15, 21, 30)
 private val yellowOptions = listOf(15, 21, 30, 45, 60)
 private val orangeOptions = listOf(30, 45, 60, 75, 90)
+// Each label is the pattern applied to a sample date, so the choice previews exactly.
 private val dateFormats = listOf(
-    "dd MMM yyyy, HH:mm" to "28 Aug, 12:30",
-    "MMM dd, yyyy HH:mm" to "Aug 28, 12:30",
-    "yyyy-MM-dd HH:mm" to "2026-08-28",
-    "dd/MM/yyyy HH:mm" to "28/08/2026"
+    "dd MMM yyyy, HH:mm" to "28 Aug 2026, 12:30",
+    "MMM dd, yyyy HH:mm" to "Aug 28, 2026 12:30",
+    "yyyy-MM-dd HH:mm" to "2026-08-28 12:30",
+    "dd/MM/yyyy HH:mm" to "28/08/2026 12:30",
 )
 
 private val statusGreen = Color(0xFF10B981)
+private const val GITHUB_URL = "https://github.com/daygle/PackaTrack"
 
 /** Routes a settings sub-page route key to its screen. */
 @Composable
@@ -147,7 +150,7 @@ private fun SystemStatusScreen(onBack: () -> Unit, viewModel: SettingsViewModel 
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                                 data = Uri.fromParts("package", context.packageName, null)
                             }
-                            context.startActivity(intent)
+                            runCatching { context.startActivity(intent) }
                         },
                     ) { Text(stringResource(R.string.fix)) }
                 }),
@@ -718,7 +721,7 @@ private fun BackupScreen(onBack: () -> Unit) {
                 ) {
                     Button(
                         modifier = Modifier.weight(1f),
-                        enabled = backupPassphrase.length >= 12,
+                        enabled = backupPassphrase.length >= BackupCodec.MIN_PASSPHRASE_LENGTH,
                         onClick = { exportLauncher.launch("packatrack-backup.pktb") },
                         shape = RoundedCornerShape(12.dp),
                     ) {
@@ -726,6 +729,9 @@ private fun BackupScreen(onBack: () -> Unit) {
                     }
                     OutlinedButton(
                         modifier = Modifier.weight(1f),
+                        // A shorter passphrase can never open a backup; don't send the user through
+                        // the file picker only to be told so.
+                        enabled = restorePassphrase.length >= BackupCodec.MIN_PASSPHRASE_LENGTH,
                         onClick = { importLauncher.launch(arrayOf("application/octet-stream", "*/*")) },
                         shape = RoundedCornerShape(12.dp),
                     ) {
@@ -773,7 +779,7 @@ private fun AboutScreen(onBack: () -> Unit) {
                     }
                 }.getOrNull()
             }
-            val versionName = packageInfo?.versionName ?: "2.0.0"
+            val versionName = packageInfo?.versionName.orEmpty()
 
             SettingsRow(
                 title = "PackaTrack",
@@ -782,12 +788,14 @@ private fun AboutScreen(onBack: () -> Unit) {
             CardDivider()
             SettingsRow(
                 title = stringResource(R.string.github_repo),
-                subtitle = "https://github.com/daygle/PackaTrack",
+                subtitle = GITHUB_URL,
                 action = {
                     IconButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, "https://github.com/daygle/PackaTrack".toUri())
-                            context.startActivity(intent)
+                            // No browser installed is possible (work profiles, kiosks): never crash.
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, GITHUB_URL.toUri()))
+                            }
                         },
                     ) {
                         Icon(Icons.AutoMirrored.Filled.OpenInNew, null)

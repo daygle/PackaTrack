@@ -1,5 +1,8 @@
 package com.packatrack.data
 
+import com.packatrack.core.db.ChangeEntity
+import com.packatrack.core.db.EventEntity
+import com.packatrack.core.db.OrderItemEntity
 import com.packatrack.core.db.ShipmentEntity
 import com.packatrack.core.db.TrackingLegEntity
 
@@ -51,9 +54,9 @@ object BackupMerger {
     fun validate(
         shipments: List<ShipmentEntity>,
         legs: List<TrackingLegEntity>,
-        orders: List<com.packatrack.core.db.OrderItemEntity>,
-        events: List<com.packatrack.core.db.EventEntity>,
-        changes: List<com.packatrack.core.db.ChangeEntity>,
+        orders: List<OrderItemEntity>,
+        events: List<EventEntity>,
+        changes: List<ChangeEntity>,
     ) {
         val shipmentIds = shipments.map { it.id }.toSet()
         val legIds = legs.map { it.id }.toSet()

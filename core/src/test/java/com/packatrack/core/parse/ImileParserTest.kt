@@ -52,6 +52,18 @@ class ImileParserTest {
         assertNull(ImileParser.parse(body, "IML1"))
     }
 
+    @Test fun legacyErrorCodeReturnsNullEvenWithoutSuccessFlag() {
+        // A non-200 code is a failure on its own; the payload must not be read as scans.
+        val body = """{"code":"500","data":{"waybillNo":"IML1","status":"error",
+            "records":[{"time":"2026-08-26 14:31","content":"System busy"}]}}"""
+        assertNull(ImileParser.parse(body, "IML1"))
+    }
+
+    @Test fun legacySuccessFalseReturnsNullEvenWithOkCode() {
+        val body = """{"code":"200","success":false,"data":{"waybillNo":"IML1","status":"error"}}"""
+        assertNull(ImileParser.parse(body, "IML1"))
+    }
+
     @Test fun parsesLiveTrackInfosEnvelope() {
         val snap = ImileParser.parse(liveResponse, "IML00098765432")
         assertNotNull(snap)

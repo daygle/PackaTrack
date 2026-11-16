@@ -2,29 +2,30 @@ package com.packatrack.data
 
 import android.content.Context
 import android.util.Log
-import com.packatrack.data.db.AppDatabase
+import androidx.room.withTransaction
+import com.packatrack.core.changelog.ChangeLogService
 import com.packatrack.core.db.ChangeEntity
 import com.packatrack.core.db.EventEntity
 import com.packatrack.core.db.OrderItemEntity
 import com.packatrack.core.db.ShipmentEntity
 import com.packatrack.core.db.ShipmentWithLegs
 import com.packatrack.core.db.TrackingLegEntity
-import com.packatrack.data.fetch.HttpTrackingFetcher
-import com.packatrack.core.changelog.ChangeLogService
 import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import com.packatrack.core.model.ChangeDisplay
 import com.packatrack.core.model.LegScans
-import com.packatrack.core.model.findDuplicateLegs
-import com.packatrack.core.model.overallStatusCode
-import com.packatrack.core.model.scanFingerprint
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
+import com.packatrack.core.model.findDuplicateLegs
+import com.packatrack.core.model.overallStatusCode
+import com.packatrack.core.model.scanFingerprint
 import com.packatrack.core.util.FingerprintUtil
+import com.packatrack.data.db.AppDatabase
+import com.packatrack.data.fetch.HttpTrackingFetcher
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
-import androidx.room.withTransaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +33,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -56,7 +56,7 @@ class TrackingRepository @Inject constructor(
     private val _rawResponses = MutableStateFlow<Map<String, RawResponse>>(emptyMap())
     val rawResponses: StateFlow<Map<String, RawResponse>> = _rawResponses.asStateFlow()
 
-    val httpFetcher = HttpTrackingFetcher(
+    private val httpFetcher = HttpTrackingFetcher(
         ausPostKey = { prefs.ausPostApiKey },
         onRawResponse = { key, response -> _rawResponses.update { it + (key to response) } },
     )
@@ -89,7 +89,7 @@ class TrackingRepository @Inject constructor(
     /** Newest timestamped scan per leg (legId -> max event ms), used for status recency votes. */
     fun observeLatestEventMsByLeg(): Flow<Map<Long, Long>> =
         events.observeLatestEventMsByLeg().map { rows ->
-            rows.mapNotNull { row -> row.firstMs?.let { row.legId to it } }.toMap()
+            rows.mapNotNull { row -> row.latestMs?.let { row.legId to it } }.toMap()
         }
 
     /* ---------- parcel mutations ---------- */
@@ -119,7 +119,7 @@ class TrackingRepository @Inject constructor(
             // carriers. Complete the auto setup when the same number is added again
             // (addCourierUnlocked is a no-op for carriers that already have a leg).
             if (carrierOverride == null) {
-                detectCarriers(number).forEach { detected ->
+                CarrierDetector.detectAll(number).forEach { detected ->
                     addCourierUnlocked(existing.shipmentId, number, detected)
                 }
             }
@@ -127,7 +127,7 @@ class TrackingRepository @Inject constructor(
         }
 
         val now = System.currentTimeMillis()
-        val detectedCarriers = detectCarriers(number)
+        val detectedCarriers = CarrierDetector.detectAll(number)
         val carriersToAdd = if (carrierOverride != null) listOf(carrierOverride) else {
             detectedCarriers.ifEmpty { listOf(Carrier.CAINIAO) }
         }
@@ -195,7 +195,7 @@ class TrackingRepository @Inject constructor(
         val number = FingerprintUtil.normalize(rawNumber)
         require(number.length >= FingerprintUtil.MIN_NUMBER_LENGTH) { "Tracking number looks too short" }
 
-        val carrier = carrierOverride ?: detectCarriers(number).firstOrNull() ?: Carrier.CAINIAO
+        val carrier = carrierOverride ?: CarrierDetector.detectAll(number).firstOrNull() ?: Carrier.CAINIAO
         legs.findByTrackingNumberAndCarrier(number, carrier.id)?.let { return it.id }
         val now = System.currentTimeMillis()
         val legId = legs.insert(
@@ -307,17 +307,8 @@ class TrackingRepository @Inject constructor(
     }
 
     /** Updates a parcel's custom name. */
-    suspend fun updateShipment(
-        shipmentId: Long,
-        title: String?,
-    ) {
-        val current = shipments.byId(shipmentId) ?: return
-        shipments.update(
-            current.copy(
-                title = title?.takeIf { it.isNotBlank() },
-            ),
-        )
-    }
+    suspend fun updateShipment(shipmentId: Long, title: String?) =
+        shipments.setTitle(shipmentId, title?.takeIf { it.isNotBlank() })
 
     /**
      * Combines two tracked parcels into one: every courier leg, order, scan and change on
@@ -357,10 +348,7 @@ class TrackingRepository @Inject constructor(
         shipments.deleteById(sourceId)
 
         // Carry the source's name forward if the target lacked one.
-        val merged = target.copy(
-            title = target.title ?: source.title,
-        )
-        if (merged != target) shipments.update(merged)
+        if (target.title == null && source.title != null) shipments.setTitle(targetId, source.title)
 
         val label = parcelLabel(targetId)
         val change = ChangeEntity(
@@ -393,16 +381,10 @@ class TrackingRepository @Inject constructor(
     }
 
     /** Hides a parcel from the main list. */
-    suspend fun archive(shipmentId: Long) {
-        val current = shipments.byId(shipmentId) ?: return
-        shipments.update(current.copy(archived = true))
-    }
+    suspend fun archive(shipmentId: Long) = shipments.setArchived(shipmentId, archived = true)
 
     /** Restores a parcel to the main list. */
-    suspend fun unarchive(shipmentId: Long) {
-        val current = shipments.byId(shipmentId) ?: return
-        shipments.update(current.copy(archived = false))
-    }
+    suspend fun unarchive(shipmentId: Long) = shipments.setArchived(shipmentId, archived = false)
 
     /* ---------- refresh / detection ---------- */
 
@@ -467,17 +449,14 @@ class TrackingRepository @Inject constructor(
     private suspend fun autoArchiveDeliveredParcels(shipmentIds: List<Long>) {
         if (shipmentIds.isEmpty()) return
         val newestEventMsByLeg = events.latestEventMsByLeg()
-            .mapNotNull { it.firstMs?.let { ms -> it.legId to ms } }
+            .mapNotNull { row -> row.latestMs?.let { row.legId to it } }
             .toMap()
         for (shipmentId in shipmentIds) {
             val shipmentLegs = legs.legsForShipment(shipmentId)
             if (shipmentLegs.isEmpty()) continue
-            val overall = overallStatusCode(shipmentLegs, newestEventMsByLeg)
-            if (overall != "DELIVERED") continue
+            if (overallStatusCode(shipmentLegs, newestEventMsByLeg) != "DELIVERED") continue
             val shipment = shipments.byId(shipmentId) ?: continue
-            if (!shipment.archived) {
-                shipments.update(shipment.copy(archived = true))
-            }
+            if (!shipment.archived) shipments.setArchived(shipmentId, archived = true)
         }
     }
 
@@ -487,10 +466,8 @@ class TrackingRepository @Inject constructor(
      */
     private data class Consolidation(
         val sourceLegId: Long,
-        val sourceShipmentId: Long,
         val sourceNumber: String,
         val ownerLegId: Long,
-        val ownerShipmentId: Long,
     )
 
     /**
@@ -498,31 +475,34 @@ class TrackingRepository @Inject constructor(
      * source leg (a duplicate view of that number) is dropped and its number kept as a previous
      * number on the owner's leg, so the timeline is not doubled up.
      */
-    private suspend fun applyConsolidation(c: Consolidation): ChangeEntity? {
-        val ownerLeg = legs.byId(c.ownerLegId) ?: return null
-
+    private suspend fun applyConsolidation(c: Consolidation): ChangeEntity? =
         // Atomic: a crash between dropping the source leg and merging must not leave
         // the source parcel without its leg (or the merge half-applied).
-        return db.withTransaction {
-            events.deleteForLeg(c.sourceLegId)
-            legs.deleteById(c.sourceLegId)
+        db.withTransaction {
+            // Re-read both legs here: an earlier consolidation in the same refresh may already
+            // have moved either one to another parcel, or dropped the source leg. Their current
+            // parcels are what must be merged, and nothing is deleted unless both still exist -
+            // otherwise the source leg's scans would be lost with no parcel to merge them into.
+            val ownerLeg = legs.byId(c.ownerLegId) ?: return@withTransaction null
+            val sourceLeg = legs.byId(c.sourceLegId) ?: return@withTransaction null
+
+            events.deleteForLeg(sourceLeg.id)
+            legs.deleteById(sourceLeg.id)
 
             val change = mergeParcels(
-                targetId = c.ownerShipmentId,
-                sourceId = c.sourceShipmentId,
+                targetId = ownerLeg.shipmentId,
+                sourceId = sourceLeg.shipmentId,
                 kind = ChangeDisplay.Kind.CONSOLIDATED,
             ) { label ->
                 "Cainiao consolidated “$label” into this parcel"
             }
 
             val aliasCsv = (ownerLeg.aliasNumbers.split(',').filter { it.isNotBlank() } + c.sourceNumber)
-                .asSequence()
                 .distinct()
                 .joinToString(",")
-            legs.byId(c.ownerLegId)?.let { legs.update(it.copy(aliasNumbers = aliasCsv)) }
+            if (aliasCsv != ownerLeg.aliasNumbers) legs.update(ownerLeg.copy(aliasNumbers = aliasCsv))
             change
         }
-    }
 
     private data class LegPoll(
         val dataChanged: Boolean,
@@ -549,7 +529,7 @@ class TrackingRepository @Inject constructor(
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
-        val snapshot = fetchSnapshot(carrier, leg.trackingNumber, leg.pollCount)
+        val snapshot = httpFetcher.fetch(carrier, leg.trackingNumber)
         if (snapshot == null) {
             Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName})")
             return null
@@ -564,7 +544,7 @@ class TrackingRepository @Inject constructor(
             for (relatedNumber in snapshot.relatedTrackingNumbers) {
                 val normalized = FingerprintUtil.normalize(relatedNumber)
                 if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
-                for (relatedCarrier in detectCarriers(normalized).ifEmpty { listOf(Carrier.CAINIAO) }) {
+                for (relatedCarrier in CarrierDetector.detectAll(normalized).ifEmpty { listOf(Carrier.CAINIAO) }) {
                     if (relatedCarrier == carrier) continue
                     addCourierUnlocked(leg.shipmentId, normalized, relatedCarrier)
                 }
@@ -596,10 +576,8 @@ class TrackingRepository @Inject constructor(
         val consolidation = if (!adopted && owner != null && owner.shipmentId != leg.shipmentId) {
             Consolidation(
                 sourceLegId = leg.id,
-                sourceShipmentId = leg.shipmentId,
                 sourceNumber = leg.trackingNumber,
                 ownerLegId = owner.id,
-                ownerShipmentId = owner.shipmentId,
             )
         } else {
             null
@@ -781,11 +759,6 @@ class TrackingRepository @Inject constructor(
             ),
         )
     }
-
-    private suspend fun fetchSnapshot(carrier: Carrier, number: String, stageHint: Int): Snapshot? =
-        httpFetcher.fetch(carrier, number, stageHint)
-
-    private fun detectCarriers(number: String): List<Carrier> = CarrierDetector.detectAll(number)
 
     /** Attaches the in-memory display facts a notification is worded from. */
     private fun ChangeEntity.withDisplay(display: ChangeDisplay): ChangeEntity =

@@ -28,6 +28,4 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
-
-    testImplementation(libs.junit)
 }
