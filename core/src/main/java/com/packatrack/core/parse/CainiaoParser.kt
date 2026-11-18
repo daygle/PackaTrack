@@ -213,6 +213,15 @@ object CainiaoParser {
         }
     }
 
+    /**
+     * True when [body] is Alibaba's anti-bot interstitial (the "punish" page with a slider
+     * captcha) rather than tracking data. Only meaningful for a body [parse] could not read.
+     */
+    fun isBotCheck(body: String): Boolean =
+        BOT_CHECK_MARKERS.any { body.contains(it, ignoreCase = true) }
+
+    private val BOT_CHECK_MARKERS = listOf("captcha", "punish", "x5sec", "verify")
+
     private fun firstNonBlank(obj: JSONObject, vararg keys: String): String? =
         keys.firstNotNullOfOrNull { JsonUtil.stringOr(obj, it) }
 
