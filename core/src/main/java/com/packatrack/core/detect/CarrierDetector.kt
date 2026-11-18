@@ -66,26 +66,6 @@ object CarrierDetector {
     }
 
     /**
-     * Carriers for a number that [reportedBy] handed the parcel off to (Cainiao's
-     * `realMailNo` / `copyRealMailNo`).
-     *
-     * Known formats win. A hand-off number in no known format is not given back to Cainiao:
-     * a Cainiao lookup of it only repeats the timeline the parcel already has. Cainiao's
-     * prefix-less last-mile numbers (e.g. the 13-digit "3781062090701") are iMile's, so an
-     * unrecognised Cainiao/UBI hand-off becomes an iMile leg, even before iMile has any scans.
-     *
-     * Other carriers fall back to Cainiao, as [detect] callers always have.
-     */
-    fun detectHandoff(trackingNumberRaw: String, reportedBy: Carrier): List<Carrier> {
-        val detected = detectAll(trackingNumberRaw)
-        if (detected.isNotEmpty()) return detected
-        return when (reportedBy) {
-            Carrier.CAINIAO, Carrier.UBI_SMART_PARCEL -> listOf(Carrier.IMILE)
-            else -> listOf(Carrier.CAINIAO)
-        }
-    }
-
-    /**
      * Returns the best detected [Carrier] for compatibility with existing callers.
      * Use [detectAll] when the UI/API needs to show all possible matches.
      */
