@@ -526,6 +526,20 @@ class TrackingRepository @Inject constructor(
         return legs.legsForShipment(shipmentId).firstOrNull()?.trackingNumber ?: "Parcel"
     }
 
+    /**
+     * The courier that recognises [number], a hand-off number in no known format, or null when
+     * none does yet. A courier already tracking the number counts without asking again; otherwise
+     * a courier counts once its lookup resolves the number, even with no scans (iMile answers
+     * that way for a waybill it has registered but not yet scanned).
+     */
+    private suspend fun findHandoffCarrier(number: String, reportedBy: Carrier): Carrier? =
+        HANDOFF_PROBE_CARRIERS.firstOrNull { candidate ->
+            candidate != reportedBy && (
+                legs.findByTrackingNumberAndCarrier(number, candidate.id) != null ||
+                    httpFetcher.fetch(candidate, number) != null
+                )
+        }
+
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
@@ -540,14 +554,29 @@ class TrackingRepository @Inject constructor(
         // when it belongs to a different courier: Cainiao also fills realMailNo/copyRealMailNo
         // with its own alternative identifiers, and turning those into legs gave one parcel two
         // identical Cainiao entries tracking the same scans.
-        if (snapshot.relatedTrackingNumbers.isNotEmpty()) {
-            for (relatedNumber in snapshot.relatedTrackingNumbers) {
-                val normalized = FingerprintUtil.normalize(relatedNumber)
-                if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
-                for (relatedCarrier in CarrierDetector.detectAll(normalized).ifEmpty { listOf(Carrier.CAINIAO) }) {
+        val unconfirmedHandoffs = mutableListOf<String>()
+        for (relatedNumber in snapshot.relatedTrackingNumbers) {
+            val normalized = FingerprintUtil.normalize(relatedNumber)
+            if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
+            val detected = CarrierDetector.detectAll(normalized)
+            if (detected.isNotEmpty()) {
+                for (relatedCarrier in detected) {
                     if (relatedCarrier == carrier) continue
                     addCourierUnlocked(leg.shipmentId, normalized, relatedCarrier)
                 }
+                continue
+            }
+            // No known format, so the courier cannot be told from the number alone (iMile's
+            // Australian numbers, for one, carry no prefix). Ask the couriers that issue such
+            // numbers and add the leg only for one that knows the number - possibly with no
+            // scans yet. This used to fall back to Cainiao, which only re-fetched this same
+            // timeline under the new number.
+            val confirmed = findHandoffCarrier(normalized, reportedBy = carrier)
+            if (confirmed != null) {
+                addCourierUnlocked(leg.shipmentId, normalized, confirmed)
+            } else {
+                // Nobody claims it yet: keep it visible as an alias and ask again next refresh.
+                unconfirmedHandoffs += normalized
             }
         }
 
@@ -668,8 +697,14 @@ class TrackingRepository @Inject constructor(
         // The carrier's own route and percentage, so the detail screen can show it even after a
         // failed poll. Only overwritten when this response actually reported it.
         val progress = snapshot.progress
+        val aliasNumbers = (mutable.aliasNumbers.split(',') + unconfirmedHandoffs)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && it != mutable.trackingNumber }
+            .distinct()
+            .joinToString(",")
         legs.update(
             mutable.copy(
+                aliasNumbers = aliasNumbers,
                 pollCount = mutable.pollCount + 1,
                 lastSyncAt = now,
                 lastStatusCode = latest?.statusCode ?: mutable.lastStatusCode,
@@ -778,3 +813,10 @@ class TrackingRepository @Inject constructor(
     private fun EventEntity.toTrackingEvent() =
         TrackingEvent(trackingNumber, timeMs, description, location, statusCode)
 }
+
+/**
+ * Couriers asked about a hand-off number whose format no [CarrierDetector] pattern recognises,
+ * in order. Only couriers that issue prefix-less numbers and have a lookup that can say
+ * "unknown" belong here; the first one that recognises the number gets the leg.
+ */
+private val HANDOFF_PROBE_CARRIERS = listOf(Carrier.IMILE)

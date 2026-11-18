@@ -101,4 +101,37 @@ class ImileParserTest {
         assertEquals(0, snap!!.events.size)
         assertEquals("IML1", snap.trackingNumber)
     }
+
+    // Live response for an Australian last-mile parcel handed over by Cainiao (number and depots
+    // anonymised). Every scan between the depot and the door carries the generic
+    // trackStage 1003 / trackStageTx "Delivery".
+    private val liveAustralianResponse = """
+    {"status":"success","resultCode":"","resultObject":{"waybillNo":"3700000000001",
+       "sendSite":"Sydney Center","dispatchStation":"Parramatta Station","country":"AUS","lmWaybillNo":null,
+       "trackInfos":[
+         {"content":"Your order has been delivered successfully.","trackStage":2060,"trackStageTx":"Delivered",
+          "time":"2026-11-17 14:26:26","operateStationName":"Parramatta Station","proofs":null},
+         {"content":"Our delivery associate is out for delivery.","trackStage":1003,"trackStageTx":"Delivery",
+          "time":"2026-11-17 04:57:49","operateStationName":"Parramatta Station","proofs":null},
+         {"content":"Your order has assigned delivery drvier.","trackStage":1003,"trackStageTx":"Delivery",
+          "time":"2026-11-16 20:55:38","operateStationName":"Parramatta Station","proofs":null},
+         {"content":"Your order has arrived at 【Parramatta Station】","trackStage":1003,"trackStageTx":"Delivery",
+          "time":"2026-11-16 19:53:59","operateStationName":"Parramatta Station","proofs":null},
+         {"content":"【Sydney Center】Your order has been received.","trackStage":2004,"trackStageTx":"Received",
+          "time":"2026-11-16 12:46:22","operateStationName":"Sydney Center","proofs":null},
+         {"content":"Order submitted, pending to receive.","trackStage":1001,"trackStageTx":"Order Creation",
+          "time":"2026-11-13 17:30:15","operateStationName":null,"proofs":null}
+       ]},"message":"Successful operation!","traceId":"","requestToken":null}
+    """.trimIndent()
+
+    @Test fun genericDeliveryStageIsReadFromTheScanText() {
+        val snap = ImileParser.parse(liveAustralianResponse, "3700000000001")
+        assertNotNull(snap)
+        assertEquals("3700000000001", snap!!.trackingNumber)
+        assertEquals(
+            listOf("DELIVERED", "OUT_FOR_DELIVERY", "IN_TRANSIT", "IN_TRANSIT", "IN_TRANSIT", "LABEL_CREATED"),
+            snap.events.map { it.statusCode },
+        )
+        assertEquals("Parramatta Station", snap.events[1].location)
+    }
 }
