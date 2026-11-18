@@ -245,4 +245,18 @@ class CainiaoParserTest {
         assertEquals("EXCEPTION", CainiaoParser.mapCode("Delivery attempted - customer not home"))
         assertEquals("GTMS_ASSIGNED", CainiaoParser.mapCode("GTMS_ASSIGNED"))
     }
+
+    @Test
+    fun `Alibaba punish page is a bot check, not tracking data`() {
+        // Head of the interstitial Cainiao served instead of detail.json (payload trimmed).
+        val punish = """
+            <!DOCTYPE html><html><head>
+            <script charset="utf-8" src="//g.alicdn.com/AWSC/CAPTCHA/0.0.1/awsc.js" crossorigin></script>
+            <link rel="stylesheet" href="//g.alicdn.com/bsop-static/sufei-punish/0.1.130/build/main.css">
+            </head><body><punish-component /></body></html>
+        """.trimIndent()
+        assertEquals(null, CainiaoParser.parse(punish))
+        assertTrue(CainiaoParser.isBotCheck(punish))
+        assertTrue(!CainiaoParser.isBotCheck("""{"module":[]}"""))
+    }
 }

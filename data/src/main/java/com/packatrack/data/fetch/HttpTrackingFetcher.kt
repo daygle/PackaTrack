@@ -20,6 +20,7 @@ import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.PublicKey
 import java.security.spec.X509EncodedKeySpec
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 
@@ -77,16 +78,12 @@ class HttpTrackingFetcher(
         url: HttpUrl,
         headers: Map<String, String>,
         redirectsLeft: Int = MAX_REDIRECTS,
+        sink: (RawResponse) -> Unit = { onRawResponse(owner, it) },
     ): String? {
         // Every exit records what happened, so a failed request is as visible to the user as a
         // successful one - "no data" on screen is exactly when the payload matters most.
         fun record(body: String?, error: String? = null) {
-            val stored = when {
-                body == null -> null
-                body.length <= MAX_STORED_CHARS -> body
-                else -> body.take(MAX_STORED_CHARS) + "\n[truncated: ${body.length} characters total]"
-            }
-            onRawResponse(owner, RawResponse(stored, System.currentTimeMillis(), error))
+            sink(RawResponse(stored(body), System.currentTimeMillis(), error))
         }
         val builder = Request.Builder().url(url)
             // Let OkHttp add Accept-Encoding: gzip itself so it also decompresses the
@@ -107,7 +104,7 @@ class HttpTrackingFetcher(
                     return@use if (target != null && redirectsLeft > 0 &&
                         target.isHttps && target.host == resp.request.url.host
                     ) {
-                        get(owner, target, headers, redirectsLeft - 1)
+                        get(owner, target, headers, redirectsLeft - 1, sink)
                     } else {
                         Log.w(TAG, "Not following redirect ${resp.code} from ${url.host} to ${target?.host ?: "?"}")
                         record(null, "Redirect ${resp.code} from ${url.host} not followed")
@@ -140,7 +137,38 @@ class HttpTrackingFetcher(
         }
     }
 
+    /** One Cainiao lookup, shared by the UBI and Cainiao legs of the same number. */
+    private class CainiaoResult(val capturedAt: Long, val response: RawResponse?, val snapshot: Snapshot?)
+
+    private val recentCainiao = ConcurrentHashMap<String, CainiaoResult>()
+
+    /**
+     * UBI Smart Parcel and Cainiao are served by the same endpoint, and an AP number is tracked on
+     * both, so one refresh used to ask Cainiao the same question twice in a row. Doubling the
+     * request rate is what trips Cainiao's bot check, which then hides every scan and every
+     * hand-off number (the "Latest Tracking Number") until it lifts. A lookup made moments ago for
+     * the same number is reused instead, and its outcome recorded for this leg too.
+     */
     private fun fetchCainiao(owner: String, number: String): Snapshot? {
+        val key = number.trim().uppercase()
+        val now = System.currentTimeMillis()
+        recentCainiao.entries.removeIf { now - it.value.capturedAt > CAINIAO_REUSE_MS }
+        recentCainiao[key]?.let { cached ->
+            cached.response?.let { onRawResponse(owner, it) }
+            return cached.snapshot
+        }
+        var last: RawResponse? = null
+        val snapshot = fetchCainiaoUncached(owner, number) { last = it }
+        recentCainiao[key] = CainiaoResult(now, last, snapshot)
+        return snapshot
+    }
+
+    private fun fetchCainiaoUncached(owner: String, number: String, captured: (RawResponse) -> Unit): Snapshot? {
+        // Wraps the owner's recorder so the shared result knows what this lookup returned.
+        val record = { response: RawResponse ->
+            captured(response)
+            onRawResponse(owner, response)
+        }
         // The standard JSON endpoint first, then the newer one that takes otherMailNoList.
         val attempts = listOf(
             listOf("mailNos" to number),
@@ -154,16 +182,19 @@ class HttpTrackingFetcher(
             val referer = CAINIAO_PAGE.toHttpUrl().newBuilder()
                 .apply { params.forEach { (k, v) -> addQueryParameter(k, v) } }
                 .build()
-            val body = get(owner, url, mapOf("Referer" to referer.toString(), "Accept" to "application/json")) ?: continue
+            val body = get(owner, url, mapOf("Referer" to referer.toString(), "Accept" to "application/json"), sink = record)
+                ?: continue
             debug { "Cainiao response: ${body.take(500)}" }
             CainiaoParser.parse(body)?.let { snap ->
                 debug { "Parsed ${snap.events.size} events from Cainiao" }
                 return snap
             }
             // Only an unparseable body counts as a bot check: real scans can legitimately say
-            // things like "address verify" and must not be discarded.
-            if (body.contains("captcha", ignoreCase = true) || body.contains("verify", ignoreCase = true)) {
-                Log.w(TAG, "Cainiao returned a CAPTCHA/verify page")
+            // things like "address verify" and must not be discarded. Asking the second endpoint
+            // on the same host would only prolong the block, so stop here.
+            if (CainiaoParser.isBotCheck(body)) {
+                Log.w(TAG, "Cainiao returned a bot-check (captcha) page")
+                record(RawResponse(stored(body), System.currentTimeMillis(), CAINIAO_BOT_CHECK))
                 return null
             }
         }
@@ -236,6 +267,13 @@ class HttpTrackingFetcher(
         null
     }
 
+    /** [body] as kept for the troubleshooting view, cut down to [MAX_STORED_CHARS]. */
+    private fun stored(body: String?): String? = when {
+        body == null -> null
+        body.length <= MAX_STORED_CHARS -> body
+        else -> body.take(MAX_STORED_CHARS) + "\n[truncated: ${body.length} characters total]"
+    }
+
     /** Best-effort: Aramex's public shipment-tracking endpoints; graceful null when unreachable. */
     private fun fetchAramex(owner: String, number: String): Snapshot? {
         val candidates = listOf(
@@ -266,6 +304,13 @@ class HttpTrackingFetcher(
         const val MAX_STORED_CHARS = 128 * 1024
         const val CAINIAO_DETAIL = "https://global.cainiao.com/global/detail.json"
         const val CAINIAO_PAGE = "https://global.cainiao.com/newDetail.htm"
+
+        /** How long one Cainiao lookup answers for every leg of the same number. */
+        const val CAINIAO_REUSE_MS = 60_000L
+
+        const val CAINIAO_BOT_CHECK =
+            "Cainiao answered with a bot check (captcha page) instead of tracking data. " +
+                "Nothing was updated; the next refresh will try again."
 
         /**
          * Response bodies can carry delivery details, so they are only logged when debug
