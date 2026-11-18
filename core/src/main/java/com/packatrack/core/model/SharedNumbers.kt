@@ -25,7 +25,7 @@ data class SharedNumberMerge(
     val ownerShipmentId: Long,
     val mergedLegId: Long,
     val mergedShipmentId: Long,
-    /** Normalized number both parcels are tracked under. */
+    /** Normalized number the parcels share; live on at least one leg, an alias on the other. */
     val number: String,
 )
 

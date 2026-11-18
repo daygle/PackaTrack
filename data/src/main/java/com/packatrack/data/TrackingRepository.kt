@@ -474,7 +474,10 @@ class TrackingRepository @Inject constructor(
     private data class Consolidation(
         val sourceLegId: Long,
         val ownerLegId: Long,
-        /** The number both parcels track; kept as a previous number when the leg is dropped. */
+        /**
+         * The number the two parcels share: live on one leg, and possibly only a previous number
+         * on the other. Kept as a previous number when the source leg is dropped.
+         */
         val sharedNumber: String,
         /**
          * True when the source leg is only a second view of [sharedNumber] (the carrier moved it
@@ -529,7 +532,9 @@ class TrackingRepository @Inject constructor(
                 if (c.dropSourceLeg) {
                     "Cainiao consolidated “$label” into this parcel"
                 } else {
-                    "Combined with “$label”: both parcels track ${c.sharedNumber}"
+                    // "Shared", not "both track": an alias match means the number is live on one
+                    // parcel and only kept as a previous/alternate number on the other.
+                    "Combined with “$label”: shared tracking number ${c.sharedNumber}"
                 }
             }
 
