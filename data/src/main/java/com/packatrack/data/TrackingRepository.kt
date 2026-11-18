@@ -422,12 +422,15 @@ class TrackingRepository @Inject constructor(
             val result = refreshLeg(leg) ?: continue
             if (result.dataChanged) updated++
             notable += result.changes
-            result.consolidation?.let { consolidations += it }
+            consolidations += result.consolidations
         }
         // Apply consolidations after the poll loop so we never mutate parcels mid-iteration.
         for (c in consolidations) {
             applyConsolidation(c)?.let { notable += it }
         }
+        // Parcels still tracked under one number - a hand-off number both of them carry, or
+        // duplicate data from an older install - are one physical parcel: combine them.
+        notable += mergeParcelsSharingNumbers()
 
         if (prefs.autoArchiveDelivered) {
             autoArchiveDeliveredParcels(toPoll.map { it.shipmentId }.distinct())
@@ -461,19 +464,29 @@ class TrackingRepository @Inject constructor(
     }
 
     /**
-     * A carrier reported [sourceLegId]'s parcel under [ownerLegId]'s tracking number, so the two
-     * shipments are the same physical parcel now.
+     * A poll proved that [sourceLegId]'s parcel and [ownerLegId]'s parcel are the same physical
+     * parcel because both track [sharedNumber]: either a carrier renumbered its leg onto a number
+     * another parcel already has, or a hand-off number reported for one leg is already tracked on
+     * the other parcel.
      */
     private data class Consolidation(
         val sourceLegId: Long,
-        val sourceNumber: String,
         val ownerLegId: Long,
+        /** The number both parcels track; kept as a previous number when the leg is dropped. */
+        val sharedNumber: String,
+        /**
+         * True when the source leg is only a second view of [sharedNumber] (the carrier moved it
+         * onto that number), so it is dropped with its duplicate scans. False for a shared
+         * hand-off number, where each leg keeps its own number and its own scans.
+         */
+        val dropSourceLeg: Boolean = true,
     )
 
     /**
-     * Merges the source parcel into the parcel that owns the shared number. The now-redundant
-     * source leg (a duplicate view of that number) is dropped and its number kept as a previous
-     * number on the owner's leg, so the timeline is not doubled up.
+     * Merges the source parcel into the parcel that owns the shared number. For a renumbering the
+     * now-redundant source leg (a duplicate view of that number) is dropped and its number kept
+     * as a previous number on the owner's leg, so the timeline is not doubled up; for a hand-off
+     * number both legs stay, because each carries scans of its own.
      */
     private suspend fun applyConsolidation(c: Consolidation): ChangeEntity? =
         // Atomic: a crash between dropping the source leg and merging must not leave
@@ -485,30 +498,83 @@ class TrackingRepository @Inject constructor(
             // otherwise the source leg's scans would be lost with no parcel to merge them into.
             val ownerLeg = legs.byId(c.ownerLegId) ?: return@withTransaction null
             val sourceLeg = legs.byId(c.sourceLegId) ?: return@withTransaction null
+            if (ownerLeg.shipmentId == sourceLeg.shipmentId) return@withTransaction null
 
-            events.deleteForLeg(sourceLeg.id)
-            legs.deleteById(sourceLeg.id)
-
-            val change = mergeParcels(
-                targetId = ownerLeg.shipmentId,
-                sourceId = sourceLeg.shipmentId,
-                kind = ChangeDisplay.Kind.CONSOLIDATED,
-            ) { label ->
-                "Cainiao consolidated “$label” into this parcel"
+            if (c.dropSourceLeg) {
+                events.deleteForLeg(sourceLeg.id)
+                legs.deleteById(sourceLeg.id)
             }
 
-            val aliasCsv = (ownerLeg.aliasNumbers.split(',').filter { it.isNotBlank() } + c.sourceNumber)
-                .distinct()
-                .joinToString(",")
-            if (aliasCsv != ownerLeg.aliasNumbers) legs.update(ownerLeg.copy(aliasNumbers = aliasCsv))
+            // Keep the parcel the user still sees: a delivered parcel is auto-archived, and
+            // folding an active parcel into it would hide the combined result from the list.
+            val ownerHidden = shipments.byId(ownerLeg.shipmentId)?.archived == true
+            val sourceHidden = shipments.byId(sourceLeg.shipmentId)?.archived == true
+            val keepOwnerParcel = !(ownerHidden && !sourceHidden)
+            val targetShipmentId =
+                if (keepOwnerParcel) ownerLeg.shipmentId else sourceLeg.shipmentId
+            val mergedShipmentId =
+                if (keepOwnerParcel) sourceLeg.shipmentId else ownerLeg.shipmentId
+
+            val change = mergeParcels(
+                targetId = targetShipmentId,
+                sourceId = mergedShipmentId,
+                kind = if (c.dropSourceLeg) {
+                    ChangeDisplay.Kind.CONSOLIDATED
+                } else {
+                    ChangeDisplay.Kind.MERGED_WITH
+                },
+            ) { label ->
+                if (c.dropSourceLeg) {
+                    "Cainiao consolidated “$label” into this parcel"
+                } else {
+                    "Combined with “$label”: both parcels track ${c.sharedNumber}"
+                }
+            }
+
+            if (c.dropSourceLeg) {
+                val aliasCsv = (ownerLeg.aliasNumbers.split(',').filter { it.isNotBlank() } + c.sharedNumber)
+                    .distinct()
+                    .joinToString(",")
+                if (aliasCsv != ownerLeg.aliasNumbers) legs.update(ownerLeg.copy(aliasNumbers = aliasCsv))
+            }
             change
         }
+
+    /**
+     * Combines parcels that are tracked under the same number, which is how a parcel's journey
+     * ends up shared: a carrier starts reporting a hand-off number that another parcel already
+     * carries, or an older install left the same number on two parcels.
+     *
+     * The parcel with the oldest leg keeps the number and absorbs the others. No leg is dropped
+     * here: legs of different couriers each hold their own scans for that number, and identical
+     * duplicates are pruned when the parcel is opened (see [removeDuplicateLegs]).
+     */
+    private suspend fun mergeParcelsSharingNumbers(): List<ChangeEntity> {
+        val recorded = mutableListOf<ChangeEntity>()
+        val byNumber = legs.allActiveLegs().groupBy { FingerprintUtil.normalize(it.trackingNumber) }
+        for ((number, group) in byNumber) {
+            val owner = group.minByOrNull { it.id } ?: continue
+            for (other in group) {
+                if (other.id == owner.id) continue
+                val change = applyConsolidation(
+                    Consolidation(
+                        sourceLegId = other.id,
+                        ownerLegId = owner.id,
+                        sharedNumber = number,
+                        dropSourceLeg = false,
+                    ),
+                ) ?: continue
+                recorded += change
+            }
+        }
+        return recorded
+    }
 
     private data class LegPoll(
         val dataChanged: Boolean,
         val changes: List<ChangeEntity>,
-        /** When set, this leg's parcel should be consolidated into another. */
-        val consolidation: Consolidation? = null,
+        /** Other parcels this leg proved are the same physical parcel, merged after the loop. */
+        val consolidations: List<Consolidation> = emptyList(),
     )
 
     /**
@@ -555,9 +621,23 @@ class TrackingRepository @Inject constructor(
         // with its own alternative identifiers, and turning those into legs gave one parcel two
         // identical Cainiao entries tracking the same scans.
         val unconfirmedHandoffs = mutableListOf<String>()
+        val merges = mutableListOf<Consolidation>()
         for (relatedNumber in snapshot.relatedTrackingNumbers) {
             val normalized = FingerprintUtil.normalize(relatedNumber)
             if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
+            // Another parcel may already track this hand-off number: the carrier has chained both
+            // parcels onto one number, so they are the same physical parcel. Combine them after
+            // the poll loop instead of leaving two parcels tracking the same number.
+            val owner = legs.findByTrackingNumber(normalized)
+            if (owner != null && owner.shipmentId != leg.shipmentId) {
+                merges += Consolidation(
+                    sourceLegId = leg.id,
+                    ownerLegId = owner.id,
+                    sharedNumber = normalized,
+                    dropSourceLeg = false,
+                )
+                continue
+            }
             val detected = CarrierDetector.detectAll(normalized)
             if (detected.isNotEmpty()) {
                 for (relatedCarrier in detected) {
@@ -601,14 +681,13 @@ class TrackingRepository @Inject constructor(
         val numberChanged = renumberedTo != FingerprintUtil.normalize(leg.trackingNumber)
         val owner = if (numberChanged) legs.findByTrackingNumber(renumberedTo) else null
         val adopted = numberChanged && ((owner == null) || (owner.id == leg.id))
-        val consolidation = if (!adopted && owner != null && owner.shipmentId != leg.shipmentId) {
-            Consolidation(
+        if (!adopted && owner != null && owner.shipmentId != leg.shipmentId) {
+            // The leg now carries another parcel's number: the carrier merged the two shipments.
+            merges += Consolidation(
                 sourceLegId = leg.id,
-                sourceNumber = leg.trackingNumber,
                 ownerLegId = owner.id,
+                sharedNumber = leg.trackingNumber,
             )
-        } else {
-            null
         }
         if (adopted) {
             val oldNo = mutable.trackingNumber
@@ -719,7 +798,7 @@ class TrackingRepository @Inject constructor(
             changes.insert(c)
             persisted += c
         }
-        return LegPoll(dataChanged, persisted, consolidation)
+        return LegPoll(dataChanged, persisted, merges)
     }
 
     /**
