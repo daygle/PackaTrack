@@ -19,6 +19,7 @@ import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
+import com.packatrack.core.model.aliasesWithoutLiveNumbers
 import com.packatrack.core.model.findDuplicateLegs
 import com.packatrack.core.model.findSharedNumberMerges
 import com.packatrack.core.model.overallStatusCode
@@ -198,7 +199,12 @@ class TrackingRepository @Inject constructor(
         require(number.length >= FingerprintUtil.MIN_NUMBER_LENGTH) { "Tracking number looks too short" }
 
         val carrier = carrierOverride ?: CarrierDetector.detectAll(number).firstOrNull() ?: Carrier.CAINIAO
-        legs.findByTrackingNumberAndCarrier(number, carrier.id)?.let { return it.id }
+        legs.findByTrackingNumberAndCarrier(number, carrier.id)?.let { existing ->
+            // The number is live on this parcel already (an older install may also have kept it as
+            // an alias of another leg here), so any alias spelling it is stale.
+            pruneSiblingAliases(shipmentId)
+            return existing.id
+        }
         val now = System.currentTimeMillis()
         val legId = legs.insert(
             TrackingLegEntity(
@@ -208,6 +214,9 @@ class TrackingRepository @Inject constructor(
                 createdAt = now,
             ),
         )
+        // The number has a leg of its own here now, so it is current, not previous: drop it from
+        // the alias list it may still sit in on a sibling leg.
+        pruneSiblingAliases(shipmentId)
         changes.insert(
             ChangeEntity(
                 shipmentId = shipmentId,
@@ -224,6 +233,23 @@ class TrackingRepository @Inject constructor(
             ),
         )
         return legId
+    }
+
+    /**
+     * Drops aliases from this parcel's legs when another leg of the same parcel tracks that number
+     * as its current one. An alias records a number the leg was tracked under, so once the number
+     * has a leg of its own the alias is stale - it showed the same number twice on the parcel, once
+     * as an "Aliases:" line and once as its own courier card. Renumbered aliases stay untouched,
+     * because "View response" falls back to them to find the payload of the previous number.
+     */
+    private suspend fun pruneSiblingAliases(shipmentId: Long) {
+        val parcelLegs = legs.legsForShipment(shipmentId)
+        if (parcelLegs.size < 2) return
+        val liveNumbers = parcelLegs.map { it.trackingNumber }
+        for (leg in parcelLegs) {
+            val pruned = aliasesWithoutLiveNumbers(leg.aliasNumbers, liveNumbers)
+            if (pruned != leg.aliasNumbers) legs.update(leg.copy(aliasNumbers = pruned))
+        }
     }
 
     /** Removes one courier leg (and its scans) from a parcel. */
@@ -543,6 +569,9 @@ class TrackingRepository @Inject constructor(
                     .distinct()
                     .joinToString(",")
                 if (aliasCsv != ownerLeg.aliasNumbers) legs.update(ownerLeg.copy(aliasNumbers = aliasCsv))
+                // The merged-in parcel can bring a leg that tracks this number, which would make the
+                // alias just written stale.
+                pruneSiblingAliases(ownerLeg.shipmentId)
             }
             change
         }
@@ -795,11 +824,17 @@ class TrackingRepository @Inject constructor(
         // The carrier's own route and percentage, so the detail screen can show it even after a
         // failed poll. Only overwritten when this response actually reported it.
         val progress = snapshot.progress
-        val aliasNumbers = (mutable.aliasNumbers.split(',') + unconfirmedHandoffs)
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && it != mutable.trackingNumber }
-            .distinct()
-            .joinToString(",")
+        // A number that has a leg of its own on this parcel is never a previous number of this one:
+        // adding that leg pruned it (see [pruneSiblingAliases]), so this update must not write the
+        // stale entry back from the leg row read before it. The leg's own current number is
+        // excluded too, while the number it was renumbered from stays an alias for "View response".
+        val liveNumbersHere = legs.legsForShipment(mutable.shipmentId)
+            .filter { it.id != mutable.id }
+            .map { it.trackingNumber } + mutable.trackingNumber
+        val aliasNumbers = aliasesWithoutLiveNumbers(
+            (mutable.aliasNumbers.split(',') + unconfirmedHandoffs).joinToString(","),
+            liveNumbersHere,
+        )
         legs.update(
             mutable.copy(
                 aliasNumbers = aliasNumbers,

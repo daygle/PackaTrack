@@ -48,7 +48,10 @@ data class TrackingLegEntity(
     val trackingNumber: String,
     /** Carrier id (see core Carrier). */
     val carrierId: String,
-    /** Comma-separated numbers this leg was previously tracked under. */
+    /**
+     * Comma-separated numbers this leg was previously tracked under (after a renumbering, or a
+     * hand-off nobody had claimed yet). Never a number another leg of the same parcel tracks now.
+     */
     val aliasNumbers: String = "",
     /** How many times this leg has been refreshed. */
     val pollCount: Int = 0,
