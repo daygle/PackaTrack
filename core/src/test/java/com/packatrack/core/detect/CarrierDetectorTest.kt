@@ -71,4 +71,19 @@ class CarrierDetectorTest {
         assertNull(CarrierDetector.detect(""))
         assertNull(CarrierDetector.detect("HELLOWORLD123"))
     }
+
+    @Test fun unrecognisedCainiaoHandoffIsImile() {
+        // Cainiao reports iMile's AU last-mile number with no IM prefix.
+        assertEquals(listOf(Carrier.IMILE), CarrierDetector.detectHandoff("3781062090701", Carrier.CAINIAO))
+        assertEquals(listOf(Carrier.IMILE), CarrierDetector.detectHandoff("3781062090701", Carrier.UBI_SMART_PARCEL))
+    }
+
+    @Test fun recognisedHandoffKeepsItsFormat() {
+        assertEquals(listOf(Carrier.AUSTRALIA_POST), CarrierDetector.detectHandoff("EV938507560AU", Carrier.CAINIAO))
+        assertEquals(listOf(Carrier.AUSTRALIA_POST), CarrierDetector.detectHandoff("7001234567891", Carrier.UBI_SMART_PARCEL))
+    }
+
+    @Test fun unrecognisedHandoffFromOtherCarriersFallsBackToCainiao() {
+        assertEquals(listOf(Carrier.CAINIAO), CarrierDetector.detectHandoff("3781062090701", Carrier.AUSTRALIA_POST))
+    }
 }

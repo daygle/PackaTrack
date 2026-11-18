@@ -544,7 +544,10 @@ class TrackingRepository @Inject constructor(
             for (relatedNumber in snapshot.relatedTrackingNumbers) {
                 val normalized = FingerprintUtil.normalize(relatedNumber)
                 if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
-                for (relatedCarrier in CarrierDetector.detectAll(normalized).ifEmpty { listOf(Carrier.CAINIAO) }) {
+                // An unrecognised Cainiao/UBI hand-off number is iMile's last mile (see
+                // CarrierDetector.detectHandoff); it used to fall back to Cainiao, which only
+                // re-fetched this same timeline under the iMile number.
+                for (relatedCarrier in CarrierDetector.detectHandoff(normalized, carrier)) {
                     if (relatedCarrier == carrier) continue
                     addCourierUnlocked(leg.shipmentId, normalized, relatedCarrier)
                 }
