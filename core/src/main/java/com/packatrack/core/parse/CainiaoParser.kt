@@ -181,8 +181,12 @@ object CainiaoParser {
      * out-for-delivery are recognised before the delivered bucket.
      */
     fun mapCode(raw: String?): String? {
-        // Descriptions ("Out for delivery") are matched like codes ("OUT_FOR_DELIVERY").
-        val c = raw?.uppercase()?.replace(' ', '_') ?: return null
+        raw ?: return null
+        // A plain-text description rather than a code ("Delivery attempted - customer not
+        // home"): the wording rules every carrier shares decide first, since the code rules
+        // below would read any "DELIVER" in it as delivered.
+        if (raw.any { it.isWhitespace() }) StatusText.map(raw)?.let { return it }
+        val c = raw.uppercase().replace(' ', '_')
         return when {
             // Exception / failure
             c.contains("FAIL") || c.contains("ABNORMAL") || c.contains("RETURN") ||

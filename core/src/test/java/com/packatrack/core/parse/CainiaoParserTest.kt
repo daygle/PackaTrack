@@ -237,4 +237,12 @@ class CainiaoParserTest {
         assertEquals("DELIVERED", CainiaoParser.mapCode("SIGNED_SUCCESS"))
         assertEquals("IN_TRANSIT", CainiaoParser.mapCode("GWMS_ACCEPT"))
     }
+
+    @Test fun plainTextDescriptionsUseTheSharedWording() {
+        // No action code, only the description: the shared wording rules decide, and an
+        // unknown code is still kept as it is.
+        assertEquals("IN_TRANSIT", CainiaoParser.mapCode("Arrived at sorting center"))
+        assertEquals("EXCEPTION", CainiaoParser.mapCode("Delivery attempted - customer not home"))
+        assertEquals("GTMS_ASSIGNED", CainiaoParser.mapCode("GTMS_ASSIGNED"))
+    }
 }

@@ -84,30 +84,11 @@ object AusPostParser {
                         timeMs = TimeUtil.parse(node.optString("event_date_time")),
                         description = desc.ifBlank { evType },
                         location = JsonUtil.stringOr(node, "location"),
-                        statusCode = mapToStatus(evType.ifBlank { desc }),
+                        statusCode = StatusText.map(evType.ifBlank { desc }),
                     )
                 }
                 else -> Unit
             }
-        }
-    }
-
-    /** Maps free-text event types onto PackaTrack's normalized status codes. */
-    fun mapToStatus(text: String): String? {
-        val t = text.lowercase()
-        return when {
-            t.contains("delivered") -> "DELIVERED"
-            t.contains("held at post office") ||
-                t.contains("awaiting collection") ||
-                t.contains("ready for collection") -> "PICKUP_AVAILABLE"
-            t.contains("on board for delivery") || t.contains("out for delivery") -> "OUT_FOR_DELIVERY"
-            t.contains("attempted") || t.contains("return to sender") ||
-                t.contains("damaged") || t.contains("undeliverable") -> "EXCEPTION"
-            t.contains("shipping information received") ||
-                t.contains("label created") -> "LABEL_CREATED"
-            t.contains("transit") || t.contains("processed") ||
-                t.contains("arrived") || t.contains("departed") -> "IN_TRANSIT"
-            else -> null
         }
     }
 }

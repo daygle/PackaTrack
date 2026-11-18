@@ -61,8 +61,8 @@ object ImileParser {
                 // The live endpoint files most last-mile scans (arrived at the depot, driver
                 // assigned, out for delivery) under one generic "Delivery" stage, so when the
                 // stage label says nothing specific the scan's own text decides.
-                statusCode = mapToStatus(firstNonBlank(r, "trackStageTx", "status", "activity").orEmpty())
-                    ?: mapToStatus(desc)
+                statusCode = StatusText.map(firstNonBlank(r, "trackStageTx", "status", "activity"))
+                    ?: StatusText.map(desc)
                     ?: stageToStatus(firstNonBlank(r, "trackStage")),
             )
         }
@@ -84,26 +84,6 @@ object ImileParser {
 
     private fun firstNonBlank(obj: JSONObject?, vararg keys: String): String? =
         obj?.let { o -> keys.firstNotNullOfOrNull { k -> o.optString(k).takeIf { s -> s.isNotBlank() } } }
-
-    fun mapToStatus(text: String): String? {
-        val t = text.lowercase()
-        return when {
-            // "signed" as its own word: "Your order has assigned delivery driver" is not a delivery.
-            t.contains("delivered") || SIGNED.containsMatchIn(t) -> "DELIVERED"
-            t.contains("out for delivery") || t.contains("on vehicle") -> "OUT_FOR_DELIVERY"
-            t.contains("held") && t.contains("collection") -> "PICKUP_AVAILABLE"
-            t.contains("fail") || t.contains("refus") || t.contains("return") ||
-                t.contains("damage") || t.contains("lost") -> "EXCEPTION"
-            t.contains("received") || t.contains("picked up") || t.contains("collected from shipper")
-                -> "IN_TRANSIT"
-            t.contains("transit") || t.contains("arrived") || t.contains("departed") ||
-                t.contains("sorting") || t.contains("flight") -> "IN_TRANSIT"
-            t.isBlank().not() && (t.contains("created") || t.contains("booked")) -> "LABEL_CREATED"
-            else -> null
-        }
-    }
-
-    private val SIGNED = Regex("\\bsigned\\b")
 
     /**
      * iMile's numeric trackStage codes, used when the human-readable trackStageTx (or
