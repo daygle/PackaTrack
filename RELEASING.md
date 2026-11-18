@@ -49,6 +49,28 @@ increases; the workflow fails rather than publishing an unsigned bundle or reusi
 The `.aab` embeds the R8 deobfuscation mapping, so Google Play picks that up automatically on
 upload; a copy of `mapping.txt` is kept as a workflow artifact for retracing stack traces locally.
 
+### 🧩 Native debug symbols
+
+The bundle does carry native code, but none of it is ours: `libsqlcipher.so` from the SQLCipher
+AAR (`net.zetetic:sqlcipher-android`, shipped for `arm64-v8a`, `armeabi-v7a`, `x86` and `x86_64`)
+is the only `.so` in it. That library arrives **already stripped** — no `.symtab` and no
+`.debug_info` section in any ABI — so the Android Gradle Plugin has nothing to strip and the bundle
+gets no `BUNDLE-METADATA/com.android.tools.build.debugsymbols/` entry. Installing the NDK or
+setting `ndk.debugSymbolLevel` would not change that: there are no symbols in the input to package.
+
+Play therefore reports *"This AppBundle contains native code, and you haven't uploaded debug symbol
+files"* on upload. It is informational — the bundle is accepted and can be rolled out. All those
+symbols would buy is symbolized native stack frames if a crash ever happened inside
+`libsqlcipher.so`; Kotlin/Java crashes are unaffected, because the R8 `mapping.txt` is embedded in
+the bundle.
+
+The release workflow only warns when the bundle contains a `.so` that is **not** in its
+`THIRD_PARTY_SOS` allowlist (currently just `libsqlcipher.so`), so the notice on a normal release
+means "no first-party native code, nothing to package" instead of looking like a defect. If
+first-party native code is ever added, either package its symbols with
+`android.buildTypes.release.ndk.debugSymbolLevel = "SYMBOL_TABLE"` in `app/build.gradle.kts`, or —
+when the new library is third-party and pre-stripped as well — add its file name to that allowlist.
+
 ---
 
 ## 📤 Publishing to Google Play (first upload)

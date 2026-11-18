@@ -113,15 +113,29 @@ jobs:
             echo "::error::$AAB is not signed."
             exit 1
           fi
-          # Play warns about a bundle that carries native code with no debug symbols, but this
-          # app cannot supply any: its only native code is libsqlcipher.so from the SQLCipher
-          # AAR, which ships already stripped (no .symtab and no .debug_info in any ABI), so
-          # there are no symbols to package. Warning rather than failing keeps the guard
-          # informative; a hard check here would block every release.
+          # Play warns about a bundle that carries native code with no debug symbols. This app
+          # compiles none of its own: the only .so it bundles is libsqlcipher.so from the SQLCipher
+          # AAR, which ships already stripped (no .symtab and no .debug_info in any ABI), so there
+          # are no symbols to package - see RELEASING.md, "Native debug symbols". Only a .so this
+          # project builds itself can regress here, so the known third-party libraries are allowed
+          # through and anything else is reported.
+          THIRD_PARTY_SOS="libsqlcipher.so"
+          FIRST_PARTY_SOS=""
+          while IFS= read -r so; do
+            [ -n "$so" ] || continue
+            case " $THIRD_PARTY_SOS " in
+              *" ${so##*/} "*) continue ;;
+            esac
+            FIRST_PARTY_SOS+="$so"$'\n'
+          done <<< "$(unzip -Z1 "$AAB" | grep -E '(^|/)lib/[^/]+/[^/]+\.so$' || true)"
+
           if [[ "$(unzip -Z1 "$AAB")" == *"BUNDLE-METADATA/com.android.tools.build.debugsymbols/"* ]]; then
             echo "Bundle carries native debug symbols."
+          elif [[ -z "$FIRST_PARTY_SOS" ]]; then
+            echo "::notice::$AAB carries no first-party native code, so there are no debug symbols to package (third-party .so arrive pre-stripped)."
           else
-            echo "::warning::$AAB has no native debug symbols (pre-stripped third-party .so); Play warns about this but accepts the bundle."
+            echo "::warning::$AAB has no native debug symbols for first-party native code:"
+            printf '%s' "$FIRST_PARTY_SOS"
           fi
           mv "$AAB" "app/build/outputs/bundle/release/PackaTrack-$VERSION_NAME-release.aab"
 
