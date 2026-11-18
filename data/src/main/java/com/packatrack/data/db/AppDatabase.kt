@@ -61,6 +61,15 @@ abstract class AppDatabase : RoomDatabase() {
                     Room.databaseBuilder(appContext, AppDatabase::class.java, DB_NAME)
                         .openHelperFactory(factory)
                         .addMigrations(MIGRATION_1_2)
+                        .addCallback(object : RoomDatabase.Callback() {
+                            override fun onOpen(db: SupportSQLiteDatabase) {
+                                // Older scans stored a missing station as the literal text "null"
+                                // (Android's org.json renders a JSON null that way), which the
+                                // timeline showed as a location. Re-syncing cannot replace them:
+                                // the (legId, timeMs, description) index ignores the duplicate.
+                                db.execSQL("UPDATE events SET location = NULL WHERE location = 'null'")
+                            }
+                        })
                         .build()
                         .also { instance = it }
                 }

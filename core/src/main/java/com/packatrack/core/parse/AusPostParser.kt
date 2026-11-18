@@ -74,10 +74,12 @@ object AusPostParser {
         for (i in 0 until arr.length()) {
             when (val node = arr.opt(i)) {
                 is JSONObject -> {
-                    val evType = node.optString("event_type_description").ifBlank {
-                        node.optString("eventDescription").ifBlank { node.optString("description") }
-                    }
-                    val desc = node.optString("description").ifBlank { evType }
+                    // Read through JsonUtil so a JSON null (which Android's org.json renders as
+                    // the literal text "null") falls through instead of becoming a scan.
+                    val evType = JsonUtil.stringOr(node, "event_type_description")
+                        ?: JsonUtil.stringOr(node, "eventDescription")
+                        ?: JsonUtil.stringOr(node, "description").orEmpty()
+                    val desc = JsonUtil.stringOr(node, "description") ?: evType
                     if (desc.isBlank() && evType.isBlank()) continue
                     out += TrackingEvent(
                         trackingNumber = number,

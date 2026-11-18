@@ -82,8 +82,15 @@ object ImileParser {
     private fun firstArray(data: JSONObject, vararg keys: String): JSONArray? =
         keys.firstNotNullOfOrNull { data.optJSONArray(it) }
 
+    // A JSON null must stay absent: Android's org.json turns it into the literal text "null",
+    // which would otherwise reach the timeline as a location (iMile sends a null
+    // operateStationName for the opening "Order submitted" scan).
     private fun firstNonBlank(obj: JSONObject?, vararg keys: String): String? =
-        obj?.let { o -> keys.firstNotNullOfOrNull { k -> o.optString(k).takeIf { s -> s.isNotBlank() } } }
+        obj?.let { o ->
+            keys.firstNotNullOfOrNull { k ->
+                if (o.isNull(k)) null else o.optString(k).takeIf { s -> s.isNotBlank() }
+            }
+        }
 
     /**
      * iMile's numeric trackStage codes, used when the human-readable trackStageTx (or

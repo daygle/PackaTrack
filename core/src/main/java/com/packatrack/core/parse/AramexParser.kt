@@ -73,6 +73,12 @@ object AramexParser {
     private fun firstArray(obj: JSONObject?, vararg keys: String): JSONArray? =
         obj?.let { o -> keys.firstNotNullOfOrNull { o.optJSONArray(it) } }
 
+    // A JSON null must stay absent: Android's org.json turns it into the literal text "null",
+    // which would otherwise reach the timeline as a location (or become a scan's description).
     private fun firstNonBlank(obj: JSONObject?, vararg keys: String): String? =
-        obj?.let { o -> keys.firstNotNullOfOrNull { k -> o.optString(k).takeIf { s -> s.isNotBlank() } } }
+        obj?.let { o ->
+            keys.firstNotNullOfOrNull { k ->
+                if (o.isNull(k)) null else o.optString(k).takeIf { s -> s.isNotBlank() }
+            }
+        }
 }
