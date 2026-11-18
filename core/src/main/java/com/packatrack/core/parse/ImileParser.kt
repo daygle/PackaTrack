@@ -58,7 +58,11 @@ object ImileParser {
                 ),
                 description = desc,
                 location = firstNonBlank(r, "location", "city", "siteName", "operateStationName"),
+                // The live endpoint files most last-mile scans (arrived at the depot, driver
+                // assigned, out for delivery) under one generic "Delivery" stage, so when the
+                // stage label says nothing specific the scan's own text decides.
                 statusCode = mapToStatus(firstNonBlank(r, "trackStageTx", "status", "activity").orEmpty())
+                    ?: mapToStatus(desc)
                     ?: stageToStatus(firstNonBlank(r, "trackStage")),
             )
         }
@@ -101,11 +105,13 @@ object ImileParser {
     /**
      * iMile's numeric trackStage codes, used when the human-readable trackStageTx (or
      * status) text does not map to a known status. Codes as served by the live endpoint:
-     * 1001 = order created, 2030 = in transit, 2050 = out for delivery, 2060 = delivered.
+     * 1001 = order created, 1003 = last-mile "Delivery" stage (any scan between the
+     * depot and the door), 2004 = received, 2030 = in transit, 2050 = out for delivery,
+     * 2060 = delivered.
      */
     private fun stageToStatus(stage: String?): String? = when (stage) {
         "1001" -> "LABEL_CREATED"
-        "2030" -> "IN_TRANSIT"
+        "1003", "2004", "2030" -> "IN_TRANSIT"
         "2050" -> "OUT_FOR_DELIVERY"
         "2060" -> "DELIVERED"
         else -> null
