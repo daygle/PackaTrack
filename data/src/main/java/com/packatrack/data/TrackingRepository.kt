@@ -14,11 +14,13 @@ import com.packatrack.core.detect.CarrierDetector
 import com.packatrack.core.model.Carrier
 import com.packatrack.core.model.ChangeDisplay
 import com.packatrack.core.model.LegScans
+import com.packatrack.core.model.NumberedLeg
 import com.packatrack.core.model.ParcelChange
 import com.packatrack.core.model.RawResponse
 import com.packatrack.core.model.Snapshot
 import com.packatrack.core.model.TrackingEvent
 import com.packatrack.core.model.findDuplicateLegs
+import com.packatrack.core.model.findSharedNumberMerges
 import com.packatrack.core.model.overallStatusCode
 import com.packatrack.core.model.scanFingerprint
 import com.packatrack.core.util.FingerprintUtil
@@ -467,7 +469,7 @@ class TrackingRepository @Inject constructor(
      * A poll proved that [sourceLegId]'s parcel and [ownerLegId]'s parcel are the same physical
      * parcel because both track [sharedNumber]: either a carrier renumbered its leg onto a number
      * another parcel already has, or a hand-off number reported for one leg is already tracked on
-     * the other parcel.
+     * (or kept among the previous numbers of) the other parcel.
      */
     private data class Consolidation(
         val sourceLegId: Long,
@@ -543,29 +545,27 @@ class TrackingRepository @Inject constructor(
     /**
      * Combines parcels that are tracked under the same number, which is how a parcel's journey
      * ends up shared: a carrier starts reporting a hand-off number that another parcel already
-     * carries, or an older install left the same number on two parcels.
+     * carries - as its live number, or as a previous number kept in its alias list - or an older
+     * install left the same number on two parcels.
      *
-     * The parcel with the oldest leg keeps the number and absorbs the others. No leg is dropped
-     * here: legs of different couriers each hold their own scans for that number, and identical
-     * duplicates are pruned when the parcel is opened (see [removeDuplicateLegs]).
+     * The parcel whose leg tracks the number survives (see [findSharedNumberMerges] for the rule
+     * and the alias-matching guard), and no leg is dropped here: legs of different couriers each
+     * hold their own scans for that number, and identical duplicates are pruned when the parcel is
+     * opened (see [removeDuplicateLegs]).
      */
     private suspend fun mergeParcelsSharingNumbers(): List<ChangeEntity> {
+        val active = legs.allActiveLegs().map { it.toNumberedLeg() }
         val recorded = mutableListOf<ChangeEntity>()
-        val byNumber = legs.allActiveLegs().groupBy { FingerprintUtil.normalize(it.trackingNumber) }
-        for ((number, group) in byNumber) {
-            val owner = group.minByOrNull { it.id } ?: continue
-            for (other in group) {
-                if (other.id == owner.id) continue
-                val change = applyConsolidation(
-                    Consolidation(
-                        sourceLegId = other.id,
-                        ownerLegId = owner.id,
-                        sharedNumber = number,
-                        dropSourceLeg = false,
-                    ),
-                ) ?: continue
-                recorded += change
-            }
+        for (merge in findSharedNumberMerges(active)) {
+            val change = applyConsolidation(
+                Consolidation(
+                    sourceLegId = merge.mergedLegId,
+                    ownerLegId = merge.ownerLegId,
+                    sharedNumber = merge.number,
+                    dropSourceLeg = false,
+                ),
+            ) ?: continue
+            recorded += change
         }
         return recorded
     }
@@ -606,6 +606,17 @@ class TrackingRepository @Inject constructor(
                 )
         }
 
+    /**
+     * A leg on another parcel that lists [number] among its previous/alternate numbers. Used when
+     * no leg tracks [number] as its live number: the number was kept as an alias after a
+     * renumbering, or it was an unconfirmed hand-off nobody had claimed yet.
+     */
+    private suspend fun parcelListingAlias(number: String, shipmentId: Long): TrackingLegEntity? =
+        legs.allActiveLegs().firstOrNull { leg ->
+            leg.shipmentId != shipmentId &&
+                leg.aliasNumbers.split(',').any { alias -> FingerprintUtil.normalize(alias) == number }
+        }
+
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
@@ -625,10 +636,13 @@ class TrackingRepository @Inject constructor(
         for (relatedNumber in snapshot.relatedTrackingNumbers) {
             val normalized = FingerprintUtil.normalize(relatedNumber)
             if (normalized.isBlank() || normalized == FingerprintUtil.normalize(leg.trackingNumber)) continue
-            // Another parcel may already track this hand-off number: the carrier has chained both
-            // parcels onto one number, so they are the same physical parcel. Combine them after
-            // the poll loop instead of leaving two parcels tracking the same number.
+            // Another parcel may already know this hand-off number: it is tracked there as a live
+            // number, or it was kept as a previous/unconfirmed number in that leg's alias list.
+            // Either way the carrier has chained both parcels onto one number, so they are the
+            // same physical parcel - combine them after the poll loop instead of leaving two
+            // parcels tracking the same number.
             val owner = legs.findByTrackingNumber(normalized)
+                ?: parcelListingAlias(normalized, leg.shipmentId)
             if (owner != null && owner.shipmentId != leg.shipmentId) {
                 merges += Consolidation(
                     sourceLegId = leg.id,
@@ -891,6 +905,13 @@ class TrackingRepository @Inject constructor(
 
     private fun EventEntity.toTrackingEvent() =
         TrackingEvent(trackingNumber, timeMs, description, location, statusCode)
+
+    private fun TrackingLegEntity.toNumberedLeg() = NumberedLeg(
+        legId = id,
+        shipmentId = shipmentId,
+        trackingNumber = trackingNumber,
+        aliasNumbers = aliasNumbers,
+    )
 }
 
 /**
