@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** One item entered while adding a parcel: a name and/or an order link. */
+data class NewItem(val name: String, val link: String?)
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: TrackingRepository,
@@ -46,12 +49,17 @@ class HomeViewModel @Inject constructor(
     fun refreshShipment(shipmentId: Long) = runSync { repository.refreshShipment(shipmentId, force = true) }
 
     /**
-     * Adds a parcel and polls just that one. Never gated by an in-flight refresh: the add
-     * waits for it on the repository's lock instead of being dropped.
+     * Adds a parcel with the items entered in the add dialog and polls just that one. Never gated
+     * by an in-flight refresh: the add waits for it on the repository's lock instead of being
+     * dropped.
      */
-    fun addShipment(number: String, title: String?, orderUrl: String?, carrier: Carrier?) {
+    fun addShipment(number: String, items: List<NewItem>, carrier: Carrier?) {
         launchSync {
-            val newId = repository.addShipment(number, title, orderUrl, carrier)
+            // The repository creates the parcel with its first item; the rest are appended to the
+            // same parcel, so a two-item parcel is saved as two order rows.
+            val first = items.firstOrNull()
+            val newId = repository.addShipment(number, first?.name, first?.link, carrier)
+            for (item in items.drop(1)) repository.addOrder(newId, item.name, item.link)
             repository.refreshShipment(newId, force = true)
         }
     }

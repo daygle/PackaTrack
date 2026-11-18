@@ -20,7 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -39,8 +41,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -329,14 +331,15 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            // Icon only: the label took a row of the list for a word the ＋ already says.
+            FloatingActionButton(
                 onClick = { showAddDialog = true },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text(stringResource(R.string.add_parcel)) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.testTag("home_add_parcel_fab"),
-            )
+            ) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_parcel))
+            }
         },
     ) { padding ->
         PullToRefreshBox(
@@ -381,9 +384,9 @@ fun HomeScreen(
             archivedShipments = archivedShipments,
             viewModel = viewModel,
             onDismiss = { showAddDialog = false },
-            onSave = { number, title, orderUrl, carrier ->
+            onSave = { number, items, carrier ->
                 showAddDialog = false
-                viewModel.addShipment(number, title, orderUrl, carrier)
+                viewModel.addShipment(number, items, carrier)
             },
         )
     }
@@ -604,6 +607,9 @@ private fun ParcelCard(
     }
 }
 
+/** One item row in the add-parcel dialog; a parcel can be saved with several of them. */
+private data class ItemDraft(val name: String = "", val link: String = "")
+
 @Composable
 private fun AddShipmentDialog(
     initialNumber: String? = null,
@@ -611,11 +617,10 @@ private fun AddShipmentDialog(
     archivedShipments: List<ShipmentWithLegs> = emptyList(),
     viewModel: HomeViewModel,
     onDismiss: () -> Unit,
-    onSave: (number: String, title: String?, orderUrl: String?, carrier: Carrier?) -> Unit,
+    onSave: (number: String, items: List<NewItem>, carrier: Carrier?) -> Unit,
 ) {
     var number by remember { mutableStateOf(value = initialNumber ?: "") }
-    var title by remember { mutableStateOf(value = "") }
-    var orderUrl by remember { mutableStateOf(value = "") }
+    var itemDrafts by remember { mutableStateOf(listOf(ItemDraft())) }
     var override by remember { mutableStateOf<Carrier?>(value = null) }
     var showManual by remember { mutableStateOf(value = false) }
 
@@ -654,8 +659,9 @@ private fun AddShipmentDialog(
                 onClick = {
                     onSave(
                         trimmed,
-                        title.trim().ifBlank { null },
-                        orderUrl.trim().ifBlank { null },
+                        itemDrafts
+                            .map { NewItem(it.name.trim(), it.link.trim().ifBlank { null }) }
+                            .filter { it.name.isNotBlank() || it.link != null },
                         chosen,
                     )
                 },
@@ -664,7 +670,10 @@ private fun AddShipmentDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         title = { Text(stringResource(R.string.add_parcel)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
                 OutlinedTextField(
                     value = number, onValueChange = { number = it },
                     label = { Text(stringResource(R.string.tracking_number_label)) }, singleLine = true,
@@ -763,8 +772,59 @@ private fun AddShipmentDialog(
                     )
                 }
 
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.item_name_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = orderUrl, onValueChange = { orderUrl = it }, label = { Text(stringResource(R.string.order_link_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text(
+                    stringResource(R.string.items_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                itemDrafts.forEachIndexed { index, draft ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        OutlinedTextField(
+                            value = draft.name,
+                            onValueChange = { value ->
+                                itemDrafts = itemDrafts.toMutableList().also {
+                                    it[index] = it[index].copy(name = value)
+                                }
+                            },
+                            label = { Text(stringResource(R.string.item_name_optional)) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (itemDrafts.size > 1) {
+                            IconButton(
+                                onClick = {
+                                    itemDrafts = itemDrafts.filterIndexed { i, _ -> i != index }
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.outline,
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = draft.link,
+                        onValueChange = { value ->
+                            itemDrafts = itemDrafts.toMutableList().also {
+                                it[index] = it[index].copy(link = value)
+                            }
+                        },
+                        label = { Text(stringResource(R.string.order_link_optional)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                TextButton(onClick = { itemDrafts = itemDrafts + ItemDraft() }) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.add_item_title))
+                }
             }
         },
     )

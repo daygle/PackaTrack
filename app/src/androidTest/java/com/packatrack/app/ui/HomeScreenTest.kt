@@ -174,9 +174,9 @@ class HomeScreenTest {
         activeShipments.value = listOf(
             entry(1, "Existing", "CN123456789"),
         )
-        // Interact through test tags rather than the labels: the FAB's "Add Parcel" text and the
-        // field's "Tracking Number" label are child nodes of the clickable/editable node, so a
-        // merged-tree text finder can miss them (it reports them only in the unmerged tree).
+        // Interact through test tags rather than the labels: the number field's "Tracking Number"
+        // label is a child node of the editable node, so a merged-tree text finder can miss it (it
+        // reports it only in the unmerged tree).
         composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule.onAllNodesWithTag("home_add_parcel_fab").fetchSemanticsNodes().isNotEmpty()
         }
