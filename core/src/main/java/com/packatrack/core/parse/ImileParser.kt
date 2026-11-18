@@ -88,7 +88,8 @@ object ImileParser {
     fun mapToStatus(text: String): String? {
         val t = text.lowercase()
         return when {
-            t.contains("delivered") || t.contains("signed") -> "DELIVERED"
+            // "signed" as its own word: "Your order has assigned delivery driver" is not a delivery.
+            t.contains("delivered") || SIGNED.containsMatchIn(t) -> "DELIVERED"
             t.contains("out for delivery") || t.contains("on vehicle") -> "OUT_FOR_DELIVERY"
             t.contains("held") && t.contains("collection") -> "PICKUP_AVAILABLE"
             t.contains("fail") || t.contains("refus") || t.contains("return") ||
@@ -101,6 +102,8 @@ object ImileParser {
             else -> null
         }
     }
+
+    private val SIGNED = Regex("\\bsigned\\b")
 
     /**
      * iMile's numeric trackStage codes, used when the human-readable trackStageTx (or
