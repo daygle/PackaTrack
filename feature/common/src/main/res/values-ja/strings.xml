@@ -82,6 +82,7 @@
     <string name="parcel_name_hint">空白にすると注文名で命名されます</string>
     <string name="add_item_title">商品を追加</string>
     <string name="add_item_hint">この荷物に含まれる別の商品を記録します。</string>
+    <string name="edit_item_title">商品を編集</string>
     <string name="item_name_label">商品名</string>
 
     <string name="settings_title">設定</string>

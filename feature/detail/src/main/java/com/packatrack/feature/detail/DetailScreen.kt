@@ -197,6 +197,7 @@ fun DetailScreen(
     var historySortMenuOpen by remember { mutableStateOf(false) }
     var showAddCourier by remember { mutableStateOf(value = false) }
     var showAddOrder by remember { mutableStateOf(value = false) }
+    var editingOrder by remember { mutableStateOf<OrderItemEntity?>(null) }
     var showCombine by remember { mutableStateOf(value = false) }
     var showEdit by remember { mutableStateOf(value = false) }
     var responseLegId by remember { mutableStateOf<Long?>(null) }
@@ -329,6 +330,7 @@ fun DetailScreen(
                                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
                                 }
                             },
+                            onEdit = { order -> editingOrder = order },
                             onRemove = { orderId -> viewModel.removeOrder(orderId) },
                         )
                     }
@@ -425,9 +427,21 @@ fun DetailScreen(
     if ((showAddOrder) && (shipment != null)) {
         AddOrderDialog(
             onDismiss = { showAddOrder = false },
-            onAdd = { name, link ->
+            onSave = { name, link ->
                 showAddOrder = false
                 viewModel.addOrder(id, name, link)
+            },
+        )
+    }
+
+    // Editing reuses the add dialog: same two fields, prefilled, saved over the same row.
+    editingOrder?.let { order ->
+        AddOrderDialog(
+            existing = order,
+            onDismiss = { editingOrder = null },
+            onSave = { name, link ->
+                editingOrder = null
+                viewModel.updateOrder(order.id, name, link)
             },
         )
     }
@@ -587,6 +601,7 @@ private fun EmptySectionText(text: String) {
 private fun OrderCard(
     orders: List<OrderItemEntity>,
     onOpenLink: (OrderItemEntity) -> Unit,
+    onEdit: (OrderItemEntity) -> Unit,
     onRemove: (Long) -> Unit,
 ) {
     Card(
@@ -604,6 +619,7 @@ private fun OrderCard(
             OrderRow(
                 order = order,
                 onOpenLink = { onOpenLink(order) },
+                onEdit = { onEdit(order) },
                 onRemove = { onRemove(order.id) },
             )
         }
@@ -614,6 +630,7 @@ private fun OrderCard(
 private fun OrderRow(
     order: OrderItemEntity,
     onOpenLink: () -> Unit,
+    onEdit: () -> Unit,
     onRemove: () -> Unit,
 ) {
     // No vertical padding of its own: the 48dp icon buttons already set the row height, and inside
@@ -635,6 +652,9 @@ private fun OrderRow(
             IconButton(onClick = onOpenLink) {
                 Icon(Icons.AutoMirrored.Filled.OpenInNew, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
             }
+        }
+        IconButton(onClick = onEdit) {
+            Icon(Icons.Default.Edit, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         IconButton(onClick = onRemove) {
             Icon(Icons.Default.Close, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
@@ -1033,31 +1053,39 @@ private fun EditParcelDialog(
     )
 }
 
+/**
+ * Adds an item, or edits one when [existing] is given: the same two fields, prefilled, saved back
+ * over the same row so the item keeps its place and its history.
+ */
 @Composable
 private fun AddOrderDialog(
     onDismiss: () -> Unit,
-    onAdd: (name: String, orderUrl: String?) -> Unit,
+    existing: OrderItemEntity? = null,
+    onSave: (name: String, orderUrl: String?) -> Unit,
 ) {
-    var name by remember { mutableStateOf(value = "") }
-    var link by remember { mutableStateOf(value = "") }
+    var name by remember { mutableStateOf(value = existing?.name.orEmpty()) }
+    var link by remember { mutableStateOf(value = existing?.orderUrl.orEmpty()) }
+    val editing = existing != null
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
                 enabled = name.isNotBlank() || link.isNotBlank(),
-                onClick = { onAdd(name.trim(), link.trim().ifBlank { null }) },
-            ) { Text(stringResource(R.string.add_item_title)) }
+                onClick = { onSave(name.trim(), link.trim().ifBlank { null }) },
+            ) { Text(stringResource(if (editing) R.string.save else R.string.add_item_title)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-        title = { Text(stringResource(R.string.add_item_title)) },
+        title = { Text(stringResource(if (editing) R.string.edit_item_title else R.string.add_item_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    stringResource(R.string.add_item_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (!editing) {
+                    Text(
+                        stringResource(R.string.add_item_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.item_name_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = link, onValueChange = { link = it }, label = { Text(stringResource(R.string.order_link_optional)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             }

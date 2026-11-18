@@ -82,6 +82,7 @@
     <string name="parcel_name_hint">留空则按订单名称命名</string>
     <string name="add_item_title">添加商品</string>
     <string name="add_item_hint">记录此包裹中的其他商品。</string>
+    <string name="edit_item_title">编辑商品</string>
     <string name="item_name_label">商品名称</string>
 
     <string name="settings_title">设置</string>

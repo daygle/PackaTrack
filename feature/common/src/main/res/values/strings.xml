@@ -86,6 +86,7 @@
     <string name="parcel_name_hint">Leave blank to name it after its orders</string>
     <string name="add_item_title">Add An Item</string>
     <string name="add_item_hint">Record another item carried in this parcel.</string>
+    <string name="edit_item_title">Edit Item</string>
     <string name="item_name_label">Item Name</string>
 
     <string name="settings_title">Settings</string>

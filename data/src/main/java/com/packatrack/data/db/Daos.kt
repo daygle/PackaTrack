@@ -110,6 +110,9 @@ interface OrderDao {
     @Insert
     suspend fun insertAll(orders: List<OrderItemEntity>): List<Long>
 
+    @Query("UPDATE orders SET name = :name, orderUrl = :orderUrl WHERE id = :orderId")
+    suspend fun update(orderId: Long, name: String, orderUrl: String?)
+
     @Query("DELETE FROM orders WHERE id = :orderId")
     suspend fun deleteById(orderId: Long)
 

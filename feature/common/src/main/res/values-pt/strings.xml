@@ -88,6 +88,7 @@
     <string name="parcel_name_hint">Deixe em branco para nomear pelos pedidos</string>
     <string name="add_item_title">Adicionar item</string>
     <string name="add_item_hint">Registrar outro item transportado neste pacote.</string>
+    <string name="edit_item_title">Editar item</string>
     <string name="item_name_label">Nome do item</string>
 
     <string name="settings_title">Configurações</string>

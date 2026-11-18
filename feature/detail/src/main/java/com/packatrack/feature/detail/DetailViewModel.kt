@@ -81,6 +81,9 @@ class DetailViewModel @Inject constructor(
 
     fun addOrder(id: Long, name: String, orderUrl: String?) = perform { repository.addOrder(id, name, orderUrl) }
 
+    fun updateOrder(orderId: Long, name: String, orderUrl: String?) =
+        perform { repository.updateOrder(orderId, name, orderUrl) }
+
     fun removeOrder(orderId: Long) = perform { repository.removeOrder(orderId) }
 
     fun rename(id: Long, title: String?) = perform { repository.updateShipment(id, title) }

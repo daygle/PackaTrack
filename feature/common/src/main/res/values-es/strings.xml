@@ -88,6 +88,7 @@
     <string name="parcel_name_hint">Déjalo en blanco para nombrarlo según sus artículos</string>
     <string name="add_item_title">Añadir un artículo</string>
     <string name="add_item_hint">Registra otro artículo transportado en este paquete.</string>
+    <string name="edit_item_title">Editar artículo</string>
     <string name="item_name_label">Nombre del artículo</string>
 
     <string name="settings_title">Ajustes</string>

@@ -85,6 +85,7 @@
     <string name="parcel_name_hint">Leer lassen, um nach den Bestellungen zu benennen</string>
     <string name="add_item_title">Artikel hinzufügen</string>
     <string name="add_item_hint">Einen weiteren Artikel in diesem Paket erfassen.</string>
+    <string name="edit_item_title">Artikel bearbeiten</string>
     <string name="item_name_label">Artikelname</string>
 
     <string name="settings_title">Einstellungen</string>

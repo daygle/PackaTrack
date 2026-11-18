@@ -177,6 +177,18 @@ class TrackingRepository @Inject constructor(
         )
     }
 
+    /**
+     * Renames an item and changes its order link. Blank values are stored the way [addOrder]
+     * would store them, so an item never ends up with an empty name.
+     */
+    suspend fun updateOrder(orderId: Long, name: String, orderUrl: String?) {
+        orders.update(
+            orderId = orderId,
+            name = name.trim().ifBlank { "Item" },
+            orderUrl = orderUrl?.takeIf { it.isNotBlank() },
+        )
+    }
+
     /** Removes one order from a parcel. */
     suspend fun removeOrder(orderId: Long) = orders.deleteById(orderId)
 

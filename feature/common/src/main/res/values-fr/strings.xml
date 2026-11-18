@@ -88,6 +88,7 @@
     <string name="parcel_name_hint">Laissez vide pour le nommer d\'après ses commandes</string>
     <string name="add_item_title">Ajouter un article</string>
     <string name="add_item_hint">Enregistrer un autre article transporté dans ce colis.</string>
+    <string name="edit_item_title">Modifier l\'article</string>
     <string name="item_name_label">Nom de l\'article</string>
 
     <string name="settings_title">Paramètres</string>
