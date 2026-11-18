@@ -776,49 +776,63 @@ private fun AddShipmentDialog(
                     stringResource(R.string.items_title),
                     style = MaterialTheme.typography.titleSmall,
                 )
+                // One bordered block per item, so an item's name and link stay visibly paired and
+                // a second item does not read as more fields of the first.
                 itemDrafts.forEachIndexed { index, draft ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        OutlinedTextField(
-                            value = draft.name,
-                            onValueChange = { value ->
-                                itemDrafts = itemDrafts.toMutableList().also {
-                                    it[index] = it[index].copy(name = value)
-                                }
-                            },
-                            label = { Text(stringResource(R.string.item_name_optional)) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (itemDrafts.size > 1) {
-                            IconButton(
-                                onClick = {
-                                    itemDrafts = itemDrafts.filterIndexed { i, _ -> i != index }
-                                },
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(12.dp),
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.outline,
+                                OutlinedTextField(
+                                    value = draft.name,
+                                    onValueChange = { value ->
+                                        itemDrafts = itemDrafts.toMutableList().also {
+                                            it[index] = it[index].copy(name = value)
+                                        }
+                                    },
+                                    label = { Text(stringResource(R.string.item_name_optional)) },
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f),
                                 )
+                                if (itemDrafts.size > 1) {
+                                    IconButton(
+                                        onClick = {
+                                            itemDrafts = itemDrafts.filterIndexed { i, _ -> i != index }
+                                        },
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            null,
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.outline,
+                                        )
+                                    }
+                                }
                             }
+                            OutlinedTextField(
+                                value = draft.link,
+                                onValueChange = { value ->
+                                    itemDrafts = itemDrafts.toMutableList().also {
+                                        it[index] = it[index].copy(link = value)
+                                    }
+                                },
+                                label = { Text(stringResource(R.string.order_link_optional)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                         }
                     }
-                    OutlinedTextField(
-                        value = draft.link,
-                        onValueChange = { value ->
-                            itemDrafts = itemDrafts.toMutableList().also {
-                                it[index] = it[index].copy(link = value)
-                            }
-                        },
-                        label = { Text(stringResource(R.string.order_link_optional)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
                 }
                 TextButton(onClick = { itemDrafts = itemDrafts + ItemDraft() }) {
                     Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
