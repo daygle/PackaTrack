@@ -22,6 +22,8 @@ object DatabaseKey {
     private const val KEY = "wrapped_db_key"
     private const val KEY_BYTES = 32
 
+    private val secureRandom = SecureRandom()
+
     fun getOrCreate(context: Context, onKeyLost: () -> Unit = {}): ByteArray {
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.getString(KEY, null)?.let { wrapped ->
@@ -33,7 +35,7 @@ object DatabaseKey {
                 onKeyLost()
             }
         }
-        val key = ByteArray(KEY_BYTES).also { SecureRandom().nextBytes(it) }
+        val key = ByteArray(KEY_BYTES).also(secureRandom::nextBytes)
         // commit() rather than apply(): the key must be durable before anything is encrypted with it.
         prefs.edit(commit = true) { putString(KEY, KeystoreCrypto.encryptToBase64(key)) }
         return key

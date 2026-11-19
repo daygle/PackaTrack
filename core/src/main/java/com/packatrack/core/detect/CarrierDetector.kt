@@ -50,7 +50,7 @@ object CarrierDetector {
         val n = trackingNumberRaw.trim().uppercase()
         if (n.isEmpty()) return emptyList()
         return buildList {
-            if (n.endsWith("AU") && AUSPOST_UPU.matches(n)) add(Carrier.AUSTRALIA_POST)
+            if (AUSPOST_UPU.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (AUSPOST_CONSIGNMENT.matches(n) || AUSPOST_LONG_ARTICLE.matches(n)) add(Carrier.AUSTRALIA_POST)
             if (MORNING_GLOBAL.matches(n)) add(Carrier.MORNING_GLOBAL)
             if (IMILE.matches(n)) add(Carrier.IMILE)

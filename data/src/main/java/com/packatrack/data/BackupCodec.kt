@@ -30,8 +30,10 @@ object BackupCodec {
 
     val MAGIC: ByteArray = "PKTB".toByteArray(Charsets.US_ASCII)
 
+    private val sharedRandom = SecureRandom()
+
     /** Encrypts [plaintext] and returns the complete backup-file bytes. */
-    fun seal(plaintext: ByteArray, passphrase: CharArray, random: SecureRandom = SecureRandom()): ByteArray {
+    fun seal(plaintext: ByteArray, passphrase: CharArray, random: SecureRandom = sharedRandom): ByteArray {
         require(passphrase.size >= MIN_PASSPHRASE_LENGTH) {
             "Passphrase must be at least $MIN_PASSPHRASE_LENGTH characters"
         }

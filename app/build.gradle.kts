@@ -49,7 +49,7 @@ android {
 
     val releaseKeystorePath = releaseSigningValue("RELEASE_KEYSTORE_FILE")
     val releaseKeystore = releaseKeystorePath?.let { rootProject.file(it) }
-    val releaseSigningConfigured = releaseKeystore != null && releaseKeystore.exists()
+    val releaseSigningConfigured = (releaseKeystore != null) && releaseKeystore.exists()
 
     if (releaseKeystore != null && releaseKeystore.exists()) {
         signingConfigs.create("release") {
@@ -146,7 +146,6 @@ dependencies {
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.kotlinx.coroutines.core)
     androidTestImplementation(libs.mockk.android)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.androidx.espresso.core)
