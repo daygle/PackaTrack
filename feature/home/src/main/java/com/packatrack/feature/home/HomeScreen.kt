@@ -776,12 +776,21 @@ private fun AddShipmentDialog(
                     stringResource(R.string.items_title),
                     style = MaterialTheme.typography.titleSmall,
                 )
-                // One bordered block per item, so an item's name and link stay visibly paired and
-                // a second item does not read as more fields of the first.
+                // One outlined block per item, so an item's name and link stay visibly paired and
+                // a second item does not read as more fields of the first. No fill: the dialog's
+                // own container shows through, so the block reads as a group rather than a second
+                // surface stacked on the dialog. outlineVariant would vanish against that
+                // container, so the hairline is outline at low alpha.
                 itemDrafts.forEachIndexed { index, draft ->
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
+                        ),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
