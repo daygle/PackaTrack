@@ -119,9 +119,12 @@ class TrackingRepository @Inject constructor(
         val number = FingerprintUtil.normalize(rawNumber)
         require(number.length >= FingerprintUtil.MIN_NUMBER_LENGTH) { "Tracking number looks too short" }
 
-        legs.findByTrackingNumber(number)?.let { existing ->
-            // An older install may already contain this number under only some of its
-            // carriers. Complete the auto setup when the same number is added again
+        val existingLeg = legs.findByTrackingNumber(number)
+            ?: parcelListingAlias(number, -1L)
+
+        existingLeg?.let { existing ->
+            // An older install or alias match may already contain this number.
+            // Complete the auto setup when the same number is added again
             // (addCourierUnlocked is a no-op for carriers that already have a leg).
             if (carrierOverride == null) {
                 CarrierDetector.detectAll(number).forEach { detected ->

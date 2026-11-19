@@ -60,7 +60,7 @@ object Notifier {
         val targetShipmentId = filtered.map { it.shipmentId }.distinct().singleOrNull()
         post(
             context,
-            filtered.map { localizedText(context.resources, it) },
+            filtered.map { localizedText(context.resources, it) }.distinct(),
             targetShipmentId,
             prefs.biometricLock,
         )

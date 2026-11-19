@@ -68,6 +68,25 @@ class TrackingRepositoryTest {
     }
 
     @Test
+    fun `addShipment returns existing shipment when number matches an alias`() = runTest {
+        val number = "33XYZ9876543"
+        val existingLeg = TrackingLegEntity(
+            id = 10L,
+            shipmentId = 42L,
+            trackingNumber = "LP0012345678",
+            carrierId = "cainiao",
+            aliasNumbers = "33XYZ9876543,OLD123",
+        )
+        coEvery { legs.findByTrackingNumber(number) } returns null
+        coEvery { legs.allActiveLegs() } returns listOf(existingLeg)
+
+        val resultId = repository.addShipment(number, null, null, null)
+
+        org.junit.Assert.assertEquals(42L, resultId)
+        coVerify(exactly = 0) { shipments.insert(any()) }
+    }
+
+    @Test
     fun `archive writes only the archived flag`() = runTest {
         val shipmentId = 123L
 
