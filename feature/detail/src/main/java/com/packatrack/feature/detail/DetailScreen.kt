@@ -510,6 +510,19 @@ private fun HeroSection(
                 )
             }
 
+            // "Last updated" above only moves when a poll returned data, so a failing carrier would
+            // otherwise leave the parcel looking merely quiet. The attempt time says the app did
+            // check, and the error styling says it could not get anything.
+            val lastChecked = legs.mapNotNull { it.lastAttemptAt }.maxOrNull()
+            if ((lastChecked != null) && legs.any { it.lastError != null }) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.refresh_failed_at, formatLocalDateTime(lastChecked, prefs.dateTimeFormat)),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
             // The carrier's own route when it reports one (Cainiao/UBI send China -> Australia ->
             // Delivered); the generic four-step bar otherwise.
             val carrierProgress = remember(legs) {

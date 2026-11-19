@@ -78,6 +78,8 @@ import com.packatrack.feature.common.components.CarrierChip
 import com.packatrack.feature.common.components.ShipmentProgressTracker
 import com.packatrack.feature.common.components.StatusPill
 import com.packatrack.feature.common.daysInTransit
+import com.packatrack.feature.common.formatLocalDateTime
+import com.packatrack.feature.common.newestLeg
 import com.packatrack.feature.common.parcelName
 import com.packatrack.feature.common.theme.MonoNumber
 import com.packatrack.feature.common.theme.daysInTransitColor
@@ -439,7 +441,9 @@ private fun ParcelCard(
     val context = LocalContext.current
     val shipment = entry.shipment
     val legs = entry.legs
-    val primary = legs.firstOrNull()
+    // The newest leg, not the first added: adding a courier (a hand-off to the local carrier, a
+    // second view) is how a parcel's number changes, so this is the one to show and to open.
+    val primary = newestLeg(legs)
     val title = parcelName(shipment, entry.orders, legs)
     val status = overallStatusCode(legs, newestEventMsByLeg)
     val days = daysInTransit(firstEventMs ?: shipment.createdAt)
@@ -490,7 +494,7 @@ private fun ParcelCard(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        legs.firstOrNull()?.trackingNumber ?: stringResource(R.string.no_tracking_number),
+                        primary?.trackingNumber ?: stringResource(R.string.no_tracking_number),
                         style = MonoNumber,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -601,6 +605,28 @@ private fun ParcelCard(
                 }
                 if (legs.size > 2) {
                     Text("+${legs.size - 2}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                }
+            }
+
+            // Freshness: when this parcel's couriers were last asked, and whether that ask worked.
+            // Without it a parcel whose carrier is failing looks exactly like one that simply has
+            // not moved.
+            val lastCheck = legs.mapNotNull { it.lastAttemptAt ?: it.lastSyncAt }.maxOrNull()
+            if (lastCheck != null) {
+                val failed = legs.any { it.lastError != null }
+                val tint = if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CloudSync, null, modifier = Modifier.size(14.dp), tint = tint)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        stringResource(
+                            if (failed) R.string.refresh_failed_at else R.string.checked_at,
+                            formatLocalDateTime(lastCheck, prefs.dateTimeFormat),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = tint,
+                    )
                 }
             }
         }

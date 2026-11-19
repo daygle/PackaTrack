@@ -68,6 +68,8 @@
     <string name="days_in_transit_label">%1$s配送中</string>
     <string name="last_updated_label">最終更新: %1$s</string>
     <string name="never">未更新</string>
+    <string name="checked_at">%1$s に確認</string>
+    <string name="refresh_failed_at">更新できませんでした · %1$s に確認</string>
     <plurals name="couriers_count_label">
         <item quantity="other">%1$d配送業者</item>
     </plurals>

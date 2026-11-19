@@ -18,7 +18,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         EventEntity::class,
         ChangeEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,6 +46,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Adds the last poll attempt, its failure (if any) and the failure streak to each leg. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tracking_legs ADD COLUMN lastAttemptAt INTEGER")
+                db.execSQL("ALTER TABLE tracking_legs ADD COLUMN lastError TEXT")
+                db.execSQL("ALTER TABLE tracking_legs ADD COLUMN consecutiveFailures INTEGER")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: run {
@@ -60,7 +69,7 @@ abstract class AppDatabase : RoomDatabase() {
                     val factory = SupportOpenHelperFactory(key)
                     Room.databaseBuilder(appContext, AppDatabase::class.java, DB_NAME)
                         .openHelperFactory(factory)
-                        .addMigrations(MIGRATION_1_2)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                         .addCallback(object : RoomDatabase.Callback() {
                             override fun onOpen(db: SupportSQLiteDatabase) {
                                 // Older scans stored a missing station as the literal text "null"

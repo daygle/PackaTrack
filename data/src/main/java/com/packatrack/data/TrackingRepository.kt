@@ -23,7 +23,9 @@ import com.packatrack.core.model.aliasesWithoutLiveNumbers
 import com.packatrack.core.model.findDuplicateLegs
 import com.packatrack.core.model.findSharedNumberMerges
 import com.packatrack.core.model.overallStatusCode
+import com.packatrack.core.model.rawResponseKey
 import com.packatrack.core.model.scanFingerprint
+import com.packatrack.core.refresh.RetryPolicy
 import com.packatrack.core.util.FingerprintUtil
 import com.packatrack.data.db.AppDatabase
 import com.packatrack.data.fetch.HttpTrackingFetcher
@@ -453,11 +455,12 @@ class TrackingRepository @Inject constructor(
         val now = System.currentTimeMillis()
 
         for (leg in toPoll.sortedBy { it.lastSyncAt ?: 0L }) {
-            // Safeguard: Cooldown to prevent flooding carriers.
-            // Background sync: 10 minute cooldown.
-            // Manual refresh: 1 minute cooldown to prevent button spamming.
-            val cooldownMs = if (force) 60_000L else 10 * 60_000L
-            if (now - (leg.lastSyncAt ?: 0L) < cooldownMs) continue
+            // Safeguard against flooding carriers: background sync waits ten minutes and a manual
+            // refresh a minute, so button spamming cannot become extra requests. The wait counts
+            // from the last attempt, not the last success, and grows while a carrier keeps
+            // failing (see RetryPolicy) - a leg that fails forever is not retried every minute.
+            val lastCheck = maxOf(leg.lastSyncAt ?: 0L, leg.lastAttemptAt ?: 0L)
+            if (now - lastCheck < RetryPolicy.delayMs(leg.consecutiveFailures ?: 0, manual = force)) continue
 
             val result = refreshLeg(leg) ?: continue
             if (result.dataChanged) updated++
@@ -666,9 +669,22 @@ class TrackingRepository @Inject constructor(
     /** @return null on fetch failure, otherwise this leg's poll result. */
     private suspend fun refreshLeg(leg: TrackingLegEntity): LegPoll? {
         val carrier = Carrier.fromId(leg.carrierId) ?: Carrier.CAINIAO
+        val attemptStartedAt = System.currentTimeMillis()
         val snapshot = httpFetcher.fetch(carrier, leg.trackingNumber)
         if (snapshot == null) {
-            Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName})")
+            // Recorded so the parcel can say its last check failed, instead of looking like a parcel
+            // that simply had no new scans. A carrier with no lookup at all (link-only, or AusPost
+            // without a key) made no request, which is not a failure and stays unrecorded.
+            val error = fetchFailure(carrier, leg.trackingNumber, attemptStartedAt)
+            Log.w("TrackingRepository", "No snapshot for leg ${leg.id} (${carrier.displayName}): ${error ?: "nothing to query"}")
+            if (error != null) {
+                legs.setPollFailure(
+                    id = leg.id,
+                    attemptedAt = System.currentTimeMillis(),
+                    error = error,
+                    failures = (leg.consecutiveFailures ?: 0) + 1,
+                )
+            }
             return null
         }
 
@@ -852,6 +868,11 @@ class TrackingRepository @Inject constructor(
                 aliasNumbers = aliasNumbers,
                 pollCount = mutable.pollCount + 1,
                 lastSyncAt = now,
+                lastAttemptAt = now,
+                // A poll that returned data clears the failure streak, so the normal cadence
+                // resumes and the parcel stops showing "couldn't refresh".
+                lastError = null,
+                consecutiveFailures = 0,
                 lastStatusCode = latest?.statusCode ?: mutable.lastStatusCode,
                 progressStages = progress?.toStoredStages() ?: mutable.progressStages,
                 progressRate = progress?.rate ?: mutable.progressRate,
@@ -865,6 +886,20 @@ class TrackingRepository @Inject constructor(
             persisted += c
         }
         return LegPoll(dataChanged, persisted, merges)
+    }
+
+    /**
+     * Why this number's fetch produced nothing, from the payload log the fetcher fills. Null when
+     * no request was made for this attempt at all (a link-only carrier, or a missing AusPost key):
+     * there is nothing to report, as opposed to a request that failed or returned nothing usable.
+     *
+     * @param since the attempt's start, so a payload captured by an earlier attempt is not mistaken
+     *        for this one's outcome.
+     */
+    private fun fetchFailure(carrier: Carrier, trackingNumber: String, since: Long): String? {
+        val raw = rawResponses.value[rawResponseKey(carrier.id, trackingNumber)] ?: return null
+        if (raw.capturedAt < since) return null
+        return raw.error ?: "No tracking data returned"
     }
 
     /**

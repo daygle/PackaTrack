@@ -83,6 +83,17 @@ interface LegDao {
     @Update
     suspend fun update(leg: TrackingLegEntity)
 
+    /**
+     * Records a poll that produced nothing. A targeted write rather than a row update: this runs
+     * while a user may be renaming or archiving, and a read-modify-write of the whole leg would put
+     * back whatever was read before the poll.
+     */
+    @Query(
+        "UPDATE tracking_legs SET lastAttemptAt = :attemptedAt, lastError = :error, " +
+            "consecutiveFailures = :failures WHERE id = :id"
+    )
+    suspend fun setPollFailure(id: Long, attemptedAt: Long, error: String, failures: Int)
+
     @Query("DELETE FROM tracking_legs WHERE id = :id")
     suspend fun deleteById(id: Long)
 

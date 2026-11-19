@@ -73,6 +73,18 @@ data class TrackingLegEntity(
     val progressRate: Double? = null,
     /** Index of the furthest journey stage the carrier has marked reached, or null. */
     val progressStageIndex: Int? = null,
+    /**
+     * When this leg was last polled at all - success or failure. [lastSyncAt] only moves when a poll
+     * actually returned data, so on its own it cannot tell a quiet parcel from a broken lookup.
+     */
+    val lastAttemptAt: Long? = null,
+    /**
+     * Why the last poll produced nothing ("HTTP 503 from ...", "No tracking data returned"), or
+     * null when it succeeded. Null means the last check worked, not that it found new scans.
+     */
+    val lastError: String? = null,
+    /** Failed polls since the last success; paces retries (see RetryPolicy). Null/0 when healthy. */
+    val consecutiveFailures: Int? = null,
 )
 
 /**

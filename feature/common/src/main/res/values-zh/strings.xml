@@ -68,6 +68,8 @@
     <string name="days_in_transit_label">%1$s运输中</string>
     <string name="last_updated_label">最后更新: %1$s</string>
     <string name="never">从未</string>
+    <string name="checked_at">已于 %1$s 检查</string>
+    <string name="refresh_failed_at">刷新失败 · 已于 %1$s 检查</string>
     <plurals name="couriers_count_label">
         <item quantity="other">%1$d家快递公司</item>
     </plurals>

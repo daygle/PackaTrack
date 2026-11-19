@@ -72,6 +72,8 @@
     <string name="days_in_transit_label">%1$s em trânsito</string>
     <string name="last_updated_label">Última atualização: %1$s</string>
     <string name="never">Nunca</string>
+    <string name="checked_at">Verificado %1$s</string>
+    <string name="refresh_failed_at">Não foi possível atualizar · verificado %1$s</string>
     <plurals name="couriers_count_label">
         <item quantity="one">%1$d Transportadora</item>
         <item quantity="other">%1$d Transportadoras</item>

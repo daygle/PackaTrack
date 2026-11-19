@@ -21,8 +21,21 @@ fun parcelName(
     orders.firstOrNull()?.let { first ->
         return if (orders.size == 1) first.name else "${first.name} +${orders.size - 1} more"
     }
-    return legs.firstOrNull()?.trackingNumber ?: "Parcel"
+    return newestTrackingNumber(legs) ?: "Parcel"
 }
+
+/**
+ * The leg carrying the parcel's current number: the one added most recently.
+ *
+ * A parcel's number changes by gaining a leg - a hand-off to the local carrier, a second view of
+ * the same parcel - so the newest leg is the number being tracked now, while the first leg keeps
+ * the origin carrier's number the parcel was created with. Ties (rows without a createdAt) keep the
+ * first leg, so the choice stays stable.
+ */
+fun newestLeg(legs: List<TrackingLegEntity>): TrackingLegEntity? = legs.maxByOrNull { it.createdAt }
+
+/** The number shown for a parcel; see [newestLeg]. */
+fun newestTrackingNumber(legs: List<TrackingLegEntity>): String? = newestLeg(legs)?.trackingNumber
 
 /** String resource for a normalized status code, or null when the code is not one we know. */
 @StringRes
