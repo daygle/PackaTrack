@@ -48,6 +48,11 @@ private val LightColors = lightColorScheme(
     surface = Color.White,
     onSurface = Color(0xFF0F172A),
     surfaceVariant = Color(0xFFF1F5F9),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF8FAFC),
+    surfaceContainer = Color(0xFFF1F5F9),
+    surfaceContainerHigh = Color(0xFFE2E8F0),
+    surfaceContainerHighest = Color(0xFFE2E8F0),
     onSurfaceVariant = Color(0xFF475569),
     // `outline` is used only for secondary text/icons in this app (borders use
     // outlineVariant), so keep it dark enough to read - slate-500, not slate-300.
@@ -74,6 +79,11 @@ private val DarkColors = darkColorScheme(
     surface = Color(0xFF1E293B),
     onSurface = Color(0xFFF8FAFC),
     surfaceVariant = Color(0xFF334155),
+    surfaceContainerLowest = Color(0xFF0F172A),
+    surfaceContainerLow = Color(0xFF1E293B),
+    surfaceContainer = Color(0xFF1E293B),
+    surfaceContainerHigh = Color(0xFF334155),
+    surfaceContainerHighest = Color(0xFF334155),
     onSurfaceVariant = Color(0xFF94A3B8),
     // Secondary text/icons on dark surfaces - lift to slate-400 so it stays legible.
     outline = Color(0xFF94A3B8),
