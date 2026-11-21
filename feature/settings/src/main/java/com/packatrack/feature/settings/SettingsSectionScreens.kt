@@ -42,6 +42,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -60,7 +63,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -656,8 +658,8 @@ private fun BackupScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val backupManager = remember { BackupManager(context) }
 
-    var backupPassphrase by remember { mutableStateOf("") }
-    var restorePassphrase by remember { mutableStateOf("") }
+    val backupPassphraseState = rememberTextFieldState()
+    val restorePassphraseState = rememberTextFieldState()
     var backupError by remember { mutableStateOf<String?>(null) }
 
     // Resolved during composition so they follow configuration changes. Reading a resource off
@@ -670,12 +672,13 @@ private fun BackupScreen(onBack: () -> Unit) {
         ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
         if (uri != null) {
-            val passphrase = backupPassphrase.toCharArray()
+            val text = backupPassphraseState.text
+            val passphrase = CharArray(text.length) { text[it] }
             scope.launch {
                 runCatching { backupManager.export(uri, passphrase) }
                     .onSuccess {
                         backupError = null
-                        backupPassphrase = ""
+                        backupPassphraseState.clearText()
                         Toast.makeText(context, backupExportedMessage, Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Export failed" }
@@ -685,12 +688,13 @@ private fun BackupScreen(onBack: () -> Unit) {
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            val passphrase = restorePassphrase.toCharArray()
+            val text = restorePassphraseState.text
+            val passphrase = CharArray(text.length) { text[it] }
             scope.launch {
                 runCatching { backupManager.import(uri, passphrase) }
                     .onSuccess {
                         backupError = null
-                        restorePassphrase = ""
+                        restorePassphraseState.clearText()
                         Toast.makeText(context, backupRestoredMessage, Toast.LENGTH_SHORT).show()
                     }
                     .onFailure { backupError = it.message ?: "Restore failed" }
@@ -705,16 +709,12 @@ private fun BackupScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.portable_backup),
                 subtitle = stringResource(R.string.backup_hint),
             ) {
-                @Suppress("DEPRECATION")
-                OutlinedTextField(
-                    value = backupPassphrase,
-                    onValueChange = { backupPassphrase = it; backupError = null },
+                OutlinedSecureTextField(
+                    state = backupPassphraseState,
                     label = { Text(stringResource(R.string.passphrase_label)) },
                     supportingText = { Text(stringResource(R.string.passphrase_hint)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 )
                 Row(
                     Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -722,7 +722,7 @@ private fun BackupScreen(onBack: () -> Unit) {
                 ) {
                     Button(
                         modifier = Modifier.weight(1f),
-                        enabled = backupPassphrase.length >= BackupCodec.MIN_PASSPHRASE_LENGTH,
+                        enabled = backupPassphraseState.text.length >= BackupCodec.MIN_PASSPHRASE_LENGTH,
                         onClick = { exportLauncher.launch("packatrack-backup.pktb") },
                         shape = RoundedCornerShape(12.dp),
                     ) {
@@ -732,22 +732,18 @@ private fun BackupScreen(onBack: () -> Unit) {
                         modifier = Modifier.weight(1f),
                         // A shorter passphrase can never open a backup; don't send the user through
                         // the file picker only to be told so.
-                        enabled = restorePassphrase.length >= BackupCodec.MIN_PASSPHRASE_LENGTH,
+                        enabled = restorePassphraseState.text.length >= BackupCodec.MIN_PASSPHRASE_LENGTH,
                         onClick = { importLauncher.launch(arrayOf("application/octet-stream", "*/*")) },
                         shape = RoundedCornerShape(12.dp),
                     ) {
                         Text(stringResource(R.string.import_file))
                     }
                 }
-                @Suppress("DEPRECATION")
-                OutlinedTextField(
-                    value = restorePassphrase,
-                    onValueChange = { restorePassphrase = it; backupError = null },
+                OutlinedSecureTextField(
+                    state = restorePassphraseState,
                     label = { Text(stringResource(R.string.restore_passphrase_label)) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                     shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
                 )
                 backupError?.let {
                     Text(
