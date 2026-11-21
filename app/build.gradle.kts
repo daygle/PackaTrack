@@ -9,7 +9,11 @@ plugins {
 
 android {
     namespace = "com.packatrack.app"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 2
+        }
+    }
 
     // Versions come from the build environment first (the release workflow derives both from
     // the pushed tag), then from -P Gradle properties, then from the defaults below.
