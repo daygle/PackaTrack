@@ -705,6 +705,7 @@ private fun BackupScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.portable_backup),
                 subtitle = stringResource(R.string.backup_hint),
             ) {
+                @Suppress("DEPRECATION")
                 OutlinedTextField(
                     value = backupPassphrase,
                     onValueChange = { backupPassphrase = it; backupError = null },
@@ -738,6 +739,7 @@ private fun BackupScreen(onBack: () -> Unit) {
                         Text(stringResource(R.string.import_file))
                     }
                 }
+                @Suppress("DEPRECATION")
                 OutlinedTextField(
                     value = restorePassphrase,
                     onValueChange = { restorePassphrase = it; backupError = null },
