@@ -26,6 +26,10 @@ keystore.properties
 /keystore/
 *.keystore
 *.jks
+*.p12
+# Base64 copies are the full private key too - *.keystore alone does not match them.
+*.keystore.b64
+*.jks.b64
 
 # Build outputs
 *.apk
