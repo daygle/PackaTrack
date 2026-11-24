@@ -65,10 +65,10 @@ allprojects {
     }
 }
 
-// Raise Guava to the release that fixes GHSA-xxph-c9ww-hj94 (patched in 33.7.2) without switching a
-// graph from one published flavor to the other: Android variant classpaths stay on -android, while
-// lint, annotation processors and other JVM-only classpaths stay on -jre.
-val guavaVersion = "33.7.2"
+// Keep Guava on the current stable release (33.7.2 is the first with the GHSA-xxph-c9ww-hj94 fix)
+// without switching a graph from one published flavor to the other: Android variant classpaths stay
+// on -android, while lint, annotation processors and other JVM-only classpaths stay on -jre.
+val guavaVersion = "33.8.0"
 
 allprojects {
     configurations.configureEach {
