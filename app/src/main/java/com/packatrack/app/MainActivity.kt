@@ -1,6 +1,8 @@
 package com.packatrack.app
 
 import android.Manifest
+import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -74,6 +76,22 @@ class MainActivity : FragmentActivity() {
      * does not re-lock the app, while a new process always starts locked.
      */
     private val lockState: AppLockState by viewModels()
+
+    /**
+     * Confirms the device PIN/pattern/password on API 24-27, where androidx.biometric 1.1.0 has no
+     * working prompt (see [AppLockAuthenticators.requiresDeviceCredentialPrompt]). The credential
+     * screen is a separate activity, so its answer arrives here rather than at a prompt callback.
+     */
+    private val confirmDeviceCredential = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // That screen counts as another activity, so onStop recorded a trip to the background.
+            // Clearing it keeps the next onStart from re-locking the user who just unlocked.
+            lockState.stoppedInBackground = false
+            lockState.authenticated = true
+        }
+    }
 
     /**
      * Whether the lock screen can be satisfied right now. Enrolment is not permanent - the user
@@ -200,9 +218,16 @@ class MainActivity : FragmentActivity() {
         intent?.getLongExtra(Notifier.EXTRA_OPEN_SHIPMENT_ID, -1L)?.takeIf { it > 0 }
 
     /** True when at least one allowed authenticator is present, enrolled and available. */
-    private fun canAuthenticate(): Boolean =
-        BiometricManager.from(this).canAuthenticate(allowedAuthenticators) ==
+    private fun canAuthenticate(): Boolean {
+        // Below API 28 the device credential is the only authenticator the prompt can honour, so
+        // its presence is what decides whether the lock can be shown at all. BiometricManager
+        // reports the same status for the allowed set, but this states the requirement directly.
+        if (AppLockAuthenticators.requiresDeviceCredentialPrompt) {
+            return getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
+        }
+        return BiometricManager.from(this).canAuthenticate(allowedAuthenticators) ==
             BiometricManager.BIOMETRIC_SUCCESS
+    }
 
     /** Blocks screenshots and the app-switcher thumbnail while App Lock is enabled. */
     private fun applyScreenshotProtection(enabled: Boolean) {
@@ -214,6 +239,10 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun authenticate() {
+        if (AppLockAuthenticators.requiresDeviceCredentialPrompt) {
+            authenticateWithDeviceCredential()
+            return
+        }
         val executor = ContextCompat.getMainExecutor(this)
         val biometricPrompt = BiometricPrompt(this, executor,
             object : BiometricPrompt.AuthenticationCallback() {
@@ -239,6 +268,24 @@ class MainActivity : FragmentActivity() {
             .build()
 
         biometricPrompt.authenticate(promptInfo)
+    }
+
+    /**
+     * Unlocks through the system's own credential screen.
+     *
+     * Deliberately not BiometricPrompt: on API 24-27 androidx.biometric 1.1.0 delegates to the now
+     * stubbed FingerprintManagerCompat from androidx.core, whose authenticate() never calls back,
+     * so a prompt there could only ever leave the user stuck behind the lock screen.
+     */
+    @Suppress("DEPRECATION")
+    private fun authenticateWithDeviceCredential() {
+        val intent = getSystemService(KeyguardManager::class.java)
+            ?.createConfirmDeviceCredentialIntent(
+                getString(R.string.lock_title),
+                getString(R.string.lock_subtitle),
+            )
+            ?: return
+        confirmDeviceCredential.launch(intent)
     }
 }
 
