@@ -20,6 +20,23 @@ import androidx.biometric.BiometricManager
  */
 object AppLockAuthenticators {
 
+    /**
+     * True below API 28, where App Lock confirms the device credential instead of prompting for a
+     * biometric.
+     *
+     * androidx.biometric 1.1.0 routes fingerprint authentication on API 24-27 through
+     * `FingerprintManagerCompat` from androidx.core. `FingerprintManager` was removed from the
+     * platform SDK in Android 37, and androidx.core has since replaced that class with a stub: it
+     * reports no enrolled fingerprints and its `authenticate()` is a no-op. A prompt on those
+     * versions would therefore show a fingerprint dialog that can never call back, and the lock
+     * screen would have no way through at all. Device credential - always part of [allowed] - is
+     * the one authenticator they can honour, so it is confirmed through KeyguardManager instead.
+     *
+     * API 28 and above are unaffected: they go through the framework BiometricPrompt.
+     */
+    val requiresDeviceCredentialPrompt: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.P
+
     /** A bitwise combination for [BiometricManager.canAuthenticate] and the unlock prompt. */
     val allowed: Int
         get() = if (Build.VERSION.SDK_INT in Build.VERSION_CODES.P..Build.VERSION_CODES.Q) {
