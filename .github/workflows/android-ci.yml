@@ -32,11 +32,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
 
       # Sets up the Android SDK environment.
       # AGP auto-provisions the platform/build-tools it needs (e.g., API 37), but we must
@@ -110,11 +110,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
 
       # Override the action's default 'packages' ('tools platform-tools'); the obsolete
       # 'tools' package was removed from Google's SDK repository (see build-and-test job).
